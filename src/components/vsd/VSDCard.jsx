@@ -33,7 +33,7 @@ import VSDImageUpload from './VSDImageUpload';
 
 const VSDCard = ({ vsd, onEdit, onDelete, onClick }) => {
   const [anchorEl, setAnchorEl] = useState(null);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isHovered] = useState(false);
   const [openImageUpload, setOpenImageUpload] = useState(false);
 
   const getStatusConfig = (estado) => {

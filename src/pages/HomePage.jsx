@@ -9,7 +9,6 @@ import {
   Avatar,
   Paper,
   Chip,
-  LinearProgress,
   Stack,
   Divider
 } from '@mui/material';
@@ -21,8 +20,6 @@ import {
   Settings as SettingsIcon,
   Dashboard as DashboardIcon,
   CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
-  Warning as WarningIcon,
   GitHub as GitHubIcon,
   LinkedIn as LinkedInIcon,
   Code as CodeIcon
@@ -225,7 +222,6 @@ const HomePage = () => {
         </Grid>
       </Box>
 
-      {/* ============ FOOTER PROFESIONAL ============ */}
       <Box 
         component="footer" 
         sx={{ 
@@ -238,7 +234,6 @@ const HomePage = () => {
           position: 'relative'
         }}
       >
-        {/* Línea decorativa */}
         <Box 
           sx={{
             position: 'absolute',
@@ -253,7 +248,6 @@ const HomePage = () => {
         />
 
         <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
-          {/* Icono de código */}
           <Avatar 
             sx={{ 
               width: 48, 
@@ -297,7 +291,7 @@ const HomePage = () => {
               label="GitHub"
               size="small"
               component="a"
-              href="https://github.com/juank2309"
+              href="https://github.com/jucahoflo"
               target="_blank"
               rel="noopener noreferrer"
               clickable

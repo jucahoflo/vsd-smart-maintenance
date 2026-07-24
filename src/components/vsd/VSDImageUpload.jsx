@@ -95,19 +95,18 @@ const VSDImageUpload = ({ open, onClose, vsdId, onImageAdded, currentImages = []
     }
 
     const filesToProcess = Math.min(files.length, remaining);
-    let processed = 0;
 
     for (let i = 0; i < filesToProcess; i++) {
       const file = files[i];
       if (file && file.type.startsWith('image/')) {
         const reader = new FileReader();
+        // eslint-disable-next-line no-loop-func
         reader.onload = (e) => {
           setImages(prev => [...prev, {
             id: Date.now().toString() + i,
             url: e.target.result,
             nombre: file.name
           }]);
-          processed++;
         };
         reader.readAsDataURL(file);
       }

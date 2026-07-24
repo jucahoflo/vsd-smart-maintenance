@@ -63,6 +63,103 @@ const ReportGenerator = ({ open, onClose }) => {
     }
   };
 
+  // ============ FUNCIÓN PARA AGREGAR IMÁGENES DEL VSD ============
+  const agregarImagenesVSD = (doc, imagenes, y, pageWidth) => {
+    if (!imagenes || imagenes.length === 0) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(128, 128, 128);
+      doc.text('No hay imágenes disponibles para este VSD.', 25, y);
+      return y + 8;
+    }
+
+    // Título de la sección
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 40, 40);
+    doc.text('📸 EVIDENCIA FOTOGRÁFICA', 15, y);
+    y += 8;
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text('A continuación, un registro fotográfico de las condiciones de los equipos:', 15, y);
+    y += 6;
+
+    // Mostrar hasta 4 imágenes en una cuadrícula
+    const maxImages = Math.min(imagenes.length, 4);
+    const imagesPerRow = 2;
+    const imgSize = 65;
+    const spacing = 10;
+    const startX = 20;
+
+    for (let i = 0; i < maxImages; i++) {
+      const row = Math.floor(i / imagesPerRow);
+      const col = i % imagesPerRow;
+      
+      const x = startX + col * (imgSize + spacing);
+      const yPos = y + row * (imgSize + spacing + 15);
+      
+      // Verificar espacio en página
+      if (yPos + imgSize > 270) {
+        doc.addPage();
+        y = 20;
+        // Recalcular posición
+        const newRow = 0;
+        const newCol = i % imagesPerRow;
+        const newX = startX + newCol * (imgSize + spacing);
+        const newY = 20 + newRow * (imgSize + spacing + 15);
+        
+        try {
+          // Intentar agregar la imagen
+          doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
+          // Número de imagen
+          doc.setFontSize(7);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Imagen ${i+1}`, newX + imgSize/2, newY + imgSize + 5, { align: 'center' });
+        } catch (e) {
+          // Si falla, mostrar un rectángulo con texto
+          doc.setDrawColor(200, 200, 200);
+          doc.setFillColor(240, 240, 240);
+          doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(150, 150, 150);
+          doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
+          doc.text(`${i+1}`, newX + imgSize/2, newY + imgSize/2 + 6, { align: 'center' });
+        }
+        continue;
+      }
+      
+      try {
+        // Intentar agregar la imagen
+        doc.addImage(imagenes[i].url, 'JPEG', x, yPos, imgSize, imgSize);
+        // Número de imagen
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Imagen ${i+1}`, x + imgSize/2, yPos + imgSize + 5, { align: 'center' });
+      } catch (e) {
+        // Si falla, mostrar un rectángulo con texto
+        doc.setDrawColor(200, 200, 200);
+        doc.setFillColor(240, 240, 240);
+        doc.roundedRect(x, yPos, imgSize, imgSize, 3, 3, 'FD');
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(150, 150, 150);
+        doc.text('Imagen', x + imgSize/2, yPos + imgSize/2, { align: 'center' });
+        doc.text(`${i+1}`, x + imgSize/2, yPos + imgSize/2 + 6, { align: 'center' });
+      }
+    }
+
+    // Actualizar y después de las imágenes
+    const rows = Math.ceil(maxImages / imagesPerRow);
+    y += rows * (imgSize + spacing + 15) + 10;
+    
+    return y;
+  };
+
   const generarReporte = () => {
     if (!selectedVsdId) {
       toast.warning('⚠️ Selecciona un VSD');
@@ -137,7 +234,7 @@ const ReportGenerator = ({ open, onClose }) => {
         doc.setFillColor(40, 40, 40);
         doc.rect(0, 0, pageWidth, 38, 'F');
         
-        // LOGO (IZQUIERDA) - NUEVO
+        // LOGO (IZQUIERDA)
         agregarLogo(doc, 10, 5, 28);
         
         // TÍTULO (CENTRO)
@@ -554,6 +651,19 @@ const ReportGenerator = ({ open, onClose }) => {
         doc.setFont('helvetica', 'italic');
         doc.setTextColor(100, 100, 100);
         doc.text('Firma del Técnico', 15, y);
+
+        // ============ IMÁGENES DEL VSD (NUEVO) ============
+        // Verificar si hay espacio para imágenes
+        if (y > 180) {
+          doc.addPage();
+          y = 20;
+        }
+
+        // Agregar imágenes del VSD
+        const imagenesVSD = vsd.documentos?.imagenes || [];
+        if (imagenesVSD.length > 0) {
+          y = agregarImagenesVSD(doc, imagenesVSD, y, pageWidth);
+        }
 
         // ============ PIE DE PÁGINA ============
         const pageCount = doc.internal.pages.length;

@@ -20,17 +20,12 @@ import {
   FormControlLabel,
   Divider,
   Paper,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Tab,
-  Tabs,
-  Avatar
+  Tabs
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Save as SaveIcon,
-  ExpandMore as ExpandMoreIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   PhotoCamera as PhotoCameraIcon,
@@ -40,7 +35,6 @@ import {
   Science as ScienceIcon,
   Build as BuildIcon,
   Description as DescriptionIcon,
-  Conclusion as ConclusionIcon,
   Person as PersonIcon
 } from '@mui/icons-material';
 import { useVSD } from '../../context/VSDContext';
@@ -88,7 +82,6 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState(0);
-  const [imagePreview, setImagePreview] = useState(null);
   
   const [formData, setFormData] = useState({
     vsdId: vsdId || '',
@@ -104,7 +97,6 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     duracion: 0,
     observaciones: '',
     
-    // Nuevos campos
     compania: 'INEMEC S.A.S',
     cliente: '',
     locacion: '',
@@ -148,7 +140,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     
     evidencias: [],
     accesoriosCambiados: [
-      { cantidad: 1, codigoSap: '', detalle: '', reserva: '' }  // CAMBIO: "reserva" en lugar de "total"
+      { cantidad: 1, codigoSap: '', detalle: '', reserva: '' }
     ],
     conclusiones: '',
     recomendaciones: '',
@@ -158,6 +150,11 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
       telefono: '',
       correo: '',
       fecha: new Date().toISOString().split('T')[0]
+    },
+    // NUEVA SECCIÓN: REGISTRO FOTOGRÁFICO
+    registroFotografico: {
+      antes: [],
+      despues: []
     }
   });
 
@@ -216,7 +213,8 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
           telefono: '',
           correo: '',
           fecha: new Date().toISOString().split('T')[0]
-        }
+        },
+        registroFotografico: m.registroFotografico || { antes: [], despues: [] }
       });
     } else if (vsdId) {
       setFormData(prev => ({ ...prev, vsdId }));
@@ -265,7 +263,6 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     setFormData(prev => ({ ...prev, pruebasEstaticas: newPruebas }));
   };
 
-  // ============ ACCESORIOS CAMBIADOS ============
   const handleAccesorioChange = (index, campo, value) => {
     const newAccesorios = [...formData.accesoriosCambiados];
     newAccesorios[index] = { ...newAccesorios[index], [campo]: value };
@@ -296,6 +293,92 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
         [campo]: value
       }
     }));
+  };
+
+  // ============ FUNCIONES PARA REGISTRO FOTOGRÁFICO ============
+  const handleAddFoto = (tipo, file) => {
+    const maxImages = 5;
+    const current = formData.registroFotografico[tipo];
+    
+    if (current.length >= maxImages) {
+      toast.warning(`⚠️ Máximo ${maxImages} imágenes permitidas`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setFormData(prev => ({
+        ...prev,
+        registroFotografico: {
+          ...prev.registroFotografico,
+          [tipo]: [...prev.registroFotografico[tipo], {
+            id: Date.now().toString() + Math.random(),
+            url: e.target.result,
+            nombre: file.name,
+            fecha: new Date().toISOString()
+          }]
+        }
+      }));
+      toast.success(`📸 Imagen agregada (${current.length + 1}/${maxImages})`);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveFoto = (tipo, id) => {
+    setFormData(prev => ({
+      ...prev,
+      registroFotografico: {
+        ...prev.registroFotografico,
+        [tipo]: prev.registroFotografico[tipo].filter(img => img.id !== id)
+      }
+    }));
+    toast.info('Imagen eliminada');
+  };
+
+  const handleTomarFoto = async (tipo) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      stream.getTracks().forEach(track => track.stop());
+      
+      const maxImages = 5;
+      const current = formData.registroFotografico[tipo];
+      
+      if (current.length >= maxImages) {
+        toast.warning(`⚠️ Máximo ${maxImages} imágenes permitidas`);
+        return;
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        registroFotografico: {
+          ...prev.registroFotografico,
+          [tipo]: [...prev.registroFotografico[tipo], {
+            id: Date.now().toString() + Math.random(),
+            url: dataUrl,
+            nombre: `Foto_${new Date().toISOString().slice(0,10)}`,
+            fecha: new Date().toISOString()
+          }]
+        }
+      }));
+      toast.success(`📸 Foto capturada (${current.length + 1}/${maxImages})`);
+    } catch (error) {
+      console.error('Error al tomar foto:', error);
+      toast.error('No se pudo acceder a la cámara. Verifica los permisos.');
+    }
   };
 
   const validate = () => {
@@ -394,6 +477,10 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
         telefono: '',
         correo: '',
         fecha: new Date().toISOString().split('T')[0]
+      },
+      registroFotografico: {
+        antes: [],
+        despues: []
       }
     });
     setErrors({});
@@ -405,13 +492,14 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     onClose();
   };
 
-  // Tabs
+  // Tabs con la nueva pestaña
   const tabs = [
     { label: '📋 General', icon: <AssignmentIcon /> },
     { label: '✅ Chequeo', icon: <ChecklistIcon /> },
     { label: '🔬 Pruebas', icon: <ScienceIcon /> },
     { label: '⚙️ Equipos', icon: <BuildIcon /> },
     { label: '📄 Detalles', icon: <DescriptionIcon /> },
+    { label: '📸 Registro', icon: <PhotoCameraIcon /> },
     { label: '✍️ Firma', icon: <PersonIcon /> }
   ];
 
@@ -428,7 +516,6 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
 
       <form onSubmit={handleSubmit}>
         <DialogContent dividers sx={{ p: 0 }}>
-          {/* Tabs */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3, pt: 1 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} variant="scrollable" scrollButtons="auto">
               {tabs.map((tab, index) => (
@@ -717,14 +804,13 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
               </Box>
             )}
 
-            {/* ====== TAB 2: PRUEBAS ESTÁTICAS ====== */}
+            {/* ====== TAB 2: PRUEBAS ====== */}
             {activeTab === 2 && (
               <Box>
                 <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
                   🔬 Pruebas Estáticas
                 </Typography>
                 
-                {/* Conversor */}
                 <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 2 }}>
                   Conversor
                 </Typography>
@@ -754,7 +840,6 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
                   ))}
                 </Grid>
 
-                {/* Inversor */}
                 <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 2 }}>
                   Inversor
                 </Typography>
@@ -932,7 +1017,6 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
 
                 <Divider sx={{ my: 2 }} />
 
-                {/* ============ ACCESORIOS CAMBIADOS ============ */}
                 <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
                   🔧 Accesorios Cambiados
                 </Typography>
@@ -965,7 +1049,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
                         sx={{ flex: 2 }}
                       />
                       <TextField
-                        label="Reserva"  // CAMBIO: "Total" → "Reserva"
+                        label="Reserva"
                         size="small"
                         value={item.reserva || ''}
                         onChange={(e) => handleAccesorioChange(index, 'reserva', e.target.value)}
@@ -1025,8 +1109,206 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
               </Box>
             )}
 
-            {/* ====== TAB 5: FIRMA ====== */}
+            {/* ====== TAB 5: REGISTRO FOTOGRÁFICO ====== */}
             {activeTab === 5 && (
+              <Box>
+                <Typography variant="h6" fontWeight="bold" color="primary" gutterBottom>
+                  📸 Registro Fotográfico
+                </Typography>
+                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 3 }}>
+                  Sube imágenes del estado del equipo antes y después del mantenimiento (máximo 5 imágenes por sección)
+                </Typography>
+
+                <Grid container spacing={3}>
+                  {/* ANTES DEL MANTENIMIENTO */}
+                  <Grid item xs={12} md={6}>
+                    <Paper sx={{ p: 2, bgcolor: '#fef3c7', border: '1px solid #fcd34d' }}>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                        <Typography variant="subtitle1" fontWeight="bold" color="#92400e">
+                          🔴 Antes del Mantenimiento
+                        </Typography>
+                        <Chip 
+                          label={`${formData.registroFotografico.antes.length}/5`} 
+                          size="small" 
+                          color={formData.registroFotografico.antes.length >= 5 ? 'success' : 'warning'}
+                        />
+                      </Box>
+
+                      <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
+                        {formData.registroFotografico.antes.map((img) => (
+                          <Box key={img.id} sx={{ position: 'relative' }}>
+                            <img
+                              src={img.url}
+                              alt={img.nombre}
+                              style={{
+                                width: 80,
+                                height: 80,
+                                objectFit: 'cover',
+                                borderRadius: 8,
+                                border: '2px solid #fcd34d'
+                              }}
+                            />
+                            <IconButton
+                              size="small"
+                              sx={{
+                                position: 'absolute',
+                                top: -8,
+                                right: -8,
+                                bgcolor: 'white',
+                                '&:hover': { bgcolor: '#fee2e2' }
+                              }}
+                              onClick={() => handleRemoveFoto('antes', img.id)}
+                            >
+                              <DeleteIcon fontSize="small" color="error" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                        {formData.registroFotografico.antes.length === 0 && (
+                          <Typography variant="caption" color="textSecondary" sx={{ p: 2 }}>
+                            No hay imágenes antes del mantenimiento
+                          </Typography>
+                        )}
+                      </Box>
+
+                      <Box display="flex" gap={1} flexWrap="wrap">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          component="label"
+                          startIcon={<CloudUploadIcon />}
+                          disabled={formData.registroFotografico.antes.length >= 5}
+                        >
+                          Subir archivo
+                          <input
+                            type="file"
+                            hidden
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => {
+                              const files = e.target.files;
+                              const remaining = 5 - formData.registroFotografico.antes.length;
+                              const toProcess = Math.min(files.length, remaining);
+                              for (let i = 0; i < toProcess; i++) {
+                                handleAddFoto('antes', files[i]);
+                              }
+                              e.target.value = '';
+                            }}
+                          />
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          startIcon={<PhotoCameraIcon />}
+                          onClick={() => handleTomarFoto('antes')}
+                          disabled={formData.registroFotografico.antes.length >= 5}
+                        >
+                          Tomar foto
+                        </Button>
+                      </Box>
+                    </Paper>
+                  </Grid>
+
+                  {/* DESPUÉS DEL MANTENIMIENTO */}
+                  <Grid item xs={12} md={6}>
+                    <Paper sx={{ p: 2, bgcolor: '#dcfce7', border: '1px solid #4ade80' }}>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                        <Typography variant="subtitle1" fontWeight="bold" color="#166534">
+                          🟢 Después del Mantenimiento
+                        </Typography>
+                        <Chip 
+                          label={`${formData.registroFotografico.despues.length}/5`} 
+                          size="small" 
+                          color={formData.registroFotografico.despues.length >= 5 ? 'success' : 'warning'}
+                        />
+                      </Box>
+
+                      <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
+                        {formData.registroFotografico.despues.map((img) => (
+                          <Box key={img.id} sx={{ position: 'relative' }}>
+                            <img
+                              src={img.url}
+                              alt={img.nombre}
+                              style={{
+                                width: 80,
+                                height: 80,
+                                objectFit: 'cover',
+                                borderRadius: 8,
+                                border: '2px solid #4ade80'
+                              }}
+                            />
+                            <IconButton
+                              size="small"
+                              sx={{
+                                position: 'absolute',
+                                top: -8,
+                                right: -8,
+                                bgcolor: 'white',
+                                '&:hover': { bgcolor: '#fee2e2' }
+                              }}
+                              onClick={() => handleRemoveFoto('despues', img.id)}
+                            >
+                              <DeleteIcon fontSize="small" color="error" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                        {formData.registroFotografico.despues.length === 0 && (
+                          <Typography variant="caption" color="textSecondary" sx={{ p: 2 }}>
+                            No hay imágenes después del mantenimiento
+                          </Typography>
+                        )}
+                      </Box>
+
+                      <Box display="flex" gap={1} flexWrap="wrap">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          component="label"
+                          startIcon={<CloudUploadIcon />}
+                          disabled={formData.registroFotografico.despues.length >= 5}
+                        >
+                          Subir archivo
+                          <input
+                            type="file"
+                            hidden
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => {
+                              const files = e.target.files;
+                              const remaining = 5 - formData.registroFotografico.despues.length;
+                              const toProcess = Math.min(files.length, remaining);
+                              for (let i = 0; i < toProcess; i++) {
+                                handleAddFoto('despues', files[i]);
+                              }
+                              e.target.value = '';
+                            }}
+                          />
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          startIcon={<PhotoCameraIcon />}
+                          onClick={() => handleTomarFoto('despues')}
+                          disabled={formData.registroFotografico.despues.length >= 5}
+                        >
+                          Tomar foto
+                        </Button>
+                      </Box>
+                    </Paper>
+                  </Grid>
+                </Grid>
+
+                <Box sx={{ mt: 3, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    📊 Resumen: {formData.registroFotografico.antes.length} imágenes antes • {formData.registroFotografico.despues.length} imágenes después
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+
+            {/* ====== TAB 6: FIRMA ====== */}
+            {activeTab === 6 && (
               <Box>
                 <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
                   ✍️ Firma del Técnico

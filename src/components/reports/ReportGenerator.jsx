@@ -38,60 +38,8 @@ const ReportGenerator = ({ open, onClose }) => {
   const [reportData, setReportData] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
-  // ============ CONFIGURACIÓN DE NORMAS APA ============
-  const CONFIG = {
-    marginLeft: 25.4,
-    marginRight: 25.4,
-    marginTop: 25.4,
-    marginBottom: 25.4,
-    fontFamily: 'times',
-    fontSizeTitle: 14,
-    fontSizeSubtitle: 12,
-    fontSizeBody: 11,
-    fontSizeCaption: 9,
-    lineHeight: 1.5,
-    indent: 12.7,
-    imgMaxWidth: 150,
-    imgMaxHeight: 100,
-    imgSpacing: 12,
-    imgPerRow: 2
-  };
-
-  const getPageWidth = (doc) => doc.internal.pageSize.getWidth();
-  const getPageHeight = (doc) => doc.internal.pageSize.getHeight();
-  const getContentWidth = (doc) => getPageWidth(doc) - CONFIG.marginLeft - CONFIG.marginRight;
-
-  // ============ FUNCIÓN PARA TEXTO JUSTIFICADO ============
-  const textJustificado = (doc, text, x, y, maxWidth, lineHeight) => {
-    const lines = doc.splitTextToSize(text, maxWidth);
-    const lineHeightFinal = lineHeight || 6;
-    let currentY = y;
-    
-    lines.forEach((line, index) => {
-      if (index < lines.length - 1 && line.length > 1) {
-        const words = line.split(' ');
-        if (words.length > 1) {
-          const lineWidth = doc.getStringUnitWidth(line) * doc.internal.getFontSize() / doc.internal.scaleFactor;
-          const extraSpace = (maxWidth - lineWidth) / (words.length - 1);
-          let currentX = x;
-          words.forEach((word, wordIndex) => {
-            const wordWidth = doc.getStringUnitWidth(word) * doc.internal.getFontSize() / doc.internal.scaleFactor;
-            doc.text(word, currentX, currentY);
-            currentX += wordWidth + extraSpace;
-          });
-          currentY += lineHeightFinal;
-          return;
-        }
-      }
-      doc.text(line, x, currentY);
-      currentY += lineHeightFinal;
-    });
-    
-    return currentY;
-  };
-
   // ============ FUNCIÓN PARA AGREGAR LOGO ============
-  const agregarLogo = (doc, x, y, size = 20) => {
+  const agregarLogo = (doc, x, y, size = 28) => {
     try {
       const logoUrl = '/images/inemec-logo.png';
       doc.addImage(logoUrl, 'PNG', x, y, size, size);
@@ -101,207 +49,107 @@ const ReportGenerator = ({ open, onClose }) => {
       doc.roundedRect(x, y, size, size, 3, 3, 'F');
       doc.setDrawColor(60, 60, 60);
       doc.roundedRect(x, y, size, size, 3, 3, 'S');
+      
       doc.setTextColor(40, 40, 40);
       doc.setFontSize(10);
-      doc.setFont(CONFIG.fontFamily, 'bold');
-      doc.text('INEMEC', x + 2, y + 10);
-      doc.setFontSize(6);
-      doc.setFont(CONFIG.fontFamily, 'normal');
-      doc.text('Industrial', x + 2, y + 16);
-      doc.text('& Mechanical', x + 2, y + 20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INEMEC', x + 2, y + 12);
+      doc.setFontSize(5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Industrial', x + 2, y + 19);
+      doc.text('& Mechanical', x + 2, y + 24);
       return false;
     }
   };
 
   // ============ FUNCIÓN PARA AGREGAR IMÁGENES DEL VSD ============
   const agregarImagenesVSD = (doc, imagenes, y, pageWidth) => {
-    if (!imagenes || imagenes.length === 0) return y;
-
-    const marginLeft = CONFIG.marginLeft;
-    const marginRight = CONFIG.marginRight;
-    const contentWidth = pageWidth - marginLeft - marginRight;
-    const pageHeight = getPageHeight(doc);
-
-    if (y > pageHeight - 50) {
-      doc.addPage();
-      y = CONFIG.marginTop;
+    if (!imagenes || imagenes.length === 0) {
+      return y;
     }
 
-    doc.setFontSize(CONFIG.fontSizeSubtitle);
-    doc.setFont(CONFIG.fontFamily, 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('Evidencia Fotográfica', pageWidth / 2, y, { align: 'center' });
+    // Verificar espacio
+    if (y > 250) {
+      doc.addPage();
+      y = 20;
+    }
+
+    // Título de la sección
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 40, 40);
+    doc.text('📸 EVIDENCIA FOTOGRÁFICA', 15, y);
     y += 8;
 
-    doc.setFontSize(CONFIG.fontSizeBody);
-    doc.setFont(CONFIG.fontFamily, 'italic');
-    doc.setTextColor(80, 80, 80);
-    doc.text('Registro fotográfico de las condiciones del equipo.', pageWidth / 2, y, { align: 'center' });
-    y += 12;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text('A continuación, un registro fotográfico de las condiciones de los equipos:', 15, y);
+    y += 6;
 
+    // Mostrar hasta 4 imágenes en una cuadrícula
     const maxImages = Math.min(imagenes.length, 4);
-    const imgPerRow = 2;
-    const imgWidth = Math.min((contentWidth - (imgPerRow - 1) * CONFIG.imgSpacing) / imgPerRow, CONFIG.imgMaxWidth);
-    const imgHeight = Math.min(imgWidth * 0.75, CONFIG.imgMaxHeight);
-    const totalWidth = imgPerRow * imgWidth + (imgPerRow - 1) * CONFIG.imgSpacing;
-    const startX = marginLeft + (contentWidth - totalWidth) / 2;
+    const imagesPerRow = 2;
+    const imgSize = 65;
+    const spacing = 10;
+    const startX = 20;
 
     for (let i = 0; i < maxImages; i++) {
-      const row = Math.floor(i / imgPerRow);
-      const col = i % imgPerRow;
+      const row = Math.floor(i / imagesPerRow);
+      const col = i % imagesPerRow;
       
-      const x = startX + col * (imgWidth + CONFIG.imgSpacing);
-      const yPos = y + row * (imgHeight + CONFIG.imgSpacing + 12);
+      const x = startX + col * (imgSize + spacing);
+      const yPos = y + row * (imgSize + spacing + 15);
       
-      if (yPos + imgHeight + 12 > pageHeight - 30) {
+      // Verificar espacio en página
+      if (yPos + imgSize > 270) {
         doc.addPage();
-        y = CONFIG.marginTop;
+        y = 20;
         const newRow = 0;
-        const newCol = i % imgPerRow;
-        const newX = startX + newCol * (imgWidth + CONFIG.imgSpacing);
-        const newY = y + newRow * (imgHeight + CONFIG.imgSpacing + 12);
+        const newCol = i % imagesPerRow;
+        const newX = startX + newCol * (imgSize + spacing);
+        const newY = 20 + newRow * (imgSize + spacing + 15);
         
         try {
-          doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgWidth, imgHeight);
-          doc.setFontSize(CONFIG.fontSizeCaption);
-          doc.setFont(CONFIG.fontFamily, 'normal');
-          doc.setTextColor(80, 80, 80);
-          doc.text(`Imagen ${i+1}`, newX + imgWidth/2, newY + imgHeight + 5, { align: 'center' });
+          doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
+          doc.setFontSize(7);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Imagen ${i+1}`, newX + imgSize/2, newY + imgSize + 5, { align: 'center' });
         } catch (e) {
           doc.setDrawColor(200, 200, 200);
-          doc.setFillColor(245, 245, 245);
-          doc.roundedRect(newX, newY, imgWidth, imgHeight, 3, 3, 'FD');
-          doc.setFontSize(CONFIG.fontSizeCaption);
-          doc.setFont(CONFIG.fontFamily, 'italic');
+          doc.setFillColor(240, 240, 240);
+          doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'italic');
           doc.setTextColor(150, 150, 150);
-          doc.text('Imagen no disponible', newX + imgWidth/2, newY + imgHeight/2, { align: 'center' });
-          doc.text(`${i+1}`, newX + imgWidth/2, newY + imgHeight/2 + 6, { align: 'center' });
+          doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
+          doc.text(`${i+1}`, newX + imgSize/2, newY + imgSize/2 + 6, { align: 'center' });
         }
         continue;
       }
       
       try {
-        doc.addImage(imagenes[i].url, 'JPEG', x, yPos, imgWidth, imgHeight);
-        doc.setFontSize(CONFIG.fontSizeCaption);
-        doc.setFont(CONFIG.fontFamily, 'normal');
-        doc.setTextColor(80, 80, 80);
-        doc.text(`Imagen ${i+1}`, x + imgWidth/2, yPos + imgHeight + 5, { align: 'center' });
+        doc.addImage(imagenes[i].url, 'JPEG', x, yPos, imgSize, imgSize);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Imagen ${i+1}`, x + imgSize/2, yPos + imgSize + 5, { align: 'center' });
       } catch (e) {
         doc.setDrawColor(200, 200, 200);
-        doc.setFillColor(245, 245, 245);
-        doc.roundedRect(x, yPos, imgWidth, imgHeight, 3, 3, 'FD');
-        doc.setFontSize(CONFIG.fontSizeCaption);
-        doc.setFont(CONFIG.fontFamily, 'italic');
+        doc.setFillColor(240, 240, 240);
+        doc.roundedRect(x, yPos, imgSize, imgSize, 3, 3, 'FD');
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
         doc.setTextColor(150, 150, 150);
-        doc.text('Imagen no disponible', x + imgWidth/2, yPos + imgHeight/2, { align: 'center' });
-        doc.text(`${i+1}`, x + imgWidth/2, yPos + imgHeight/2 + 6, { align: 'center' });
+        doc.text('Imagen', x + imgSize/2, yPos + imgSize/2, { align: 'center' });
+        doc.text(`${i+1}`, x + imgSize/2, yPos + imgSize/2 + 6, { align: 'center' });
       }
     }
 
-    const rows = Math.ceil(maxImages / imgPerRow);
-    y += rows * (imgHeight + CONFIG.imgSpacing + 12) + 8;
+    const rows = Math.ceil(maxImages / imagesPerRow);
+    y += rows * (imgSize + spacing + 15) + 10;
     
-    return y;
-  };
-
-  // ============ FUNCIÓN PARA REGISTRO FOTOGRÁFICO ============
-  const agregarRegistroFotografico = (doc, registro, y, pageWidth) => {
-    if (!registro) return y;
-    const { antes, despues } = registro;
-    
-    if ((!antes || antes.length === 0) && (!despues || despues.length === 0)) {
-      return y;
-    }
-
-    const marginLeft = CONFIG.marginLeft;
-    const marginRight = CONFIG.marginRight;
-    const contentWidth = pageWidth - marginLeft - marginRight;
-    const pageHeight = getPageHeight(doc);
-
-    if (y > pageHeight - 50) {
-      doc.addPage();
-      y = CONFIG.marginTop;
-    }
-
-    doc.setFontSize(CONFIG.fontSizeSubtitle);
-    doc.setFont(CONFIG.fontFamily, 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('Registro Fotográfico del Mantenimiento', pageWidth / 2, y, { align: 'center' });
-    y += 8;
-
-    doc.setFontSize(CONFIG.fontSizeBody);
-    doc.setFont(CONFIG.fontFamily, 'italic');
-    doc.setTextColor(80, 80, 80);
-    doc.text('Evidencia del estado del equipo antes y después de la intervención.', pageWidth / 2, y, { align: 'center' });
-    y += 12;
-
-    const mostrarImagenes = (imagenes, titulo, yPos) => {
-      if (!imagenes || imagenes.length === 0) return yPos;
-      
-      if (yPos > pageHeight - 50) {
-        doc.addPage();
-        yPos = CONFIG.marginTop;
-      }
-
-      doc.setFontSize(CONFIG.fontSizeBody);
-      doc.setFont(CONFIG.fontFamily, 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text(titulo, marginLeft, yPos);
-      yPos += 6;
-
-      const maxImages = Math.min(imagenes.length, 5);
-      const imgPerRow = 3;
-      const imgWidth = Math.min((contentWidth - (imgPerRow - 1) * 6) / imgPerRow, 55);
-      const imgHeight = Math.min(imgWidth * 0.75, 42);
-      const totalWidth = imgPerRow * imgWidth + (imgPerRow - 1) * 6;
-      const startX = marginLeft + (contentWidth - totalWidth) / 2;
-
-      for (let i = 0; i < maxImages; i++) {
-        const row = Math.floor(i / imgPerRow);
-        const col = i % imgPerRow;
-        
-        const x = startX + col * (imgWidth + 6);
-        const yImg = yPos + row * (imgHeight + 8);
-        
-        if (yImg + imgHeight > pageHeight - 30) {
-          doc.addPage();
-          yPos = CONFIG.marginTop;
-          const newRow = 0;
-          const newCol = i % imgPerRow;
-          const newX = startX + newCol * (imgWidth + 6);
-          const newY = yPos + newRow * (imgHeight + 8);
-          try {
-            doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgWidth, imgHeight);
-          } catch (e) {
-            doc.setDrawColor(200, 200, 200);
-            doc.setFillColor(245, 245, 245);
-            doc.roundedRect(newX, newY, imgWidth, imgHeight, 3, 3, 'FD');
-          }
-          continue;
-        }
-        
-        try {
-          doc.addImage(imagenes[i].url, 'JPEG', x, yImg, imgWidth, imgHeight);
-        } catch (e) {
-          doc.setDrawColor(200, 200, 200);
-          doc.setFillColor(245, 245, 245);
-          doc.roundedRect(x, yImg, imgWidth, imgHeight, 3, 3, 'FD');
-        }
-      }
-
-      const rows = Math.ceil(maxImages / imgPerRow);
-      return yPos + rows * (imgHeight + 8) + 8;
-    };
-
-    if (antes && antes.length > 0) {
-      y = mostrarImagenes(antes, 'Antes del mantenimiento:', y);
-    }
-
-    if (despues && despues.length > 0) {
-      y = mostrarImagenes(despues, 'Después del mantenimiento:', y);
-    }
-
-    y += 5;
     return y;
   };
 
@@ -368,56 +216,46 @@ const ReportGenerator = ({ open, onClose }) => {
       
       const { vsd, mantenimientos, totalMantenimientos, fechaGeneracion, rangoFechas } = reportData;
 
-      const marginLeft = CONFIG.marginLeft;
-      const marginRight = CONFIG.marginRight;
-      const marginTop = CONFIG.marginTop;
-      const marginBottom = CONFIG.marginBottom;
-      const contentWidth = pageWidth - marginLeft - marginRight;
-
       mantenimientos.forEach((m, index) => {
         if (index > 0) {
           doc.addPage();
         }
 
-        let y = marginTop;
+        let y = 20;
 
-        // ============ ENCABEZADO ============
+        // ============ ENCABEZADO CON LOGO ============
         doc.setFillColor(40, 40, 40);
-        doc.rect(0, 0, pageWidth, 30, 'F');
-        
-        agregarLogo(doc, 15, 5, 18);
+        doc.rect(0, 0, pageWidth, 38, 'F');
+        agregarLogo(doc, 10, 5, 28);
         
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(11);
-        doc.setFont(CONFIG.fontFamily, 'bold');
-        doc.text('VSD SMART MAINTENANCE', pageWidth / 2, 14, { align: 'center' });
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REPORTE DE MANTENIMIENTO', pageWidth / 2, 16, { align: 'center' });
         
         doc.setFontSize(7);
-        doc.setFont(CONFIG.fontFamily, 'normal');
-        doc.text('Sistema de Gestión de Mantenimiento de Variadores de Frecuencia', pageWidth / 2, 20, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.text('VSD SMART MAINTENANCE SYSTEM', pageWidth / 2, 24, { align: 'center' });
         
         doc.setFontSize(7);
-        doc.setFont(CONFIG.fontFamily, 'normal');
-        doc.text(`Fecha: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - 15, 10, { align: 'right' });
-        doc.text(`Hora: ${format(new Date(), 'HH:mm')}`, pageWidth - 15, 16, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Fecha: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - 15, 12, { align: 'right' });
+        doc.text(`Hora: ${format(new Date(), 'HH:mm')}`, pageWidth - 15, 19, { align: 'right' });
 
-        y = marginTop + 35;
-
-        // ============ TÍTULO PRINCIPAL ============
-        doc.setFontSize(CONFIG.fontSizeTitle);
-        doc.setFont(CONFIG.fontFamily, 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text('REPORTE DE MANTENIMIENTO', pageWidth / 2, y, { align: 'center' });
-        y += 10;
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.5);
+        doc.line(15, 42, pageWidth - 15, 42);
+        y = 50;
 
         // ============ 1. INFORMACIÓN GENERAL ============
-        doc.setFontSize(CONFIG.fontSizeSubtitle);
-        doc.setFont(CONFIG.fontFamily, 'bold');
-        doc.text('Información General', marginLeft, y);
-        y += 8;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(40, 40, 40);
+        doc.text('1. INFORMACIÓN GENERAL', 15, y);
+        y += 7;
 
-        doc.setFontSize(CONFIG.fontSizeBody);
-        doc.setFont(CONFIG.fontFamily, 'normal');
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
         doc.setTextColor(0, 0, 0);
         
         const infoGeneral = [
@@ -434,57 +272,59 @@ const ReportGenerator = ({ open, onClose }) => {
         const mitad = Math.ceil(infoGeneral.length / 2);
         const col1 = infoGeneral.slice(0, mitad);
         const col2 = infoGeneral.slice(mitad);
-        const colWidth = (contentWidth - 10) / 2;
 
-        col1.forEach(([label, value], idx) => {
-          if (y > pageHeight - 40) {
+        col1.forEach(([label, value], index) => {
+          if (y > 270) {
             doc.addPage();
-            y = marginTop;
+            y = 20;
           }
-          doc.setFont(CONFIG.fontFamily, 'bold');
-          doc.text(label, marginLeft, y);
-          doc.setFont(CONFIG.fontFamily, 'normal');
-          doc.text(value, marginLeft + 48, y);
+          doc.setFont('helvetica', 'bold');
+          doc.text(label, 15, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(value, 60, y);
           
-          if (col2[idx]) {
-            const [label2, value2] = col2[idx];
-            doc.setFont(CONFIG.fontFamily, 'bold');
-            doc.text(label2, marginLeft + colWidth + 10, y);
-            doc.setFont(CONFIG.fontFamily, 'normal');
-            doc.text(value2, marginLeft + colWidth + 58, y);
+          if (col2[index]) {
+            const [label2, value2] = col2[index];
+            doc.setFont('helvetica', 'bold');
+            doc.text(label2, 110, y);
+            doc.setFont('helvetica', 'normal');
+            doc.text(value2, 155, y);
           }
-          y += 6.5;
+          y += 6;
         });
 
         y += 5;
 
         // ============ 2. OBJETIVO GENERAL ============
         if (m.objetivoGeneral) {
-          if (y > pageHeight - 50) {
+          if (y > 260) {
             doc.addPage();
-            y = marginTop;
+            y = 20;
           }
-          doc.setFontSize(CONFIG.fontSizeSubtitle);
-          doc.setFont(CONFIG.fontFamily, 'bold');
-          doc.text('Objetivo General', marginLeft, y);
-          y += 8;
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(40, 40, 40);
+          doc.text('2. OBJETIVO GENERAL', 15, y);
+          y += 6;
           
-          doc.setFontSize(CONFIG.fontSizeBody);
-          doc.setFont(CONFIG.fontFamily, 'normal');
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
           doc.setTextColor(0, 0, 0);
-          y = textJustificado(doc, m.objetivoGeneral, marginLeft + CONFIG.indent, y, contentWidth - CONFIG.indent, 6);
-          y += 4;
+          const objLines = doc.splitTextToSize(m.objetivoGeneral, pageWidth - 30);
+          doc.text(objLines, 15, y);
+          y += objLines.length * 5 + 5;
         }
 
         // ============ 3. EQUIPOS DE SUPERFICIE ============
-        if (y > pageHeight - 60) {
+        if (y > 260) {
           doc.addPage();
-          y = marginTop;
+          y = 20;
         }
-        doc.setFontSize(CONFIG.fontSizeSubtitle);
-        doc.setFont(CONFIG.fontFamily, 'bold');
-        doc.text('Equipos de Superficie', marginLeft, y);
-        y += 8;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(40, 40, 40);
+        doc.text('3. EQUIPOS DE SUPERFICIE', 15, y);
+        y += 7;
 
         const equiposData = [
           ['Equipo', 'Marca', 'Modelo', 'S/N', 'KVA', 'AMPS'],
@@ -499,55 +339,50 @@ const ReportGenerator = ({ open, onClose }) => {
           head: [equiposData[0]],
           body: equiposData.slice(1),
           theme: 'striped',
-          styles: {
-            font: CONFIG.fontFamily,
-            fontSize: 9,
-            textColor: [0, 0, 0],
-          },
-          headStyles: {
-            fillColor: [60, 60, 60],
-            textColor: [255, 255, 255],
-            fontSize: 9,
+          headStyles: { 
+            fillColor: [60, 60, 60], 
+            textColor: [255, 255, 255], 
+            fontSize: 7, 
             fontStyle: 'bold',
             halign: 'center'
           },
-          bodyStyles: {
-            fontSize: 9
+          bodyStyles: { fontSize: 7 },
+          columnStyles: { 
+            0: { cellWidth: 22 }, 
+            1: { cellWidth: 28 }, 
+            2: { cellWidth: 28 }, 
+            3: { cellWidth: 28 }, 
+            4: { cellWidth: 18 }, 
+            5: { cellWidth: 18 } 
           },
-          columnStyles: {
-            0: { cellWidth: 25 },
-            1: { cellWidth: 28 },
-            2: { cellWidth: 28 },
-            3: { cellWidth: 28 },
-            4: { cellWidth: 18 },
-            5: { cellWidth: 18 }
-          },
-          margin: { left: marginLeft, right: marginRight }
+          margin: { left: 15, right: 15 }
         });
 
         y = doc.lastAutoTable.finalY + 8;
 
-        // ============ 4. EVIDENCIA FOTOGRÁFICA ============
+        // ============ 4. EVIDENCIA FOTOGRÁFICA (IMÁGENES DEL VSD) ============
+        // UBICADO DESPUÉS DE EQUIPOS DE SUPERFICIE
         const imagenesVSD = vsd.documentos?.imagenes || [];
         if (imagenesVSD.length > 0) {
           y = agregarImagenesVSD(doc, imagenesVSD, y, pageWidth);
         }
 
         // ============ 5. LISTA DE CHEQUEO ============
-        if (y > pageHeight - 60) {
+        if (y > 260) {
           doc.addPage();
-          y = marginTop;
+          y = 20;
         }
-        doc.setFontSize(CONFIG.fontSizeSubtitle);
-        doc.setFont(CONFIG.fontFamily, 'bold');
-        doc.text('Lista de Chequeo', marginLeft, y);
-        y += 8;
-
-        doc.setFontSize(CONFIG.fontSizeBody);
-        doc.setFont(CONFIG.fontFamily, 'italic');
-        doc.setTextColor(80, 80, 80);
-        doc.text('Marque con una X en las casillas Sí o No en cada actividad.', marginLeft + CONFIG.indent, y);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(40, 40, 40);
+        doc.text('4. LISTA DE CHEQUEO', 15, y);
         y += 6;
+
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        doc.text('Marque con una X en las casillas Sí o No en cada actividad.', 15, y);
+        y += 5;
 
         const chequeoData = m.listaChequeo?.map(item => [
           item.actividad || '',
@@ -561,26 +396,19 @@ const ReportGenerator = ({ open, onClose }) => {
             head: [['Actividad', 'Hecho (X)', 'Observaciones']],
             body: chequeoData,
             theme: 'striped',
-            styles: {
-              font: CONFIG.fontFamily,
-              fontSize: 8,
-              textColor: [0, 0, 0],
+            headStyles: { 
+              fillColor: [60, 60, 60], 
+              textColor: [255, 255, 255], 
+              fontSize: 7, 
+              fontStyle: 'bold' 
             },
-            headStyles: {
-              fillColor: [60, 60, 60],
-              textColor: [255, 255, 255],
-              fontSize: 8,
-              fontStyle: 'bold'
+            bodyStyles: { fontSize: 6 },
+            columnStyles: { 
+              0: { cellWidth: 80 }, 
+              1: { cellWidth: 18 }, 
+              2: { cellWidth: 60 } 
             },
-            bodyStyles: {
-              fontSize: 8
-            },
-            columnStyles: {
-              0: { cellWidth: 80 },
-              1: { cellWidth: 18 },
-              2: { cellWidth: 60 }
-            },
-            margin: { left: marginLeft, right: marginRight }
+            margin: { left: 15, right: 15 }
           });
 
           y = doc.lastAutoTable.finalY + 8;
@@ -588,38 +416,42 @@ const ReportGenerator = ({ open, onClose }) => {
 
         // ============ 6. ACTIVIDADES REALIZADAS ============
         if (m.actividadesRealizadas) {
-          if (y > pageHeight - 50) {
+          if (y > 260) {
             doc.addPage();
-            y = marginTop;
+            y = 20;
           }
-          doc.setFontSize(CONFIG.fontSizeSubtitle);
-          doc.setFont(CONFIG.fontFamily, 'bold');
-          doc.text('Actividades Realizadas', marginLeft, y);
-          y += 8;
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(40, 40, 40);
+          doc.text('5. ACTIVIDADES REALIZADAS', 15, y);
+          y += 6;
           
-          doc.setFontSize(CONFIG.fontSizeBody);
-          doc.setFont(CONFIG.fontFamily, 'normal');
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
           doc.setTextColor(0, 0, 0);
-          y = textJustificado(doc, m.actividadesRealizadas, marginLeft + CONFIG.indent, y, contentWidth - CONFIG.indent, 6);
-          y += 4;
+          const actLines = doc.splitTextToSize(m.actividadesRealizadas, pageWidth - 30);
+          doc.text(actLines, 15, y);
+          y += actLines.length * 5 + 8;
         }
 
         // ============ 7. PRUEBAS ESTÁTICAS ============
         if (m.pruebasEstaticas) {
-          if (y > pageHeight - 50) {
+          if (y > 200) {
             doc.addPage();
-            y = marginTop;
+            y = 20;
           }
 
-          doc.setFontSize(CONFIG.fontSizeSubtitle);
-          doc.setFont(CONFIG.fontFamily, 'bold');
-          doc.text('Pruebas Estáticas', marginLeft, y);
-          y += 8;
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(40, 40, 40);
+          doc.text('6. PRUEBAS ESTÁTICAS', 15, y);
+          y += 7;
 
-          doc.setFontSize(CONFIG.fontSizeBody);
-          doc.setFont(CONFIG.fontFamily, 'bold');
-          doc.text('Conversor', marginLeft, y);
-          y += 6;
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(40, 40, 40);
+          doc.text('6.1 Conversor', 15, y);
+          y += 5;
 
           const convData = m.pruebasEstaticas.conversor?.map(item => [
             item.medicion || '',
@@ -633,40 +465,34 @@ const ReportGenerator = ({ open, onClose }) => {
               head: [['Medición', 'Esperado', 'Actual']],
               body: convData,
               theme: 'striped',
-              styles: {
-                font: CONFIG.fontFamily,
-                fontSize: 8,
-                textColor: [0, 0, 0],
+              headStyles: { 
+                fillColor: [60, 60, 60], 
+                textColor: [255, 255, 255], 
+                fontSize: 7, 
+                fontStyle: 'bold' 
               },
-              headStyles: {
-                fillColor: [60, 60, 60],
-                textColor: [255, 255, 255],
-                fontSize: 8,
-                fontStyle: 'bold'
+              bodyStyles: { fontSize: 7 },
+              columnStyles: { 
+                0: { cellWidth: 50 }, 
+                1: { cellWidth: 38 }, 
+                2: { cellWidth: 38 } 
               },
-              bodyStyles: {
-                fontSize: 8
-              },
-              columnStyles: {
-                0: { cellWidth: 55 },
-                1: { cellWidth: 40 },
-                2: { cellWidth: 40 }
-              },
-              margin: { left: marginLeft, right: marginRight }
+              margin: { left: 15, right: 15 }
             });
 
             y = doc.lastAutoTable.finalY + 5;
           }
 
-          if (y > pageHeight - 50) {
+          if (y > 230) {
             doc.addPage();
-            y = marginTop;
+            y = 20;
           }
 
-          doc.setFontSize(CONFIG.fontSizeBody);
-          doc.setFont(CONFIG.fontFamily, 'bold');
-          doc.text('Inversor', marginLeft, y);
-          y += 6;
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(40, 40, 40);
+          doc.text('6.2 Inversor', 15, y);
+          y += 5;
 
           const invData = m.pruebasEstaticas.inversor?.map(item => [
             item.medicion || '',
@@ -680,26 +506,19 @@ const ReportGenerator = ({ open, onClose }) => {
               head: [['Medición', 'Esperado', 'Actual']],
               body: invData,
               theme: 'striped',
-              styles: {
-                font: CONFIG.fontFamily,
-                fontSize: 8,
-                textColor: [0, 0, 0],
+              headStyles: { 
+                fillColor: [60, 60, 60], 
+                textColor: [255, 255, 255], 
+                fontSize: 7, 
+                fontStyle: 'bold' 
               },
-              headStyles: {
-                fillColor: [60, 60, 60],
-                textColor: [255, 255, 255],
-                fontSize: 8,
-                fontStyle: 'bold'
+              bodyStyles: { fontSize: 7 },
+              columnStyles: { 
+                0: { cellWidth: 50 }, 
+                1: { cellWidth: 38 }, 
+                2: { cellWidth: 38 } 
               },
-              bodyStyles: {
-                fontSize: 8
-              },
-              columnStyles: {
-                0: { cellWidth: 55 },
-                1: { cellWidth: 40 },
-                2: { cellWidth: 40 }
-              },
-              margin: { left: marginLeft, right: marginRight }
+              margin: { left: 15, right: 15 }
             });
 
             y = doc.lastAutoTable.finalY + 8;
@@ -708,178 +527,134 @@ const ReportGenerator = ({ open, onClose }) => {
 
         // ============ 8. ACCESORIOS CAMBIADOS ============
         if (m.accesoriosCambiados?.length > 0 && m.accesoriosCambiados[0]?.codigoSap) {
-          if (y > pageHeight - 50) {
+          if (y > 200) {
             doc.addPage();
-            y = marginTop;
+            y = 20;
           }
 
-          doc.setFontSize(CONFIG.fontSizeSubtitle);
-          doc.setFont(CONFIG.fontFamily, 'bold');
-          doc.text('Accesorios Cambiados', marginLeft, y);
-          y += 8;
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(40, 40, 40);
+          doc.text('7. ACCESORIOS CAMBIADOS', 15, y);
+          y += 7;
 
           const accData = m.accesoriosCambiados.map(item => [
             item.cantidad || '',
             item.codigoSap || '',
             item.detalle || '',
-            item.reserva || ''
+            item.total || ''
           ]);
 
           doc.autoTable({
             startY: y,
-            head: [['Cant', 'Código SAP', 'Detalle', 'Reserva']],
+            head: [['Cant', 'Código SAP', 'Detalle', 'Total']],
             body: accData,
             theme: 'striped',
-            styles: {
-              font: CONFIG.fontFamily,
-              fontSize: 8,
-              textColor: [0, 0, 0],
+            headStyles: { 
+              fillColor: [60, 60, 60], 
+              textColor: [255, 255, 255], 
+              fontSize: 7, 
+              fontStyle: 'bold' 
             },
-            headStyles: {
-              fillColor: [60, 60, 60],
-              textColor: [255, 255, 255],
-              fontSize: 8,
-              fontStyle: 'bold'
+            bodyStyles: { fontSize: 7 },
+            columnStyles: { 
+              0: { cellWidth: 18 }, 
+              1: { cellWidth: 38 }, 
+              2: { cellWidth: 58 }, 
+              3: { cellWidth: 28 } 
             },
-            bodyStyles: {
-              fontSize: 8
-            },
-            columnStyles: {
-              0: { cellWidth: 18 },
-              1: { cellWidth: 38 },
-              2: { cellWidth: 58 },
-              3: { cellWidth: 28 }
-            },
-            margin: { left: marginLeft, right: marginRight }
+            margin: { left: 15, right: 15 }
           });
 
           y = doc.lastAutoTable.finalY + 8;
         }
 
-        // ============ 9. REGISTRO FOTOGRÁFICO ============
-        if (m.registroFotografico) {
-          y = agregarRegistroFotografico(doc, m.registroFotografico, y, pageWidth);
-        }
-
-        // ============ 10. CONCLUSIONES Y RECOMENDACIONES ============
+        // ============ 9. CONCLUSIONES Y RECOMENDACIONES ============
         if (m.conclusiones || m.recomendaciones) {
-          if (y > pageHeight - 50) {
+          if (y > 200) {
             doc.addPage();
-            y = marginTop;
+            y = 20;
           }
 
           if (m.conclusiones) {
-            doc.setFontSize(CONFIG.fontSizeSubtitle);
-            doc.setFont(CONFIG.fontFamily, 'bold');
-            doc.text('Conclusiones', marginLeft, y);
-            y += 8;
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(40, 40, 40);
+            doc.text('8. CONCLUSIONES', 15, y);
+            y += 6;
             
-            doc.setFontSize(CONFIG.fontSizeBody);
-            doc.setFont(CONFIG.fontFamily, 'normal');
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
             doc.setTextColor(0, 0, 0);
-            y = textJustificado(doc, m.conclusiones, marginLeft + CONFIG.indent, y, contentWidth - CONFIG.indent, 6);
-            y += 4;
+            const conLines = doc.splitTextToSize(m.conclusiones, pageWidth - 30);
+            doc.text(conLines, 15, y);
+            y += conLines.length * 5 + 5;
           }
 
           if (m.recomendaciones) {
-            if (y > pageHeight - 50) {
+            if (y > 200) {
               doc.addPage();
-              y = marginTop;
+              y = 20;
             }
-            doc.setFontSize(CONFIG.fontSizeSubtitle);
-            doc.setFont(CONFIG.fontFamily, 'bold');
-            doc.text('Recomendaciones', marginLeft, y);
-            y += 8;
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(40, 40, 40);
+            doc.text('9. RECOMENDACIONES', 15, y);
+            y += 6;
             
-            doc.setFontSize(CONFIG.fontSizeBody);
-            doc.setFont(CONFIG.fontFamily, 'normal');
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
             doc.setTextColor(0, 0, 0);
-            y = textJustificado(doc, m.recomendaciones, marginLeft + CONFIG.indent, y, contentWidth - CONFIG.indent, 6);
-            y += 4;
+            const recLines = doc.splitTextToSize(m.recomendaciones, pageWidth - 30);
+            doc.text(recLines, 15, y);
+            y += recLines.length * 5 + 5;
           }
         }
 
-        // ============ 11. FIRMA DEL TÉCNICO (CON FIRMA DIGITAL) ============
-        if (y > pageHeight - 80) {
+        // ============ 10. FIRMA DEL TÉCNICO ============
+        if (y > 200) {
           doc.addPage();
-          y = marginTop;
+          y = 20;
         }
 
-        doc.setFontSize(CONFIG.fontSizeSubtitle);
-        doc.setFont(CONFIG.fontFamily, 'bold');
-        doc.text('Firma del Técnico', marginLeft, y);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(40, 40, 40);
+        doc.text('10. FIRMA DEL TÉCNICO', 15, y);
+        y += 8;
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Nombre: ${m.firmaTecnico?.nombre || m.tecnico || 'N/A'}`, 15, y);
+        y += 5;
+        doc.text(`Cargo: ${m.firmaTecnico?.cargo || 'Field Specialist'}`, 15, y);
+        y += 5;
+        doc.text(`Teléfono: ${m.firmaTecnico?.telefono || 'N/A'}`, 15, y);
+        y += 5;
+        doc.text(`Correo: ${m.firmaTecnico?.correo || 'N/A'}`, 15, y);
         y += 10;
 
-        doc.setFontSize(CONFIG.fontSizeBody);
-        doc.setFont(CONFIG.fontFamily, 'normal');
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Nombre: ${m.firmaTecnico?.nombre || m.tecnico || 'N/A'}`, marginLeft + CONFIG.indent, y);
-        y += 7;
-        doc.text(`Cargo: ${m.firmaTecnico?.cargo || 'Field Specialist'}`, marginLeft + CONFIG.indent, y);
-        y += 7;
-        doc.text(`Teléfono: ${m.firmaTecnico?.telefono || 'N/A'}`, marginLeft + CONFIG.indent, y);
-        y += 7;
-        doc.text(`Correo: ${m.firmaTecnico?.correo || 'N/A'}`, marginLeft + CONFIG.indent, y);
-        y += 12;
-
-        // Línea de firma
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.5);
-        doc.line(marginLeft + CONFIG.indent, y, marginLeft + CONFIG.indent + 80, y);
-        y += 5;
-        doc.setFontSize(CONFIG.fontSizeCaption);
-        doc.setFont(CONFIG.fontFamily, 'italic');
+        doc.line(15, y, 80, y);
+        y += 4;
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'italic');
         doc.setTextColor(100, 100, 100);
-        doc.text('Firma del Técnico', marginLeft + CONFIG.indent, y);
-
-        // ============ FIRMA DIGITAL ============
-        if (m.firmaTecnico?.firmaDigital) {
-          y += 15;
-          
-          if (y > pageHeight - 50) {
-            doc.addPage();
-            y = marginTop;
-          }
-          
-          doc.setFontSize(CONFIG.fontSizeCaption);
-          doc.setFont(CONFIG.fontFamily, 'bold');
-          doc.text('Firma Digital:', marginLeft, y);
-          y += 8;
-          
-          try {
-            const firmaImg = m.firmaTecnico.firmaDigital;
-            const imgWidth = 80;
-            const imgHeight = 40;
-            doc.addImage(firmaImg, 'PNG', marginLeft + CONFIG.indent, y, imgWidth, imgHeight);
-            y += imgHeight + 8;
-          } catch (e) {
-            doc.setFontSize(CONFIG.fontSizeCaption);
-            doc.setFont(CONFIG.fontFamily, 'italic');
-            doc.setTextColor(150, 150, 150);
-            doc.text('(Firma digital no disponible)', marginLeft + CONFIG.indent, y);
-            y += 8;
-          }
-        }
+        doc.text('Firma del Técnico', 15, y);
 
         // ============ PIE DE PÁGINA ============
         const pageCount = doc.internal.pages.length;
         for (let i = 1; i <= pageCount; i++) {
           doc.setPage(i);
-          doc.setFontSize(CONFIG.fontSizeCaption);
-          doc.setTextColor(150, 150, 150);
-          doc.setFont(CONFIG.fontFamily, 'normal');
-          doc.text(
-            `${i}`,
-            pageWidth - marginRight,
-            pageHeight - marginBottom + 8,
-            { align: 'right' }
-          );
-          doc.setFontSize(7);
+          doc.setFontSize(6);
           doc.setTextColor(180, 180, 180);
+          doc.setFont('helvetica', 'normal');
           doc.text(
-            `INEMEC - Reporte de Mantenimiento - ${format(fechaGeneracion, 'dd/MM/yyyy')}`,
+            `INEMEC - Industrial & Mechanical Solutions - Reporte generado el ${format(new Date(), 'dd/MM/yyyy HH:mm')} - Página ${i} de ${pageCount}`,
             pageWidth / 2,
-            pageHeight - marginBottom + 8,
+            pageHeight - 6,
             { align: 'center' }
           );
         }

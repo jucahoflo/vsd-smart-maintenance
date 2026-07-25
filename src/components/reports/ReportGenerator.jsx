@@ -38,13 +38,38 @@ const ReportGenerator = ({ open, onClose }) => {
   const [reportData, setReportData] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
+  // ============ CONFIGURACIÓN DE NORMAS APA ============
+  const CONFIG = {
+    // Márgenes APA: 2.54 cm (1 pulgada) en todos los lados
+    marginLeft: 25.4,
+    marginRight: 25.4,
+    marginTop: 25.4,
+    marginBottom: 25.4,
+    // Fuente Times New Roman
+    fontFamily: 'times',
+    // Tamaños de fuente
+    fontSizeTitle: 14,
+    fontSizeSubtitle: 12,
+    fontSizeBody: 12,
+    fontSizeCaption: 10,
+    // Interlineado 1.5 (espaciado entre líneas)
+    lineHeight: 1.5,
+    // Sangría para párrafos: 1.27 cm (0.5 pulgadas)
+    indent: 12.7
+  };
+
+  const getPageWidth = (doc) => doc.internal.pageSize.getWidth();
+  const getPageHeight = (doc) => doc.internal.pageSize.getHeight();
+  const getContentWidth = (doc) => getPageWidth(doc) - CONFIG.marginLeft - CONFIG.marginRight;
+
   // ============ FUNCIÓN PARA AGREGAR LOGO ============
-  const agregarLogo = (doc, x, y, size = 28) => {
+  const agregarLogo = (doc, x, y, size = 20) => {
     try {
       const logoUrl = '/images/inemec-logo.png';
       doc.addImage(logoUrl, 'PNG', x, y, size, size);
       return true;
     } catch (e) {
+      // Si no se encuentra la imagen, mostrar texto
       doc.setFillColor(255, 255, 255);
       doc.roundedRect(x, y, size, size, 3, 3, 'F');
       doc.setDrawColor(60, 60, 60);
@@ -52,12 +77,12 @@ const ReportGenerator = ({ open, onClose }) => {
       
       doc.setTextColor(40, 40, 40);
       doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('INEMEC', x + 2, y + 12);
-      doc.setFontSize(5);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Industrial', x + 2, y + 19);
-      doc.text('& Mechanical', x + 2, y + 24);
+      doc.setFont(CONFIG.fontFamily, 'bold');
+      doc.text('INEMEC', x + 2, y + 10);
+      doc.setFontSize(6);
+      doc.setFont(CONFIG.fontFamily, 'normal');
+      doc.text('Industrial', x + 2, y + 16);
+      doc.text('& Mechanical', x + 2, y + 20);
       return false;
     }
   };
@@ -68,48 +93,54 @@ const ReportGenerator = ({ open, onClose }) => {
       return y;
     }
 
-    if (y > 250) {
+    const marginLeft = CONFIG.marginLeft;
+    const marginRight = CONFIG.marginRight;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+
+    if (y > getPageHeight(doc) - 50) {
       doc.addPage();
-      y = 20;
+      y = CONFIG.marginTop;
     }
 
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(40, 40, 40);
-    doc.text('📸 EVIDENCIA FOTOGRÁFICA', 15, y);
+    // Título de la sección (APA: centrado, negrita)
+    doc.setFontSize(CONFIG.fontSizeSubtitle);
+    doc.setFont(CONFIG.fontFamily, 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Evidencia Fotográfica', pageWidth / 2, y, { align: 'center' });
     y += 8;
 
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-    doc.text('A continuación, un registro fotográfico de las condiciones de los equipos:', 15, y);
-    y += 6;
+    // Descripción
+    doc.setFontSize(CONFIG.fontSizeBody);
+    doc.setFont(CONFIG.fontFamily, 'italic');
+    doc.setTextColor(80, 80, 80);
+    doc.text('Registro fotográfico de las condiciones del equipo.', pageWidth / 2, y, { align: 'center' });
+    y += 10;
 
     const maxImages = Math.min(imagenes.length, 4);
     const imagesPerRow = 2;
-    const imgSize = 65;
-    const spacing = 10;
-    const startX = 20;
+    const imgSize = 60;
+    const spacing = 15;
+    const startX = marginLeft + (contentWidth - (imagesPerRow * (imgSize + spacing) - spacing)) / 2;
 
     for (let i = 0; i < maxImages; i++) {
       const row = Math.floor(i / imagesPerRow);
       const col = i % imagesPerRow;
       
       const x = startX + col * (imgSize + spacing);
-      const yPos = y + row * (imgSize + spacing + 15);
+      const yPos = y + row * (imgSize + spacing + 20);
       
-      if (yPos + imgSize > 270) {
+      if (yPos + imgSize > getPageHeight(doc) - 40) {
         doc.addPage();
-        y = 20;
+        y = CONFIG.marginTop;
         const newRow = 0;
         const newCol = i % imagesPerRow;
         const newX = startX + newCol * (imgSize + spacing);
-        const newY = 20 + newRow * (imgSize + spacing + 15);
+        const newY = y + newRow * (imgSize + spacing + 20);
         
         try {
           doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
-          doc.setFontSize(7);
-          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setFont(CONFIG.fontFamily, 'normal');
           doc.setTextColor(100, 100, 100);
           doc.text(`Imagen ${i+1}`, newX + imgSize/2, newY + imgSize + 5, { align: 'center' });
         } catch (e) {
@@ -117,7 +148,7 @@ const ReportGenerator = ({ open, onClose }) => {
           doc.setFillColor(240, 240, 240);
           doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
           doc.setFontSize(8);
-          doc.setFont('helvetica', 'italic');
+          doc.setFont(CONFIG.fontFamily, 'italic');
           doc.setTextColor(150, 150, 150);
           doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
           doc.text(`${i+1}`, newX + imgSize/2, newY + imgSize/2 + 6, { align: 'center' });
@@ -127,8 +158,8 @@ const ReportGenerator = ({ open, onClose }) => {
       
       try {
         doc.addImage(imagenes[i].url, 'JPEG', x, yPos, imgSize, imgSize);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setFont(CONFIG.fontFamily, 'normal');
         doc.setTextColor(100, 100, 100);
         doc.text(`Imagen ${i+1}`, x + imgSize/2, yPos + imgSize + 5, { align: 'center' });
       } catch (e) {
@@ -136,7 +167,7 @@ const ReportGenerator = ({ open, onClose }) => {
         doc.setFillColor(240, 240, 240);
         doc.roundedRect(x, yPos, imgSize, imgSize, 3, 3, 'FD');
         doc.setFontSize(8);
-        doc.setFont('helvetica', 'italic');
+        doc.setFont(CONFIG.fontFamily, 'italic');
         doc.setTextColor(150, 150, 150);
         doc.text('Imagen', x + imgSize/2, yPos + imgSize/2, { align: 'center' });
         doc.text(`${i+1}`, x + imgSize/2, yPos + imgSize/2 + 6, { align: 'center' });
@@ -144,8 +175,114 @@ const ReportGenerator = ({ open, onClose }) => {
     }
 
     const rows = Math.ceil(maxImages / imagesPerRow);
-    y += rows * (imgSize + spacing + 15) + 10;
+    y += rows * (imgSize + spacing + 20) + 10;
     
+    return y;
+  };
+
+  // ============ FUNCIÓN PARA AGREGAR REGISTRO FOTOGRÁFICO ============
+  const agregarRegistroFotografico = (doc, registro, y, pageWidth) => {
+    if (!registro) return y;
+    const { antes, despues } = registro;
+    
+    if ((!antes || antes.length === 0) && (!despues || despues.length === 0)) {
+      return y;
+    }
+
+    const marginLeft = CONFIG.marginLeft;
+    const marginRight = CONFIG.marginRight;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+
+    if (y > getPageHeight(doc) - 50) {
+      doc.addPage();
+      y = CONFIG.marginTop;
+    }
+
+    doc.setFontSize(CONFIG.fontSizeSubtitle);
+    doc.setFont(CONFIG.fontFamily, 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Registro Fotográfico del Mantenimiento', pageWidth / 2, y, { align: 'center' });
+    y += 8;
+
+    doc.setFontSize(CONFIG.fontSizeBody);
+    doc.setFont(CONFIG.fontFamily, 'italic');
+    doc.setTextColor(80, 80, 80);
+    doc.text('Evidencia del estado del equipo antes y después de la intervención.', pageWidth / 2, y, { align: 'center' });
+    y += 12;
+
+    const mostrarImagenes = (imagenes, titulo, yPos) => {
+      if (!imagenes || imagenes.length === 0) return yPos;
+      
+      if (yPos > getPageHeight(doc) - 50) {
+        doc.addPage();
+        yPos = CONFIG.marginTop;
+      }
+
+      doc.setFontSize(CONFIG.fontSizeBody);
+      doc.setFont(CONFIG.fontFamily, 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(titulo, marginLeft, yPos);
+      yPos += 6;
+
+      const imagesPerRow = 3;
+      const imgSize = 45;
+      const spacing = 8;
+      const startX = marginLeft;
+
+      for (let i = 0; i < Math.min(imagenes.length, 5); i++) {
+        const row = Math.floor(i / imagesPerRow);
+        const col = i % imagesPerRow;
+        
+        const x = startX + col * (imgSize + spacing);
+        const yImg = yPos + row * (imgSize + spacing + 12);
+        
+        if (yImg + imgSize > getPageHeight(doc) - 30) {
+          doc.addPage();
+          yPos = CONFIG.marginTop;
+          const newRow = 0;
+          const newCol = i % imagesPerRow;
+          const newX = startX + newCol * (imgSize + spacing);
+          const newY = yPos + newRow * (imgSize + spacing + 12);
+          try {
+            doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
+          } catch (e) {
+            doc.setDrawColor(200, 200, 200);
+            doc.setFillColor(240, 240, 240);
+            doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
+            doc.setFontSize(7);
+            doc.setFont(CONFIG.fontFamily, 'italic');
+            doc.setTextColor(150, 150, 150);
+            doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
+          }
+          continue;
+        }
+        
+        try {
+          doc.addImage(imagenes[i].url, 'JPEG', x, yImg, imgSize, imgSize);
+        } catch (e) {
+          doc.setDrawColor(200, 200, 200);
+          doc.setFillColor(240, 240, 240);
+          doc.roundedRect(x, yImg, imgSize, imgSize, 3, 3, 'FD');
+          doc.setFontSize(7);
+          doc.setFont(CONFIG.fontFamily, 'italic');
+          doc.setTextColor(150, 150, 150);
+          doc.text('Imagen', x + imgSize/2, yImg + imgSize/2, { align: 'center' });
+        }
+      }
+
+      const rows = Math.ceil(Math.min(imagenes.length, 5) / imagesPerRow);
+      return yPos + rows * (imgSize + spacing + 12) + 8;
+    };
+
+    if (antes && antes.length > 0) {
+      y = mostrarImagenes(antes, 'Antes del mantenimiento:', y);
+    }
+
+    if (despues && despues.length > 0) {
+      y = mostrarImagenes(despues, 'Después del mantenimiento:', y);
+    }
+
+    y += 5;
     return y;
   };
 
@@ -212,46 +349,65 @@ const ReportGenerator = ({ open, onClose }) => {
       
       const { vsd, mantenimientos, totalMantenimientos, fechaGeneracion, rangoFechas } = reportData;
 
+      // Configurar márgenes APA
+      const marginLeft = CONFIG.marginLeft;
+      const marginRight = CONFIG.marginRight;
+      const marginTop = CONFIG.marginTop;
+      const marginBottom = CONFIG.marginBottom;
+      const contentWidth = pageWidth - marginLeft - marginRight;
+
       mantenimientos.forEach((m, index) => {
         if (index > 0) {
           doc.addPage();
         }
 
-        let y = 20;
+        let y = marginTop;
 
         // ============ ENCABEZADO CON LOGO ============
         doc.setFillColor(40, 40, 40);
-        doc.rect(0, 0, pageWidth, 38, 'F');
-        agregarLogo(doc, 10, 5, 28);
+        doc.rect(0, 0, pageWidth, 35, 'F');
         
+        // LOGO (IZQUIERDA)
+        agregarLogo(doc, 15, 8, 18);
+        
+        // TÍTULO (CENTRO)
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('REPORTE DE MANTENIMIENTO', pageWidth / 2, 16, { align: 'center' });
+        doc.setFontSize(12);
+        doc.setFont(CONFIG.fontFamily, 'bold');
+        doc.text('VSD SMART MAINTENANCE', pageWidth / 2, 16, { align: 'center' });
         
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text('VSD SMART MAINTENANCE SYSTEM', pageWidth / 2, 24, { align: 'center' });
-        
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Fecha: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - 15, 12, { align: 'right' });
-        doc.text(`Hora: ${format(new Date(), 'HH:mm')}`, pageWidth - 15, 19, { align: 'right' });
-
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.5);
-        doc.line(15, 42, pageWidth - 15, 42);
-        y = 50;
-
-        // ============ 1. INFORMACIÓN GENERAL ============
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(40, 40, 40);
-        doc.text('1. INFORMACIÓN GENERAL', 15, y);
-        y += 7;
-
         doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
+        doc.setFont(CONFIG.fontFamily, 'normal');
+        doc.text('Sistema de Gestión de Mantenimiento de Variadores de Frecuencia', pageWidth / 2, 23, { align: 'center' });
+        
+        // FECHA Y HORA (DERECHA)
+        doc.setFontSize(7);
+        doc.setFont(CONFIG.fontFamily, 'normal');
+        doc.text(`Fecha: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - 15, 12, { align: 'right' });
+        doc.text(`Hora: ${format(new Date(), 'HH:mm')}`, pageWidth - 15, 18, { align: 'right' });
+
+        // Línea separadora
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.3);
+        doc.line(marginLeft, 38, pageWidth - marginRight, 38);
+        
+        y = 48;
+
+        // ============ 1. TÍTULO PRINCIPAL (APA: centrado, negrita, mayúsculas) ============
+        doc.setFontSize(CONFIG.fontSizeTitle);
+        doc.setFont(CONFIG.fontFamily, 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text('REPORTE DE MANTENIMIENTO', pageWidth / 2, y, { align: 'center' });
+        y += 10;
+
+        // ============ 2. INFORMACIÓN GENERAL (APA: sangría) ============
+        doc.setFontSize(CONFIG.fontSizeSubtitle);
+        doc.setFont(CONFIG.fontFamily, 'bold');
+        doc.text('Información General', marginLeft, y);
+        y += 8;
+
+        doc.setFontSize(CONFIG.fontSizeBody);
+        doc.setFont(CONFIG.fontFamily, 'normal');
         doc.setTextColor(0, 0, 0);
         
         const infoGeneral = [
@@ -265,62 +421,62 @@ const ReportGenerator = ({ open, onClose }) => {
           ['Service Ticket:', m.serviceTicket || 'N/A']
         ];
 
+        // Organizar en 2 columnas
         const mitad = Math.ceil(infoGeneral.length / 2);
         const col1 = infoGeneral.slice(0, mitad);
         const col2 = infoGeneral.slice(mitad);
+        const colWidth = (contentWidth - 10) / 2;
 
         col1.forEach(([label, value], index) => {
-          if (y > 270) {
+          if (y > pageHeight - 40) {
             doc.addPage();
-            y = 20;
+            y = marginTop;
           }
-          doc.setFont('helvetica', 'bold');
-          doc.text(label, 15, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(value, 60, y);
+          doc.setFont(CONFIG.fontFamily, 'bold');
+          doc.text(label, marginLeft, y);
+          doc.setFont(CONFIG.fontFamily, 'normal');
+          doc.text(value, marginLeft + 50, y);
           
           if (col2[index]) {
             const [label2, value2] = col2[index];
-            doc.setFont('helvetica', 'bold');
-            doc.text(label2, 110, y);
-            doc.setFont('helvetica', 'normal');
-            doc.text(value2, 155, y);
+            doc.setFont(CONFIG.fontFamily, 'bold');
+            doc.text(label2, marginLeft + colWidth + 10, y);
+            doc.setFont(CONFIG.fontFamily, 'normal');
+            doc.text(value2, marginLeft + colWidth + 60, y);
           }
-          y += 6;
+          y += 7;
         });
 
         y += 5;
 
-        // ============ 2. OBJETIVO GENERAL ============
+        // ============ 3. OBJETIVO GENERAL ============
         if (m.objetivoGeneral) {
-          if (y > 260) {
+          if (y > pageHeight - 50) {
             doc.addPage();
-            y = 20;
+            y = marginTop;
           }
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(40, 40, 40);
-          doc.text('2. OBJETIVO GENERAL', 15, y);
-          y += 6;
+          doc.setFontSize(CONFIG.fontSizeSubtitle);
+          doc.setFont(CONFIG.fontFamily, 'bold');
+          doc.text('Objetivo General', marginLeft, y);
+          y += 8;
           
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(CONFIG.fontSizeBody);
+          doc.setFont(CONFIG.fontFamily, 'normal');
           doc.setTextColor(0, 0, 0);
-          const objLines = doc.splitTextToSize(m.objetivoGeneral, pageWidth - 30);
-          doc.text(objLines, 15, y);
-          y += objLines.length * 5 + 5;
+          const objLines = doc.splitTextToSize(m.objetivoGeneral, contentWidth);
+          doc.text(objLines, marginLeft + CONFIG.indent, y);
+          y += objLines.length * 6 + 5;
         }
 
-        // ============ 3. EQUIPOS DE SUPERFICIE ============
-        if (y > 260) {
+        // ============ 4. EQUIPOS DE SUPERFICIE ============
+        if (y > pageHeight - 60) {
           doc.addPage();
-          y = 20;
+          y = marginTop;
         }
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(40, 40, 40);
-        doc.text('3. EQUIPOS DE SUPERFICIE', 15, y);
-        y += 7;
+        doc.setFontSize(CONFIG.fontSizeSubtitle);
+        doc.setFont(CONFIG.fontFamily, 'bold');
+        doc.text('Equipos de Superficie', marginLeft, y);
+        y += 8;
 
         const equiposData = [
           ['Equipo', 'Marca', 'Modelo', 'S/N', 'KVA', 'AMPS'],
@@ -335,49 +491,55 @@ const ReportGenerator = ({ open, onClose }) => {
           head: [equiposData[0]],
           body: equiposData.slice(1),
           theme: 'striped',
-          headStyles: { 
-            fillColor: [60, 60, 60], 
-            textColor: [255, 255, 255], 
-            fontSize: 7, 
+          styles: {
+            font: CONFIG.fontFamily,
+            fontSize: 9,
+            textColor: [0, 0, 0],
+          },
+          headStyles: {
+            fillColor: [60, 60, 60],
+            textColor: [255, 255, 255],
+            fontSize: 9,
             fontStyle: 'bold',
             halign: 'center'
           },
-          bodyStyles: { fontSize: 7 },
-          columnStyles: { 
-            0: { cellWidth: 22 }, 
-            1: { cellWidth: 28 }, 
-            2: { cellWidth: 28 }, 
-            3: { cellWidth: 28 }, 
-            4: { cellWidth: 18 }, 
-            5: { cellWidth: 18 } 
+          bodyStyles: {
+            fontSize: 9
           },
-          margin: { left: 15, right: 15 }
+          columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: 30 },
+            2: { cellWidth: 30 },
+            3: { cellWidth: 30 },
+            4: { cellWidth: 20 },
+            5: { cellWidth: 20 }
+          },
+          margin: { left: marginLeft, right: marginRight }
         });
 
         y = doc.lastAutoTable.finalY + 8;
 
-        // ============ 4. EVIDENCIA FOTOGRÁFICA (IMÁGENES DEL VSD) ============
+        // ============ 5. EVIDENCIA FOTOGRÁFICA (IMÁGENES DEL VSD) ============
         const imagenesVSD = vsd.documentos?.imagenes || [];
         if (imagenesVSD.length > 0) {
           y = agregarImagenesVSD(doc, imagenesVSD, y, pageWidth);
         }
 
-        // ============ 5. LISTA DE CHEQUEO ============
-        if (y > 260) {
+        // ============ 6. LISTA DE CHEQUEO ============
+        if (y > pageHeight - 60) {
           doc.addPage();
-          y = 20;
+          y = marginTop;
         }
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(40, 40, 40);
-        doc.text('4. LISTA DE CHEQUEO', 15, y);
-        y += 6;
+        doc.setFontSize(CONFIG.fontSizeSubtitle);
+        doc.setFont(CONFIG.fontFamily, 'bold');
+        doc.text('Lista de Chequeo', marginLeft, y);
+        y += 8;
 
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-        doc.text('Marque con una X en las casillas Sí o No en cada actividad.', 15, y);
-        y += 5;
+        doc.setFontSize(CONFIG.fontSizeBody);
+        doc.setFont(CONFIG.fontFamily, 'italic');
+        doc.setTextColor(80, 80, 80);
+        doc.text('Marque con una X en las casillas Sí o No en cada actividad.', marginLeft + CONFIG.indent, y);
+        y += 6;
 
         const chequeoData = m.listaChequeo?.map(item => [
           item.actividad || '',
@@ -391,62 +553,67 @@ const ReportGenerator = ({ open, onClose }) => {
             head: [['Actividad', 'Hecho (X)', 'Observaciones']],
             body: chequeoData,
             theme: 'striped',
-            headStyles: { 
-              fillColor: [60, 60, 60], 
-              textColor: [255, 255, 255], 
-              fontSize: 7, 
-              fontStyle: 'bold' 
+            styles: {
+              font: CONFIG.fontFamily,
+              fontSize: 8,
+              textColor: [0, 0, 0],
             },
-            bodyStyles: { fontSize: 6 },
-            columnStyles: { 
-              0: { cellWidth: 80 }, 
-              1: { cellWidth: 18 }, 
-              2: { cellWidth: 60 } 
+            headStyles: {
+              fillColor: [60, 60, 60],
+              textColor: [255, 255, 255],
+              fontSize: 8,
+              fontStyle: 'bold'
             },
-            margin: { left: 15, right: 15 }
+            bodyStyles: {
+              fontSize: 8
+            },
+            columnStyles: {
+              0: { cellWidth: 80 },
+              1: { cellWidth: 18 },
+              2: { cellWidth: 60 }
+            },
+            margin: { left: marginLeft, right: marginRight }
           });
 
           y = doc.lastAutoTable.finalY + 8;
         }
 
-        // ============ 6. ACTIVIDADES REALIZADAS ============
+        // ============ 7. ACTIVIDADES REALIZADAS ============
         if (m.actividadesRealizadas) {
-          if (y > 260) {
+          if (y > pageHeight - 50) {
             doc.addPage();
-            y = 20;
+            y = marginTop;
           }
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(40, 40, 40);
-          doc.text('5. ACTIVIDADES REALIZADAS', 15, y);
-          y += 6;
+          doc.setFontSize(CONFIG.fontSizeSubtitle);
+          doc.setFont(CONFIG.fontFamily, 'bold');
+          doc.text('Actividades Realizadas', marginLeft, y);
+          y += 8;
           
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(CONFIG.fontSizeBody);
+          doc.setFont(CONFIG.fontFamily, 'normal');
           doc.setTextColor(0, 0, 0);
-          const actLines = doc.splitTextToSize(m.actividadesRealizadas, pageWidth - 30);
-          doc.text(actLines, 15, y);
-          y += actLines.length * 5 + 8;
+          const actLines = doc.splitTextToSize(m.actividadesRealizadas, contentWidth);
+          doc.text(actLines, marginLeft + CONFIG.indent, y);
+          y += actLines.length * 6 + 5;
         }
 
-        // ============ 7. PRUEBAS ESTÁTICAS ============
+        // ============ 8. PRUEBAS ESTÁTICAS ============
         if (m.pruebasEstaticas) {
-          if (y > 200) {
+          if (y > pageHeight - 50) {
             doc.addPage();
-            y = 20;
+            y = marginTop;
           }
 
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(40, 40, 40);
-          doc.text('6. PRUEBAS ESTÁTICAS', 15, y);
-          y += 7;
+          doc.setFontSize(CONFIG.fontSizeSubtitle);
+          doc.setFont(CONFIG.fontFamily, 'bold');
+          doc.text('Pruebas Estáticas', marginLeft, y);
+          y += 8;
 
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(40, 40, 40);
-          doc.text('6.1 Conversor', 15, y);
-          y += 5;
+          // Conversor
+          doc.setFontSize(CONFIG.fontSizeBody);
+          doc.setFont(CONFIG.fontFamily, 'bold');
+          doc.text('Conversor', marginLeft, y);
+          y += 6;
 
           const convData = m.pruebasEstaticas.conversor?.map(item => [
             item.medicion || '',
@@ -460,34 +627,40 @@ const ReportGenerator = ({ open, onClose }) => {
               head: [['Medición', 'Esperado', 'Actual']],
               body: convData,
               theme: 'striped',
-              headStyles: { 
-                fillColor: [60, 60, 60], 
-                textColor: [255, 255, 255], 
-                fontSize: 7, 
-                fontStyle: 'bold' 
+              styles: {
+                font: CONFIG.fontFamily,
+                fontSize: 8,
+                textColor: [0, 0, 0],
               },
-              bodyStyles: { fontSize: 7 },
-              columnStyles: { 
-                0: { cellWidth: 50 }, 
-                1: { cellWidth: 38 }, 
-                2: { cellWidth: 38 } 
+              headStyles: {
+                fillColor: [60, 60, 60],
+                textColor: [255, 255, 255],
+                fontSize: 8,
+                fontStyle: 'bold'
               },
-              margin: { left: 15, right: 15 }
+              bodyStyles: {
+                fontSize: 8
+              },
+              columnStyles: {
+                0: { cellWidth: 55 },
+                1: { cellWidth: 40 },
+                2: { cellWidth: 40 }
+              },
+              margin: { left: marginLeft, right: marginRight }
             });
 
             y = doc.lastAutoTable.finalY + 5;
           }
 
-          if (y > 230) {
+          if (y > pageHeight - 50) {
             doc.addPage();
-            y = 20;
+            y = marginTop;
           }
 
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(40, 40, 40);
-          doc.text('6.2 Inversor', 15, y);
-          y += 5;
+          doc.setFontSize(CONFIG.fontSizeBody);
+          doc.setFont(CONFIG.fontFamily, 'bold');
+          doc.text('Inversor', marginLeft, y);
+          y += 6;
 
           const invData = m.pruebasEstaticas.inversor?.map(item => [
             item.medicion || '',
@@ -501,37 +674,43 @@ const ReportGenerator = ({ open, onClose }) => {
               head: [['Medición', 'Esperado', 'Actual']],
               body: invData,
               theme: 'striped',
-              headStyles: { 
-                fillColor: [60, 60, 60], 
-                textColor: [255, 255, 255], 
-                fontSize: 7, 
-                fontStyle: 'bold' 
+              styles: {
+                font: CONFIG.fontFamily,
+                fontSize: 8,
+                textColor: [0, 0, 0],
               },
-              bodyStyles: { fontSize: 7 },
-              columnStyles: { 
-                0: { cellWidth: 50 }, 
-                1: { cellWidth: 38 }, 
-                2: { cellWidth: 38 } 
+              headStyles: {
+                fillColor: [60, 60, 60],
+                textColor: [255, 255, 255],
+                fontSize: 8,
+                fontStyle: 'bold'
               },
-              margin: { left: 15, right: 15 }
+              bodyStyles: {
+                fontSize: 8
+              },
+              columnStyles: {
+                0: { cellWidth: 55 },
+                1: { cellWidth: 40 },
+                2: { cellWidth: 40 }
+              },
+              margin: { left: marginLeft, right: marginRight }
             });
 
             y = doc.lastAutoTable.finalY + 8;
           }
         }
 
-        // ============ 8. ACCESORIOS CAMBIADOS ============
+        // ============ 9. ACCESORIOS CAMBIADOS ============
         if (m.accesoriosCambiados?.length > 0 && m.accesoriosCambiados[0]?.codigoSap) {
-          if (y > 200) {
+          if (y > pageHeight - 50) {
             doc.addPage();
-            y = 20;
+            y = marginTop;
           }
 
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(40, 40, 40);
-          doc.text('7. ACCESORIOS CAMBIADOS', 15, y);
-          y += 7;
+          doc.setFontSize(CONFIG.fontSizeSubtitle);
+          doc.setFont(CONFIG.fontFamily, 'bold');
+          doc.text('Accesorios Cambiados', marginLeft, y);
+          y += 8;
 
           const accData = m.accesoriosCambiados.map(item => [
             item.cantidad || '',
@@ -545,203 +724,131 @@ const ReportGenerator = ({ open, onClose }) => {
             head: [['Cant', 'Código SAP', 'Detalle', 'Reserva']],
             body: accData,
             theme: 'striped',
-            headStyles: { 
-              fillColor: [60, 60, 60], 
-              textColor: [255, 255, 255], 
-              fontSize: 7, 
-              fontStyle: 'bold' 
+            styles: {
+              font: CONFIG.fontFamily,
+              fontSize: 8,
+              textColor: [0, 0, 0],
             },
-            bodyStyles: { fontSize: 7 },
-            columnStyles: { 
-              0: { cellWidth: 18 }, 
-              1: { cellWidth: 38 }, 
-              2: { cellWidth: 58 }, 
-              3: { cellWidth: 28 } 
+            headStyles: {
+              fillColor: [60, 60, 60],
+              textColor: [255, 255, 255],
+              fontSize: 8,
+              fontStyle: 'bold'
             },
-            margin: { left: 15, right: 15 }
+            bodyStyles: {
+              fontSize: 8
+            },
+            columnStyles: {
+              0: { cellWidth: 18 },
+              1: { cellWidth: 38 },
+              2: { cellWidth: 58 },
+              3: { cellWidth: 28 }
+            },
+            margin: { left: marginLeft, right: marginRight }
           });
 
           y = doc.lastAutoTable.finalY + 8;
         }
 
-        // ============ 9. REGISTRO FOTOGRÁFICO ============
+        // ============ 10. REGISTRO FOTOGRÁFICO ============
         if (m.registroFotografico) {
-          const { antes, despues } = m.registroFotografico;
-          
-          if ((antes && antes.length > 0) || (despues && despues.length > 0)) {
-            if (y > 200) {
-              doc.addPage();
-              y = 20;
-            }
-
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(40, 40, 40);
-            doc.text('📸 REGISTRO FOTOGRÁFICO', 15, y);
-            y += 8;
-
-            const mostrarImagenes = (imagenes, titulo, color, yPos) => {
-              if (!imagenes || imagenes.length === 0) return yPos;
-              
-              if (yPos > 250) {
-                doc.addPage();
-                yPos = 20;
-              }
-
-              doc.setFontSize(9);
-              doc.setFont('helvetica', 'bold');
-              doc.setTextColor(color === 'rojo' ? [200, 50, 50] : [50, 150, 50]);
-              doc.text(titulo, 20, yPos);
-              yPos += 6;
-
-              const imagesPerRow = 3;
-              const imgSize = 50;
-              const spacing = 5;
-              const startX = 20;
-
-              for (let i = 0; i < Math.min(imagenes.length, 5); i++) {
-                const row = Math.floor(i / imagesPerRow);
-                const col = i % imagesPerRow;
-                
-                const x = startX + col * (imgSize + spacing);
-                const yImg = yPos + row * (imgSize + spacing + 10);
-                
-                if (yImg + imgSize > 270) {
-                  doc.addPage();
-                  yPos = 20;
-                  const newRow = 0;
-                  const newCol = i % imagesPerRow;
-                  const newX = startX + newCol * (imgSize + spacing);
-                  const newY = 20 + newRow * (imgSize + spacing + 10);
-                  try {
-                    doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
-                  } catch (e) {
-                    doc.setDrawColor(200, 200, 200);
-                    doc.setFillColor(240, 240, 240);
-                    doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
-                    doc.setFontSize(6);
-                    doc.setFont('helvetica', 'italic');
-                    doc.setTextColor(150, 150, 150);
-                    doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
-                  }
-                  continue;
-                }
-                
-                try {
-                  doc.addImage(imagenes[i].url, 'JPEG', x, yImg, imgSize, imgSize);
-                } catch (e) {
-                  doc.setDrawColor(200, 200, 200);
-                  doc.setFillColor(240, 240, 240);
-                  doc.roundedRect(x, yImg, imgSize, imgSize, 3, 3, 'FD');
-                  doc.setFontSize(6);
-                  doc.setFont('helvetica', 'italic');
-                  doc.setTextColor(150, 150, 150);
-                  doc.text('Imagen', x + imgSize/2, yImg + imgSize/2, { align: 'center' });
-                }
-              }
-
-              const rows = Math.ceil(Math.min(imagenes.length, 5) / imagesPerRow);
-              return yPos + rows * (imgSize + spacing + 10) + 8;
-            };
-
-            if (antes && antes.length > 0) {
-              y = mostrarImagenes(antes, '🔴 ANTES del mantenimiento:', 'rojo', y);
-            }
-
-            if (despues && despues.length > 0) {
-              y = mostrarImagenes(despues, '🟢 DESPUÉS del mantenimiento:', 'verde', y);
-            }
-
-            y += 5;
-          }
+          y = agregarRegistroFotografico(doc, m.registroFotografico, y, pageWidth);
         }
 
-        // ============ 10. CONCLUSIONES Y RECOMENDACIONES ============
+        // ============ 11. CONCLUSIONES Y RECOMENDACIONES ============
         if (m.conclusiones || m.recomendaciones) {
-          if (y > 200) {
+          if (y > pageHeight - 50) {
             doc.addPage();
-            y = 20;
+            y = marginTop;
           }
 
           if (m.conclusiones) {
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(40, 40, 40);
-            doc.text('8. CONCLUSIONES', 15, y);
-            y += 6;
+            doc.setFontSize(CONFIG.fontSizeSubtitle);
+            doc.setFont(CONFIG.fontFamily, 'bold');
+            doc.text('Conclusiones', marginLeft, y);
+            y += 8;
             
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(CONFIG.fontSizeBody);
+            doc.setFont(CONFIG.fontFamily, 'normal');
             doc.setTextColor(0, 0, 0);
-            const conLines = doc.splitTextToSize(m.conclusiones, pageWidth - 30);
-            doc.text(conLines, 15, y);
-            y += conLines.length * 5 + 5;
+            const conLines = doc.splitTextToSize(m.conclusiones, contentWidth);
+            doc.text(conLines, marginLeft + CONFIG.indent, y);
+            y += conLines.length * 6 + 5;
           }
 
           if (m.recomendaciones) {
-            if (y > 200) {
+            if (y > pageHeight - 50) {
               doc.addPage();
-              y = 20;
+              y = marginTop;
             }
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(40, 40, 40);
-            doc.text('9. RECOMENDACIONES', 15, y);
-            y += 6;
+            doc.setFontSize(CONFIG.fontSizeSubtitle);
+            doc.setFont(CONFIG.fontFamily, 'bold');
+            doc.text('Recomendaciones', marginLeft, y);
+            y += 8;
             
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(CONFIG.fontSizeBody);
+            doc.setFont(CONFIG.fontFamily, 'normal');
             doc.setTextColor(0, 0, 0);
-            const recLines = doc.splitTextToSize(m.recomendaciones, pageWidth - 30);
-            doc.text(recLines, 15, y);
-            y += recLines.length * 5 + 5;
+            const recLines = doc.splitTextToSize(m.recomendaciones, contentWidth);
+            doc.text(recLines, marginLeft + CONFIG.indent, y);
+            y += recLines.length * 6 + 5;
           }
         }
 
-        // ============ 11. FIRMA DEL TÉCNICO ============
-        if (y > 200) {
+        // ============ 12. FIRMA DEL TÉCNICO ============
+        if (y > pageHeight - 60) {
           doc.addPage();
-          y = 20;
+          y = marginTop;
         }
 
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(40, 40, 40);
-        doc.text('10. FIRMA DEL TÉCNICO', 15, y);
-        y += 8;
-
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Nombre: ${m.firmaTecnico?.nombre || m.tecnico || 'N/A'}`, 15, y);
-        y += 5;
-        doc.text(`Cargo: ${m.firmaTecnico?.cargo || 'Field Specialist'}`, 15, y);
-        y += 5;
-        doc.text(`Teléfono: ${m.firmaTecnico?.telefono || 'N/A'}`, 15, y);
-        y += 5;
-        doc.text(`Correo: ${m.firmaTecnico?.correo || 'N/A'}`, 15, y);
+        doc.setFontSize(CONFIG.fontSizeSubtitle);
+        doc.setFont(CONFIG.fontFamily, 'bold');
+        doc.text('Firma del Técnico', marginLeft, y);
         y += 10;
 
+        doc.setFontSize(CONFIG.fontSizeBody);
+        doc.setFont(CONFIG.fontFamily, 'normal');
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Nombre: ${m.firmaTecnico?.nombre || m.tecnico || 'N/A'}`, marginLeft + CONFIG.indent, y);
+        y += 7;
+        doc.text(`Cargo: ${m.firmaTecnico?.cargo || 'Field Specialist'}`, marginLeft + CONFIG.indent, y);
+        y += 7;
+        doc.text(`Teléfono: ${m.firmaTecnico?.telefono || 'N/A'}`, marginLeft + CONFIG.indent, y);
+        y += 7;
+        doc.text(`Correo: ${m.firmaTecnico?.correo || 'N/A'}`, marginLeft + CONFIG.indent, y);
+        y += 12;
+
+        // Línea de firma
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.5);
-        doc.line(15, y, 80, y);
-        y += 4;
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'italic');
+        doc.line(marginLeft + CONFIG.indent, y, marginLeft + CONFIG.indent + 80, y);
+        y += 5;
+        doc.setFontSize(CONFIG.fontSizeCaption);
+        doc.setFont(CONFIG.fontFamily, 'italic');
         doc.setTextColor(100, 100, 100);
-        doc.text('Firma del Técnico', 15, y);
+        doc.text('Firma del Técnico', marginLeft + CONFIG.indent, y);
 
-        // ============ PIE DE PÁGINA ============
+        // ============ PIE DE PÁGINA (APA: número de página en esquina inferior derecha) ============
         const pageCount = doc.internal.pages.length;
         for (let i = 1; i <= pageCount; i++) {
           doc.setPage(i);
-          doc.setFontSize(6);
-          doc.setTextColor(180, 180, 180);
-          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(CONFIG.fontSizeCaption);
+          doc.setTextColor(150, 150, 150);
+          doc.setFont(CONFIG.fontFamily, 'normal');
+          // Número de página en esquina inferior derecha (APA)
           doc.text(
-            `INEMEC - Industrial & Mechanical Solutions - Reporte generado el ${format(new Date(), 'dd/MM/yyyy HH:mm')} - Página ${i} de ${pageCount}`,
+            `${i}`,
+            pageWidth - marginRight,
+            pageHeight - marginBottom + 8,
+            { align: 'right' }
+          );
+          // Pie de página con nombre del reporte
+          doc.setFontSize(7);
+          doc.setTextColor(180, 180, 180);
+          doc.text(
+            `INEMEC - Reporte de Mantenimiento - ${format(fechaGeneracion, 'dd/MM/yyyy')}`,
             pageWidth / 2,
-            pageHeight - 6,
+            pageHeight - marginBottom + 8,
             { align: 'center' }
           );
         }

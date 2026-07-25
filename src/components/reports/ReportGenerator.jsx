@@ -537,12 +537,12 @@ const ReportGenerator = ({ open, onClose }) => {
             item.cantidad || '',
             item.codigoSap || '',
             item.detalle || '',
-            item.reserva || ''  // CAMBIO: "reserva" en lugar de "total"
+            item.reserva || ''
           ]);
 
           doc.autoTable({
             startY: y,
-            head: [['Cant', 'Código SAP', 'Detalle', 'Reserva']],  // CAMBIO: "Total" → "Reserva"
+            head: [['Cant', 'Código SAP', 'Detalle', 'Reserva']],
             body: accData,
             theme: 'striped',
             headStyles: { 
@@ -564,7 +564,99 @@ const ReportGenerator = ({ open, onClose }) => {
           y = doc.lastAutoTable.finalY + 8;
         }
 
-        // ============ 9. CONCLUSIONES Y RECOMENDACIONES ============
+        // ============ 9. REGISTRO FOTOGRÁFICO ============
+        if (m.registroFotografico) {
+          const { antes, despues } = m.registroFotografico;
+          
+          if ((antes && antes.length > 0) || (despues && despues.length > 0)) {
+            if (y > 200) {
+              doc.addPage();
+              y = 20;
+            }
+
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(40, 40, 40);
+            doc.text('📸 REGISTRO FOTOGRÁFICO', 15, y);
+            y += 8;
+
+            const mostrarImagenes = (imagenes, titulo, color, yPos) => {
+              if (!imagenes || imagenes.length === 0) return yPos;
+              
+              if (yPos > 250) {
+                doc.addPage();
+                yPos = 20;
+              }
+
+              doc.setFontSize(9);
+              doc.setFont('helvetica', 'bold');
+              doc.setTextColor(color === 'rojo' ? [200, 50, 50] : [50, 150, 50]);
+              doc.text(titulo, 20, yPos);
+              yPos += 6;
+
+              const imagesPerRow = 3;
+              const imgSize = 50;
+              const spacing = 5;
+              const startX = 20;
+
+              for (let i = 0; i < Math.min(imagenes.length, 5); i++) {
+                const row = Math.floor(i / imagesPerRow);
+                const col = i % imagesPerRow;
+                
+                const x = startX + col * (imgSize + spacing);
+                const yImg = yPos + row * (imgSize + spacing + 10);
+                
+                if (yImg + imgSize > 270) {
+                  doc.addPage();
+                  yPos = 20;
+                  const newRow = 0;
+                  const newCol = i % imagesPerRow;
+                  const newX = startX + newCol * (imgSize + spacing);
+                  const newY = 20 + newRow * (imgSize + spacing + 10);
+                  try {
+                    doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
+                  } catch (e) {
+                    doc.setDrawColor(200, 200, 200);
+                    doc.setFillColor(240, 240, 240);
+                    doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
+                    doc.setFontSize(6);
+                    doc.setFont('helvetica', 'italic');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
+                  }
+                  continue;
+                }
+                
+                try {
+                  doc.addImage(imagenes[i].url, 'JPEG', x, yImg, imgSize, imgSize);
+                } catch (e) {
+                  doc.setDrawColor(200, 200, 200);
+                  doc.setFillColor(240, 240, 240);
+                  doc.roundedRect(x, yImg, imgSize, imgSize, 3, 3, 'FD');
+                  doc.setFontSize(6);
+                  doc.setFont('helvetica', 'italic');
+                  doc.setTextColor(150, 150, 150);
+                  doc.text('Imagen', x + imgSize/2, yImg + imgSize/2, { align: 'center' });
+                }
+              }
+
+              const rows = Math.ceil(Math.min(imagenes.length, 5) / imagesPerRow);
+              return yPos + rows * (imgSize + spacing + 10) + 8;
+            };
+
+            if (antes && antes.length > 0) {
+              y = mostrarImagenes(antes, '🔴 ANTES del mantenimiento:', 'rojo', y);
+            }
+
+            if (despues && despues.length > 0) {
+              y = mostrarImagenes(despues, '🟢 DESPUÉS del mantenimiento:', 'verde', y);
+            }
+
+            y += 5;
+          }
+        }
+
+        // ============ 10. CONCLUSIONES Y RECOMENDACIONES ============
         if (m.conclusiones || m.recomendaciones) {
           if (y > 200) {
             doc.addPage();
@@ -606,7 +698,7 @@ const ReportGenerator = ({ open, onClose }) => {
           }
         }
 
-        // ============ 10. FIRMA DEL TÉCNICO ============
+        // ============ 11. FIRMA DEL TÉCNICO ============
         if (y > 200) {
           doc.addPage();
           y = 20;

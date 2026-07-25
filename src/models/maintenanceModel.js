@@ -51,12 +51,12 @@ export const maintenanceSchema = {
     ]
   },
   
-  // 7. Evidencia Fotográfica
+  // 7. Evidencia Fotográfica (mantenimiento)
   evidencias: [], // URLs de imágenes base64
   
   // 8. Accesorios Cambiados
   accesoriosCambiados: [
-    // { cantidad: 0, codigoSap: '', detalle: '', reserva: '' }  // CAMBIO: "reserva" en lugar de "total"
+    // { cantidad: 0, codigoSap: '', detalle: '', reserva: '' }
   ],
   
   // 9. Conclusiones y Recomendaciones
@@ -70,6 +70,12 @@ export const maintenanceSchema = {
     telefono: '',
     correo: '',
     fecha: null
+  },
+
+  // ============ NUEVA SECCIÓN: REGISTRO FOTOGRÁFICO ============
+  registroFotografico: {
+    antes: [],   // Máximo 5 imágenes
+    despues: []  // Máximo 5 imágenes
   },
   
   fechaCreacion: new Date(),

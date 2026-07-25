@@ -40,27 +40,55 @@ const ReportGenerator = ({ open, onClose }) => {
 
   // ============ CONFIGURACIÓN DE NORMAS APA ============
   const CONFIG = {
-    // Márgenes APA: 2.54 cm (1 pulgada) en todos los lados
     marginLeft: 25.4,
     marginRight: 25.4,
     marginTop: 25.4,
     marginBottom: 25.4,
-    // Fuente Times New Roman
     fontFamily: 'times',
-    // Tamaños de fuente
     fontSizeTitle: 14,
     fontSizeSubtitle: 12,
-    fontSizeBody: 12,
-    fontSizeCaption: 10,
-    // Interlineado 1.5 (espaciado entre líneas)
+    fontSizeBody: 11,
+    fontSizeCaption: 9,
     lineHeight: 1.5,
-    // Sangría para párrafos: 1.27 cm (0.5 pulgadas)
-    indent: 12.7
+    indent: 12.7,
+    imgMaxWidth: 150,
+    imgMaxHeight: 100,
+    imgSpacing: 12,
+    imgPerRow: 2
   };
 
   const getPageWidth = (doc) => doc.internal.pageSize.getWidth();
   const getPageHeight = (doc) => doc.internal.pageSize.getHeight();
   const getContentWidth = (doc) => getPageWidth(doc) - CONFIG.marginLeft - CONFIG.marginRight;
+
+  // ============ FUNCIÓN PARA TEXTO JUSTIFICADO ============
+  const textJustificado = (doc, text, x, y, maxWidth, lineHeight) => {
+    const lines = doc.splitTextToSize(text, maxWidth);
+    const lineHeightFinal = lineHeight || 6;
+    let currentY = y;
+    
+    lines.forEach((line, index) => {
+      if (index < lines.length - 1 && line.length > 1) {
+        const words = line.split(' ');
+        if (words.length > 1) {
+          const lineWidth = doc.getStringUnitWidth(line) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+          const extraSpace = (maxWidth - lineWidth) / (words.length - 1);
+          let currentX = x;
+          words.forEach((word, wordIndex) => {
+            const wordWidth = doc.getStringUnitWidth(word) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+            doc.text(word, currentX, currentY);
+            currentX += wordWidth + extraSpace;
+          });
+          currentY += lineHeightFinal;
+          return;
+        }
+      }
+      doc.text(line, x, currentY);
+      currentY += lineHeightFinal;
+    });
+    
+    return currentY;
+  };
 
   // ============ FUNCIÓN PARA AGREGAR LOGO ============
   const agregarLogo = (doc, x, y, size = 20) => {
@@ -69,12 +97,10 @@ const ReportGenerator = ({ open, onClose }) => {
       doc.addImage(logoUrl, 'PNG', x, y, size, size);
       return true;
     } catch (e) {
-      // Si no se encuentra la imagen, mostrar texto
       doc.setFillColor(255, 255, 255);
       doc.roundedRect(x, y, size, size, 3, 3, 'F');
       doc.setDrawColor(60, 60, 60);
       doc.roundedRect(x, y, size, size, 3, 3, 'S');
-      
       doc.setTextColor(40, 40, 40);
       doc.setFontSize(10);
       doc.setFont(CONFIG.fontFamily, 'bold');
@@ -89,98 +115,96 @@ const ReportGenerator = ({ open, onClose }) => {
 
   // ============ FUNCIÓN PARA AGREGAR IMÁGENES DEL VSD ============
   const agregarImagenesVSD = (doc, imagenes, y, pageWidth) => {
-    if (!imagenes || imagenes.length === 0) {
-      return y;
-    }
+    if (!imagenes || imagenes.length === 0) return y;
 
     const marginLeft = CONFIG.marginLeft;
     const marginRight = CONFIG.marginRight;
     const contentWidth = pageWidth - marginLeft - marginRight;
+    const pageHeight = getPageHeight(doc);
 
-    if (y > getPageHeight(doc) - 50) {
+    if (y > pageHeight - 50) {
       doc.addPage();
       y = CONFIG.marginTop;
     }
 
-    // Título de la sección (APA: centrado, negrita)
     doc.setFontSize(CONFIG.fontSizeSubtitle);
     doc.setFont(CONFIG.fontFamily, 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text('Evidencia Fotográfica', pageWidth / 2, y, { align: 'center' });
     y += 8;
 
-    // Descripción
     doc.setFontSize(CONFIG.fontSizeBody);
     doc.setFont(CONFIG.fontFamily, 'italic');
     doc.setTextColor(80, 80, 80);
     doc.text('Registro fotográfico de las condiciones del equipo.', pageWidth / 2, y, { align: 'center' });
-    y += 10;
+    y += 12;
 
     const maxImages = Math.min(imagenes.length, 4);
-    const imagesPerRow = 2;
-    const imgSize = 60;
-    const spacing = 15;
-    const startX = marginLeft + (contentWidth - (imagesPerRow * (imgSize + spacing) - spacing)) / 2;
+    const imgPerRow = 2;
+    const imgWidth = Math.min((contentWidth - (imgPerRow - 1) * CONFIG.imgSpacing) / imgPerRow, CONFIG.imgMaxWidth);
+    const imgHeight = Math.min(imgWidth * 0.75, CONFIG.imgMaxHeight);
+    const totalWidth = imgPerRow * imgWidth + (imgPerRow - 1) * CONFIG.imgSpacing;
+    const startX = marginLeft + (contentWidth - totalWidth) / 2;
 
     for (let i = 0; i < maxImages; i++) {
-      const row = Math.floor(i / imagesPerRow);
-      const col = i % imagesPerRow;
+      const row = Math.floor(i / imgPerRow);
+      const col = i % imgPerRow;
       
-      const x = startX + col * (imgSize + spacing);
-      const yPos = y + row * (imgSize + spacing + 20);
+      const x = startX + col * (imgWidth + CONFIG.imgSpacing);
+      const yPos = y + row * (imgHeight + CONFIG.imgSpacing + 12);
       
-      if (yPos + imgSize > getPageHeight(doc) - 40) {
+      if (yPos + imgHeight + 12 > pageHeight - 30) {
         doc.addPage();
         y = CONFIG.marginTop;
         const newRow = 0;
-        const newCol = i % imagesPerRow;
-        const newX = startX + newCol * (imgSize + spacing);
-        const newY = y + newRow * (imgSize + spacing + 20);
+        const newCol = i % imgPerRow;
+        const newX = startX + newCol * (imgWidth + CONFIG.imgSpacing);
+        const newY = y + newRow * (imgHeight + CONFIG.imgSpacing + 12);
         
         try {
-          doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
-          doc.setFontSize(8);
+          doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgWidth, imgHeight);
+          doc.setFontSize(CONFIG.fontSizeCaption);
           doc.setFont(CONFIG.fontFamily, 'normal');
-          doc.setTextColor(100, 100, 100);
-          doc.text(`Imagen ${i+1}`, newX + imgSize/2, newY + imgSize + 5, { align: 'center' });
+          doc.setTextColor(80, 80, 80);
+          doc.text(`Imagen ${i+1}`, newX + imgWidth/2, newY + imgHeight + 5, { align: 'center' });
         } catch (e) {
           doc.setDrawColor(200, 200, 200);
-          doc.setFillColor(240, 240, 240);
-          doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
-          doc.setFontSize(8);
+          doc.setFillColor(245, 245, 245);
+          doc.roundedRect(newX, newY, imgWidth, imgHeight, 3, 3, 'FD');
+          doc.setFontSize(CONFIG.fontSizeCaption);
           doc.setFont(CONFIG.fontFamily, 'italic');
           doc.setTextColor(150, 150, 150);
-          doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
-          doc.text(`${i+1}`, newX + imgSize/2, newY + imgSize/2 + 6, { align: 'center' });
+          doc.text('Imagen no disponible', newX + imgWidth/2, newY + imgHeight/2, { align: 'center' });
+          doc.text(`${i+1}`, newX + imgWidth/2, newY + imgHeight/2 + 6, { align: 'center' });
         }
         continue;
       }
       
       try {
-        doc.addImage(imagenes[i].url, 'JPEG', x, yPos, imgSize, imgSize);
-        doc.setFontSize(8);
+        doc.addImage(imagenes[i].url, 'JPEG', x, yPos, imgWidth, imgHeight);
+        doc.setFontSize(CONFIG.fontSizeCaption);
         doc.setFont(CONFIG.fontFamily, 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Imagen ${i+1}`, x + imgSize/2, yPos + imgSize + 5, { align: 'center' });
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Imagen ${i+1}`, x + imgWidth/2, yPos + imgHeight + 5, { align: 'center' });
       } catch (e) {
         doc.setDrawColor(200, 200, 200);
-        doc.setFillColor(240, 240, 240);
-        doc.roundedRect(x, yPos, imgSize, imgSize, 3, 3, 'FD');
-        doc.setFontSize(8);
+        doc.setFillColor(245, 245, 245);
+        doc.roundedRect(x, yPos, imgWidth, imgHeight, 3, 3, 'FD');
+        doc.setFontSize(CONFIG.fontSizeCaption);
         doc.setFont(CONFIG.fontFamily, 'italic');
         doc.setTextColor(150, 150, 150);
-        doc.text('Imagen', x + imgSize/2, yPos + imgSize/2, { align: 'center' });
-        doc.text(`${i+1}`, x + imgSize/2, yPos + imgSize/2 + 6, { align: 'center' });
+        doc.text('Imagen no disponible', x + imgWidth/2, yPos + imgHeight/2, { align: 'center' });
+        doc.text(`${i+1}`, x + imgWidth/2, yPos + imgHeight/2 + 6, { align: 'center' });
       }
     }
 
-    const rows = Math.ceil(maxImages / imagesPerRow);
-    y += rows * (imgSize + spacing + 20) + 10;
+    const rows = Math.ceil(maxImages / imgPerRow);
+    y += rows * (imgHeight + CONFIG.imgSpacing + 12) + 8;
     
     return y;
   };
 
-  // ============ FUNCIÓN PARA AGREGAR REGISTRO FOTOGRÁFICO ============
+  // ============ FUNCIÓN PARA REGISTRO FOTOGRÁFICO ============
   const agregarRegistroFotografico = (doc, registro, y, pageWidth) => {
     if (!registro) return y;
     const { antes, despues } = registro;
@@ -192,8 +216,9 @@ const ReportGenerator = ({ open, onClose }) => {
     const marginLeft = CONFIG.marginLeft;
     const marginRight = CONFIG.marginRight;
     const contentWidth = pageWidth - marginLeft - marginRight;
+    const pageHeight = getPageHeight(doc);
 
-    if (y > getPageHeight(doc) - 50) {
+    if (y > pageHeight - 50) {
       doc.addPage();
       y = CONFIG.marginTop;
     }
@@ -213,7 +238,7 @@ const ReportGenerator = ({ open, onClose }) => {
     const mostrarImagenes = (imagenes, titulo, yPos) => {
       if (!imagenes || imagenes.length === 0) return yPos;
       
-      if (yPos > getPageHeight(doc) - 50) {
+      if (yPos > pageHeight - 50) {
         doc.addPage();
         yPos = CONFIG.marginTop;
       }
@@ -224,54 +249,48 @@ const ReportGenerator = ({ open, onClose }) => {
       doc.text(titulo, marginLeft, yPos);
       yPos += 6;
 
-      const imagesPerRow = 3;
-      const imgSize = 45;
-      const spacing = 8;
-      const startX = marginLeft;
+      const maxImages = Math.min(imagenes.length, 5);
+      const imgPerRow = 3;
+      const imgWidth = Math.min((contentWidth - (imgPerRow - 1) * 6) / imgPerRow, 55);
+      const imgHeight = Math.min(imgWidth * 0.75, 42);
+      const totalWidth = imgPerRow * imgWidth + (imgPerRow - 1) * 6;
+      const startX = marginLeft + (contentWidth - totalWidth) / 2;
 
-      for (let i = 0; i < Math.min(imagenes.length, 5); i++) {
-        const row = Math.floor(i / imagesPerRow);
-        const col = i % imagesPerRow;
+      for (let i = 0; i < maxImages; i++) {
+        const row = Math.floor(i / imgPerRow);
+        const col = i % imgPerRow;
         
-        const x = startX + col * (imgSize + spacing);
-        const yImg = yPos + row * (imgSize + spacing + 12);
+        const x = startX + col * (imgWidth + 6);
+        const yImg = yPos + row * (imgHeight + 8);
         
-        if (yImg + imgSize > getPageHeight(doc) - 30) {
+        if (yImg + imgHeight > pageHeight - 30) {
           doc.addPage();
           yPos = CONFIG.marginTop;
           const newRow = 0;
-          const newCol = i % imagesPerRow;
-          const newX = startX + newCol * (imgSize + spacing);
-          const newY = yPos + newRow * (imgSize + spacing + 12);
+          const newCol = i % imgPerRow;
+          const newX = startX + newCol * (imgWidth + 6);
+          const newY = yPos + newRow * (imgHeight + 8);
           try {
-            doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
+            doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgWidth, imgHeight);
           } catch (e) {
             doc.setDrawColor(200, 200, 200);
-            doc.setFillColor(240, 240, 240);
-            doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
-            doc.setFontSize(7);
-            doc.setFont(CONFIG.fontFamily, 'italic');
-            doc.setTextColor(150, 150, 150);
-            doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
+            doc.setFillColor(245, 245, 245);
+            doc.roundedRect(newX, newY, imgWidth, imgHeight, 3, 3, 'FD');
           }
           continue;
         }
         
         try {
-          doc.addImage(imagenes[i].url, 'JPEG', x, yImg, imgSize, imgSize);
+          doc.addImage(imagenes[i].url, 'JPEG', x, yImg, imgWidth, imgHeight);
         } catch (e) {
           doc.setDrawColor(200, 200, 200);
-          doc.setFillColor(240, 240, 240);
-          doc.roundedRect(x, yImg, imgSize, imgSize, 3, 3, 'FD');
-          doc.setFontSize(7);
-          doc.setFont(CONFIG.fontFamily, 'italic');
-          doc.setTextColor(150, 150, 150);
-          doc.text('Imagen', x + imgSize/2, yImg + imgSize/2, { align: 'center' });
+          doc.setFillColor(245, 245, 245);
+          doc.roundedRect(x, yImg, imgWidth, imgHeight, 3, 3, 'FD');
         }
       }
 
-      const rows = Math.ceil(Math.min(imagenes.length, 5) / imagesPerRow);
-      return yPos + rows * (imgSize + spacing + 12) + 8;
+      const rows = Math.ceil(maxImages / imgPerRow);
+      return yPos + rows * (imgHeight + 8) + 8;
     };
 
     if (antes && antes.length > 0) {
@@ -349,7 +368,6 @@ const ReportGenerator = ({ open, onClose }) => {
       
       const { vsd, mantenimientos, totalMantenimientos, fechaGeneracion, rangoFechas } = reportData;
 
-      // Configurar márgenes APA
       const marginLeft = CONFIG.marginLeft;
       const marginRight = CONFIG.marginRight;
       const marginTop = CONFIG.marginTop;
@@ -363,44 +381,36 @@ const ReportGenerator = ({ open, onClose }) => {
 
         let y = marginTop;
 
-        // ============ ENCABEZADO CON LOGO ============
+        // ============ ENCABEZADO ============
         doc.setFillColor(40, 40, 40);
-        doc.rect(0, 0, pageWidth, 35, 'F');
+        doc.rect(0, 0, pageWidth, 30, 'F');
         
-        // LOGO (IZQUIERDA)
-        agregarLogo(doc, 15, 8, 18);
+        agregarLogo(doc, 15, 5, 18);
         
-        // TÍTULO (CENTRO)
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont(CONFIG.fontFamily, 'bold');
-        doc.text('VSD SMART MAINTENANCE', pageWidth / 2, 16, { align: 'center' });
+        doc.text('VSD SMART MAINTENANCE', pageWidth / 2, 14, { align: 'center' });
         
-        doc.setFontSize(8);
-        doc.setFont(CONFIG.fontFamily, 'normal');
-        doc.text('Sistema de Gestión de Mantenimiento de Variadores de Frecuencia', pageWidth / 2, 23, { align: 'center' });
-        
-        // FECHA Y HORA (DERECHA)
         doc.setFontSize(7);
         doc.setFont(CONFIG.fontFamily, 'normal');
-        doc.text(`Fecha: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - 15, 12, { align: 'right' });
-        doc.text(`Hora: ${format(new Date(), 'HH:mm')}`, pageWidth - 15, 18, { align: 'right' });
-
-        // Línea separadora
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.3);
-        doc.line(marginLeft, 38, pageWidth - marginRight, 38);
+        doc.text('Sistema de Gestión de Mantenimiento de Variadores de Frecuencia', pageWidth / 2, 20, { align: 'center' });
         
-        y = 48;
+        doc.setFontSize(7);
+        doc.setFont(CONFIG.fontFamily, 'normal');
+        doc.text(`Fecha: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - 15, 10, { align: 'right' });
+        doc.text(`Hora: ${format(new Date(), 'HH:mm')}`, pageWidth - 15, 16, { align: 'right' });
 
-        // ============ 1. TÍTULO PRINCIPAL (APA: centrado, negrita, mayúsculas) ============
+        y = marginTop + 35;
+
+        // ============ TÍTULO PRINCIPAL ============
         doc.setFontSize(CONFIG.fontSizeTitle);
         doc.setFont(CONFIG.fontFamily, 'bold');
         doc.setTextColor(0, 0, 0);
         doc.text('REPORTE DE MANTENIMIENTO', pageWidth / 2, y, { align: 'center' });
         y += 10;
 
-        // ============ 2. INFORMACIÓN GENERAL (APA: sangría) ============
+        // ============ 1. INFORMACIÓN GENERAL ============
         doc.setFontSize(CONFIG.fontSizeSubtitle);
         doc.setFont(CONFIG.fontFamily, 'bold');
         doc.text('Información General', marginLeft, y);
@@ -421,13 +431,12 @@ const ReportGenerator = ({ open, onClose }) => {
           ['Service Ticket:', m.serviceTicket || 'N/A']
         ];
 
-        // Organizar en 2 columnas
         const mitad = Math.ceil(infoGeneral.length / 2);
         const col1 = infoGeneral.slice(0, mitad);
         const col2 = infoGeneral.slice(mitad);
         const colWidth = (contentWidth - 10) / 2;
 
-        col1.forEach(([label, value], index) => {
+        col1.forEach(([label, value], idx) => {
           if (y > pageHeight - 40) {
             doc.addPage();
             y = marginTop;
@@ -435,21 +444,21 @@ const ReportGenerator = ({ open, onClose }) => {
           doc.setFont(CONFIG.fontFamily, 'bold');
           doc.text(label, marginLeft, y);
           doc.setFont(CONFIG.fontFamily, 'normal');
-          doc.text(value, marginLeft + 50, y);
+          doc.text(value, marginLeft + 48, y);
           
-          if (col2[index]) {
-            const [label2, value2] = col2[index];
+          if (col2[idx]) {
+            const [label2, value2] = col2[idx];
             doc.setFont(CONFIG.fontFamily, 'bold');
             doc.text(label2, marginLeft + colWidth + 10, y);
             doc.setFont(CONFIG.fontFamily, 'normal');
-            doc.text(value2, marginLeft + colWidth + 60, y);
+            doc.text(value2, marginLeft + colWidth + 58, y);
           }
-          y += 7;
+          y += 6.5;
         });
 
         y += 5;
 
-        // ============ 3. OBJETIVO GENERAL ============
+        // ============ 2. OBJETIVO GENERAL ============
         if (m.objetivoGeneral) {
           if (y > pageHeight - 50) {
             doc.addPage();
@@ -463,12 +472,11 @@ const ReportGenerator = ({ open, onClose }) => {
           doc.setFontSize(CONFIG.fontSizeBody);
           doc.setFont(CONFIG.fontFamily, 'normal');
           doc.setTextColor(0, 0, 0);
-          const objLines = doc.splitTextToSize(m.objetivoGeneral, contentWidth);
-          doc.text(objLines, marginLeft + CONFIG.indent, y);
-          y += objLines.length * 6 + 5;
+          y = textJustificado(doc, m.objetivoGeneral, marginLeft + CONFIG.indent, y, contentWidth - CONFIG.indent, 6);
+          y += 4;
         }
 
-        // ============ 4. EQUIPOS DE SUPERFICIE ============
+        // ============ 3. EQUIPOS DE SUPERFICIE ============
         if (y > pageHeight - 60) {
           doc.addPage();
           y = marginTop;
@@ -508,24 +516,24 @@ const ReportGenerator = ({ open, onClose }) => {
           },
           columnStyles: {
             0: { cellWidth: 25 },
-            1: { cellWidth: 30 },
-            2: { cellWidth: 30 },
-            3: { cellWidth: 30 },
-            4: { cellWidth: 20 },
-            5: { cellWidth: 20 }
+            1: { cellWidth: 28 },
+            2: { cellWidth: 28 },
+            3: { cellWidth: 28 },
+            4: { cellWidth: 18 },
+            5: { cellWidth: 18 }
           },
           margin: { left: marginLeft, right: marginRight }
         });
 
         y = doc.lastAutoTable.finalY + 8;
 
-        // ============ 5. EVIDENCIA FOTOGRÁFICA (IMÁGENES DEL VSD) ============
+        // ============ 4. EVIDENCIA FOTOGRÁFICA ============
         const imagenesVSD = vsd.documentos?.imagenes || [];
         if (imagenesVSD.length > 0) {
           y = agregarImagenesVSD(doc, imagenesVSD, y, pageWidth);
         }
 
-        // ============ 6. LISTA DE CHEQUEO ============
+        // ============ 5. LISTA DE CHEQUEO ============
         if (y > pageHeight - 60) {
           doc.addPage();
           y = marginTop;
@@ -578,7 +586,7 @@ const ReportGenerator = ({ open, onClose }) => {
           y = doc.lastAutoTable.finalY + 8;
         }
 
-        // ============ 7. ACTIVIDADES REALIZADAS ============
+        // ============ 6. ACTIVIDADES REALIZADAS ============
         if (m.actividadesRealizadas) {
           if (y > pageHeight - 50) {
             doc.addPage();
@@ -592,12 +600,11 @@ const ReportGenerator = ({ open, onClose }) => {
           doc.setFontSize(CONFIG.fontSizeBody);
           doc.setFont(CONFIG.fontFamily, 'normal');
           doc.setTextColor(0, 0, 0);
-          const actLines = doc.splitTextToSize(m.actividadesRealizadas, contentWidth);
-          doc.text(actLines, marginLeft + CONFIG.indent, y);
-          y += actLines.length * 6 + 5;
+          y = textJustificado(doc, m.actividadesRealizadas, marginLeft + CONFIG.indent, y, contentWidth - CONFIG.indent, 6);
+          y += 4;
         }
 
-        // ============ 8. PRUEBAS ESTÁTICAS ============
+        // ============ 7. PRUEBAS ESTÁTICAS ============
         if (m.pruebasEstaticas) {
           if (y > pageHeight - 50) {
             doc.addPage();
@@ -609,7 +616,6 @@ const ReportGenerator = ({ open, onClose }) => {
           doc.text('Pruebas Estáticas', marginLeft, y);
           y += 8;
 
-          // Conversor
           doc.setFontSize(CONFIG.fontSizeBody);
           doc.setFont(CONFIG.fontFamily, 'bold');
           doc.text('Conversor', marginLeft, y);
@@ -700,7 +706,7 @@ const ReportGenerator = ({ open, onClose }) => {
           }
         }
 
-        // ============ 9. ACCESORIOS CAMBIADOS ============
+        // ============ 8. ACCESORIOS CAMBIADOS ============
         if (m.accesoriosCambiados?.length > 0 && m.accesoriosCambiados[0]?.codigoSap) {
           if (y > pageHeight - 50) {
             doc.addPage();
@@ -750,12 +756,12 @@ const ReportGenerator = ({ open, onClose }) => {
           y = doc.lastAutoTable.finalY + 8;
         }
 
-        // ============ 10. REGISTRO FOTOGRÁFICO ============
+        // ============ 9. REGISTRO FOTOGRÁFICO ============
         if (m.registroFotografico) {
           y = agregarRegistroFotografico(doc, m.registroFotografico, y, pageWidth);
         }
 
-        // ============ 11. CONCLUSIONES Y RECOMENDACIONES ============
+        // ============ 10. CONCLUSIONES Y RECOMENDACIONES ============
         if (m.conclusiones || m.recomendaciones) {
           if (y > pageHeight - 50) {
             doc.addPage();
@@ -771,9 +777,8 @@ const ReportGenerator = ({ open, onClose }) => {
             doc.setFontSize(CONFIG.fontSizeBody);
             doc.setFont(CONFIG.fontFamily, 'normal');
             doc.setTextColor(0, 0, 0);
-            const conLines = doc.splitTextToSize(m.conclusiones, contentWidth);
-            doc.text(conLines, marginLeft + CONFIG.indent, y);
-            y += conLines.length * 6 + 5;
+            y = textJustificado(doc, m.conclusiones, marginLeft + CONFIG.indent, y, contentWidth - CONFIG.indent, 6);
+            y += 4;
           }
 
           if (m.recomendaciones) {
@@ -789,14 +794,13 @@ const ReportGenerator = ({ open, onClose }) => {
             doc.setFontSize(CONFIG.fontSizeBody);
             doc.setFont(CONFIG.fontFamily, 'normal');
             doc.setTextColor(0, 0, 0);
-            const recLines = doc.splitTextToSize(m.recomendaciones, contentWidth);
-            doc.text(recLines, marginLeft + CONFIG.indent, y);
-            y += recLines.length * 6 + 5;
+            y = textJustificado(doc, m.recomendaciones, marginLeft + CONFIG.indent, y, contentWidth - CONFIG.indent, 6);
+            y += 4;
           }
         }
 
-        // ============ 12. FIRMA DEL TÉCNICO ============
-        if (y > pageHeight - 60) {
+        // ============ 11. FIRMA DEL TÉCNICO (CON FIRMA DIGITAL) ============
+        if (y > pageHeight - 80) {
           doc.addPage();
           y = marginTop;
         }
@@ -828,21 +832,48 @@ const ReportGenerator = ({ open, onClose }) => {
         doc.setTextColor(100, 100, 100);
         doc.text('Firma del Técnico', marginLeft + CONFIG.indent, y);
 
-        // ============ PIE DE PÁGINA (APA: número de página en esquina inferior derecha) ============
+        // ============ FIRMA DIGITAL ============
+        if (m.firmaTecnico?.firmaDigital) {
+          y += 15;
+          
+          if (y > pageHeight - 50) {
+            doc.addPage();
+            y = marginTop;
+          }
+          
+          doc.setFontSize(CONFIG.fontSizeCaption);
+          doc.setFont(CONFIG.fontFamily, 'bold');
+          doc.text('Firma Digital:', marginLeft, y);
+          y += 8;
+          
+          try {
+            const firmaImg = m.firmaTecnico.firmaDigital;
+            const imgWidth = 80;
+            const imgHeight = 40;
+            doc.addImage(firmaImg, 'PNG', marginLeft + CONFIG.indent, y, imgWidth, imgHeight);
+            y += imgHeight + 8;
+          } catch (e) {
+            doc.setFontSize(CONFIG.fontSizeCaption);
+            doc.setFont(CONFIG.fontFamily, 'italic');
+            doc.setTextColor(150, 150, 150);
+            doc.text('(Firma digital no disponible)', marginLeft + CONFIG.indent, y);
+            y += 8;
+          }
+        }
+
+        // ============ PIE DE PÁGINA ============
         const pageCount = doc.internal.pages.length;
         for (let i = 1; i <= pageCount; i++) {
           doc.setPage(i);
           doc.setFontSize(CONFIG.fontSizeCaption);
           doc.setTextColor(150, 150, 150);
           doc.setFont(CONFIG.fontFamily, 'normal');
-          // Número de página en esquina inferior derecha (APA)
           doc.text(
             `${i}`,
             pageWidth - marginRight,
             pageHeight - marginBottom + 8,
             { align: 'right' }
           );
-          // Pie de página con nombre del reporte
           doc.setFontSize(7);
           doc.setTextColor(180, 180, 180);
           doc.text(

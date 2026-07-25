@@ -13,9 +13,6 @@ export const maintenanceSchema = {
   duracion: 0,
   observaciones: '',
   
-  // ============ NUEVOS CAMPOS PARA REPORTE PROFESIONAL ============
-  
-  // 1. Información General
   compania: '',
   cliente: '',
   locacion: '',
@@ -23,59 +20,38 @@ export const maintenanceSchema = {
   area: '',
   proceso: '',
   serviceTicket: '',
-  
-  // 2. Objetivo General
   objetivoGeneral: '',
   
-  // 3. Equipos de Superficie
   equipos: {
     vsd: { marca: '', modelo: '', serie: '', kva: '', amps: '' },
     sut: { marca: '', modelo: '', serie: '', kva: '', amps: '' }
   },
   
-  // 4. Lista de Chequeo
-  listaChequeo: [
-    // { actividad: '', hecho: false, observacion: '', categoria: '' }
-  ],
-  
-  // 5. Actividades Realizadas (texto amplio)
+  listaChequeo: [],
   actividadesRealizadas: '',
   
-  // 6. Pruebas Estáticas
   pruebasEstaticas: {
-    conversor: [
-      // { medicion: '', esperado: '', actual: '' }
-    ],
-    inversor: [
-      // { medicion: '', esperado: '', actual: '' }
-    ]
+    conversor: [],
+    inversor: []
   },
   
-  // 7. Evidencia Fotográfica (mantenimiento)
-  evidencias: [], // URLs de imágenes base64
-  
-  // 8. Accesorios Cambiados
-  accesoriosCambiados: [
-    // { cantidad: 0, codigoSap: '', detalle: '', reserva: '' }
-  ],
-  
-  // 9. Conclusiones y Recomendaciones
+  evidencias: [],
+  accesoriosCambiados: [],
   conclusiones: '',
   recomendaciones: '',
   
-  // 10. Firma del Técnico
   firmaTecnico: {
     nombre: '',
     cargo: '',
     telefono: '',
     correo: '',
-    fecha: null
+    fecha: null,
+    firmaDigital: null  // NUEVO: firma digital
   },
 
-  // ============ NUEVA SECCIÓN: REGISTRO FOTOGRÁFICO ============
   registroFotografico: {
-    antes: [],   // Máximo 5 imágenes
-    despues: []  // Máximo 5 imágenes
+    antes: [],
+    despues: []
   },
   
   fechaCreacion: new Date(),

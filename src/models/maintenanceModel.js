@@ -56,7 +56,7 @@ export const maintenanceSchema = {
   
   // 8. Accesorios Cambiados
   accesoriosCambiados: [
-    // { cantidad: 0, codigoSap: '', detalle: '', reserva: '', total: '' }
+    // { cantidad: 0, codigoSap: '', detalle: '', reserva: '' }  // CAMBIO: "reserva" en lugar de "total"
   ],
   
   // 9. Conclusiones y Recomendaciones

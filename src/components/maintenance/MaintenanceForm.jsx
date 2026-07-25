@@ -148,7 +148,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     
     evidencias: [],
     accesoriosCambiados: [
-      { cantidad: 1, codigoSap: '', detalle: '', reserva: '', total: '' }
+      { cantidad: 1, codigoSap: '', detalle: '', reserva: '' }  // CAMBIO: "reserva" en lugar de "total"
     ],
     conclusiones: '',
     recomendaciones: '',
@@ -207,7 +207,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
           ]
         },
         evidencias: m.evidencias || [],
-        accesoriosCambiados: m.accesoriosCambiados || [{ cantidad: 1, codigoSap: '', detalle: '', reserva: '', total: '' }],
+        accesoriosCambiados: m.accesoriosCambiados || [{ cantidad: 1, codigoSap: '', detalle: '', reserva: '' }],
         conclusiones: m.conclusiones || '',
         recomendaciones: m.recomendaciones || '',
         firmaTecnico: m.firmaTecnico || {
@@ -265,6 +265,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     setFormData(prev => ({ ...prev, pruebasEstaticas: newPruebas }));
   };
 
+  // ============ ACCESORIOS CAMBIADOS ============
   const handleAccesorioChange = (index, campo, value) => {
     const newAccesorios = [...formData.accesoriosCambiados];
     newAccesorios[index] = { ...newAccesorios[index], [campo]: value };
@@ -274,7 +275,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
   const addAccesorio = () => {
     setFormData(prev => ({
       ...prev,
-      accesoriosCambiados: [...prev.accesoriosCambiados, { cantidad: 1, codigoSap: '', detalle: '', reserva: '', total: '' }]
+      accesoriosCambiados: [...prev.accesoriosCambiados, { cantidad: 1, codigoSap: '', detalle: '', reserva: '' }]
     }));
   };
 
@@ -384,7 +385,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
         ]
       },
       evidencias: [],
-      accesoriosCambiados: [{ cantidad: 1, codigoSap: '', detalle: '', reserva: '', total: '' }],
+      accesoriosCambiados: [{ cantidad: 1, codigoSap: '', detalle: '', reserva: '' }],
       conclusiones: '',
       recomendaciones: '',
       firmaTecnico: {
@@ -931,6 +932,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
 
                 <Divider sx={{ my: 2 }} />
 
+                {/* ============ ACCESORIOS CAMBIADOS ============ */}
                 <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
                   🔧 Accesorios Cambiados
                 </Typography>
@@ -963,12 +965,13 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
                         sx={{ flex: 2 }}
                       />
                       <TextField
-                        label="Total"
+                        label="Reserva"  // CAMBIO: "Total" → "Reserva"
                         size="small"
-                        value={item.total}
-                        onChange={(e) => handleAccesorioChange(index, 'total', e.target.value)}
+                        value={item.reserva || ''}
+                        onChange={(e) => handleAccesorioChange(index, 'reserva', e.target.value)}
                         disabled={loading}
-                        sx={{ width: 80 }}
+                        sx={{ width: 100 }}
+                        placeholder="Código alfanumérico"
                       />
                       <IconButton
                         size="small"

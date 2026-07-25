@@ -68,13 +68,11 @@ const ReportGenerator = ({ open, onClose }) => {
       return y;
     }
 
-    // Verificar espacio
     if (y > 250) {
       doc.addPage();
       y = 20;
     }
 
-    // Título de la sección
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(40, 40, 40);
@@ -87,7 +85,6 @@ const ReportGenerator = ({ open, onClose }) => {
     doc.text('A continuación, un registro fotográfico de las condiciones de los equipos:', 15, y);
     y += 6;
 
-    // Mostrar hasta 4 imágenes en una cuadrícula
     const maxImages = Math.min(imagenes.length, 4);
     const imagesPerRow = 2;
     const imgSize = 65;
@@ -101,7 +98,6 @@ const ReportGenerator = ({ open, onClose }) => {
       const x = startX + col * (imgSize + spacing);
       const yPos = y + row * (imgSize + spacing + 15);
       
-      // Verificar espacio en página
       if (yPos + imgSize > 270) {
         doc.addPage();
         y = 20;
@@ -361,7 +357,6 @@ const ReportGenerator = ({ open, onClose }) => {
         y = doc.lastAutoTable.finalY + 8;
 
         // ============ 4. EVIDENCIA FOTOGRÁFICA (IMÁGENES DEL VSD) ============
-        // UBICADO DESPUÉS DE EQUIPOS DE SUPERFICIE
         const imagenesVSD = vsd.documentos?.imagenes || [];
         if (imagenesVSD.length > 0) {
           y = agregarImagenesVSD(doc, imagenesVSD, y, pageWidth);
@@ -542,12 +537,12 @@ const ReportGenerator = ({ open, onClose }) => {
             item.cantidad || '',
             item.codigoSap || '',
             item.detalle || '',
-            item.total || ''
+            item.reserva || ''  // CAMBIO: "reserva" en lugar de "total"
           ]);
 
           doc.autoTable({
             startY: y,
-            head: [['Cant', 'Código SAP', 'Detalle', 'Total']],
+            head: [['Cant', 'Código SAP', 'Detalle', 'Reserva']],  // CAMBIO: "Total" → "Reserva"
             body: accData,
             theme: 'striped',
             headStyles: { 

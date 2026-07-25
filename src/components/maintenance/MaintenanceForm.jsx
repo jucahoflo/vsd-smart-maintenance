@@ -20,12 +20,17 @@ import {
   FormControlLabel,
   Divider,
   Paper,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   Tab,
-  Tabs
+  Tabs,
+  Avatar
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Save as SaveIcon,
+  ExpandMore as ExpandMoreIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   PhotoCamera as PhotoCameraIcon,
@@ -35,11 +40,11 @@ import {
   Science as ScienceIcon,
   Build as BuildIcon,
   Description as DescriptionIcon,
+  Conclusion as ConclusionIcon,
   Person as PersonIcon
 } from '@mui/icons-material';
 import { useVSD } from '../../context/VSDContext';
 import { toast } from 'react-toastify';
-import SignaturePad from '../common/SignaturePad';
 
 const tipos = [
   { value: 'preventivo', label: '🛠️ Preventivo' },
@@ -61,6 +66,7 @@ const prioridades = [
   { value: 'critica', label: 'Crítica' }
 ];
 
+// Actividades de chequeo predefinidas
 const actividadesChequeo = [
   { id: 1, categoria: 'Shelter - Skid', actividad: 'Limpieza interior y exterior (Piso, puertas, gabinetes)' },
   { id: 2, categoria: 'Shelter - Skid', actividad: 'Aspirado y soplado de polvo' },
@@ -82,6 +88,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState(0);
+  const [imagePreview, setImagePreview] = useState(null);
   
   const [formData, setFormData] = useState({
     vsdId: vsdId || '',
@@ -96,6 +103,8 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     costo: 0,
     duracion: 0,
     observaciones: '',
+    
+    // Nuevos campos
     compania: 'INEMEC S.A.S',
     cliente: '',
     locacion: '',
@@ -104,12 +113,20 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     proceso: '',
     serviceTicket: '',
     objetivoGeneral: '',
+    
     equipos: {
       vsd: { marca: '', modelo: '', serie: '', kva: '', amps: '' },
       sut: { marca: '', modelo: '', serie: '', kva: '', amps: '' }
     },
-    listaChequeo: actividadesChequeo.map(a => ({ ...a, hecho: false, observacion: '' })),
+    
+    listaChequeo: actividadesChequeo.map(a => ({
+      ...a,
+      hecho: false,
+      observacion: ''
+    })),
+    
     actividadesRealizadas: '',
+    
     pruebasEstaticas: {
       conversor: [
         { medicion: 'DC BUS + / Entrada R', esperado: '0.2 - 0.6', actual: '' },
@@ -128,8 +145,11 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
         { medicion: 'DC BUS - / Entrada T', esperado: '0.2 - 0.6', actual: '' }
       ]
     },
+    
     evidencias: [],
-    accesoriosCambiados: [{ cantidad: 1, codigoSap: '', detalle: '', reserva: '' }],
+    accesoriosCambiados: [
+      { cantidad: 1, codigoSap: '', detalle: '', reserva: '' }  // CAMBIO: "reserva" en lugar de "total"
+    ],
     conclusiones: '',
     recomendaciones: '',
     firmaTecnico: {
@@ -137,12 +157,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
       cargo: 'Field Specialist',
       telefono: '',
       correo: '',
-      fecha: new Date().toISOString().split('T')[0],
-      firmaDigital: null
-    },
-    registroFotografico: {
-      antes: [],
-      despues: []
+      fecha: new Date().toISOString().split('T')[0]
     }
   });
 
@@ -200,10 +215,8 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
           cargo: 'Field Specialist',
           telefono: '',
           correo: '',
-          fecha: new Date().toISOString().split('T')[0],
-          firmaDigital: null
-        },
-        registroFotografico: m.registroFotografico || { antes: [], despues: [] }
+          fecha: new Date().toISOString().split('T')[0]
+        }
       });
     } else if (vsdId) {
       setFormData(prev => ({ ...prev, vsdId }));
@@ -252,6 +265,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     setFormData(prev => ({ ...prev, pruebasEstaticas: newPruebas }));
   };
 
+  // ============ ACCESORIOS CAMBIADOS ============
   const handleAccesorioChange = (index, campo, value) => {
     const newAccesorios = [...formData.accesoriosCambiados];
     newAccesorios[index] = { ...newAccesorios[index], [campo]: value };
@@ -284,81 +298,6 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     }));
   };
 
-  const handleAddFoto = (tipo, file) => {
-    const maxImages = 5;
-    const current = formData.registroFotografico[tipo];
-    if (current.length >= maxImages) {
-      toast.warning(`⚠️ Máximo ${maxImages} imágenes permitidas`);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setFormData(prev => ({
-        ...prev,
-        registroFotografico: {
-          ...prev.registroFotografico,
-          [tipo]: [...prev.registroFotografico[tipo], {
-            id: Date.now().toString() + Math.random(),
-            url: e.target.result,
-            nombre: file.name,
-            fecha: new Date().toISOString()
-          }]
-        }
-      }));
-      toast.success(`📸 Imagen agregada (${current.length + 1}/${maxImages})`);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveFoto = (tipo, id) => {
-    setFormData(prev => ({
-      ...prev,
-      registroFotografico: {
-        ...prev.registroFotografico,
-        [tipo]: prev.registroFotografico[tipo].filter(img => img.id !== id)
-      }
-    }));
-    toast.info('Imagen eliminada');
-  };
-
-  const handleTomarFoto = async (tipo) => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      await video.play();
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      stream.getTracks().forEach(track => track.stop());
-      const maxImages = 5;
-      const current = formData.registroFotografico[tipo];
-      if (current.length >= maxImages) {
-        toast.warning(`⚠️ Máximo ${maxImages} imágenes permitidas`);
-        return;
-      }
-      setFormData(prev => ({
-        ...prev,
-        registroFotografico: {
-          ...prev.registroFotografico,
-          [tipo]: [...prev.registroFotografico[tipo], {
-            id: Date.now().toString() + Math.random(),
-            url: dataUrl,
-            nombre: `Foto_${new Date().toISOString().slice(0,10)}`,
-            fecha: new Date().toISOString()
-          }]
-        }
-      }));
-      toast.success(`📸 Foto capturada (${current.length + 1}/${maxImages})`);
-    } catch (error) {
-      console.error('Error al tomar foto:', error);
-      toast.error('No se pudo acceder a la cámara. Verifica los permisos.');
-    }
-  };
-
   const validate = () => {
     const newErrors = {};
     if (!formData.vsdId) newErrors.vsdId = 'El VSD es requerido';
@@ -374,6 +313,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
       toast.error('Completa todos los campos requeridos');
       return;
     }
+
     setLoading(true);
     try {
       const dataToSave = {
@@ -383,6 +323,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
         costo: parseFloat(formData.costo) || 0,
         duracion: parseFloat(formData.duracion) || 0
       };
+
       if (isEditing && maintenanceToEdit) {
         await updateMaintenance(maintenanceToEdit._id, dataToSave);
       } else {
@@ -452,12 +393,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
         cargo: 'Field Specialist',
         telefono: '',
         correo: '',
-        fecha: new Date().toISOString().split('T')[0],
-        firmaDigital: null
-      },
-      registroFotografico: {
-        antes: [],
-        despues: []
+        fecha: new Date().toISOString().split('T')[0]
       }
     });
     setErrors({});
@@ -469,13 +405,13 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
     onClose();
   };
 
+  // Tabs
   const tabs = [
     { label: '📋 General', icon: <AssignmentIcon /> },
     { label: '✅ Chequeo', icon: <ChecklistIcon /> },
     { label: '🔬 Pruebas', icon: <ScienceIcon /> },
     { label: '⚙️ Equipos', icon: <BuildIcon /> },
     { label: '📄 Detalles', icon: <DescriptionIcon /> },
-    { label: '📸 Registro', icon: <PhotoCameraIcon /> },
     { label: '✍️ Firma', icon: <PersonIcon /> }
   ];
 
@@ -492,6 +428,7 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
 
       <form onSubmit={handleSubmit}>
         <DialogContent dividers sx={{ p: 0 }}>
+          {/* Tabs */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3, pt: 1 }}>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} variant="scrollable" scrollButtons="auto">
               {tabs.map((tab, index) => (
@@ -747,11 +684,14 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
                 <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
                   Marque con una X las actividades realizadas
                 </Typography>
+                
                 {formData.listaChequeo.map((item, index) => (
                   <Paper key={item.id} sx={{ p: 2, mb: 2, bgcolor: '#f8fafc' }}>
                     <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
                       <Chip label={item.categoria} size="small" color="primary" />
-                      <Typography variant="body2" sx={{ flex: 1 }}>{item.actividad}</Typography>
+                      <Typography variant="body2" sx={{ flex: 1 }}>
+                        {item.actividad}
+                      </Typography>
                       <FormControlLabel
                         control={
                           <Checkbox
@@ -777,21 +717,29 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
               </Box>
             )}
 
-            {/* ====== TAB 2: PRUEBAS ====== */}
+            {/* ====== TAB 2: PRUEBAS ESTÁTICAS ====== */}
             {activeTab === 2 && (
               <Box>
                 <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
                   🔬 Pruebas Estáticas
                 </Typography>
-                <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 2 }}>Conversor</Typography>
+                
+                {/* Conversor */}
+                <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 2 }}>
+                  Conversor
+                </Typography>
                 <Grid container spacing={1} sx={{ mb: 2 }}>
                   <Grid item xs={4}><Typography variant="caption" fontWeight="bold">Medición</Typography></Grid>
                   <Grid item xs={4}><Typography variant="caption" fontWeight="bold">Esperado</Typography></Grid>
                   <Grid item xs={4}><Typography variant="caption" fontWeight="bold">Actual</Typography></Grid>
                   {formData.pruebasEstaticas.conversor.map((item, index) => (
                     <React.Fragment key={index}>
-                      <Grid item xs={4}><Typography variant="caption">{item.medicion}</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="caption">{item.esperado}</Typography></Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="caption">{item.medicion}</Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="caption">{item.esperado}</Typography>
+                      </Grid>
                       <Grid item xs={4}>
                         <TextField
                           size="small"
@@ -805,15 +753,23 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
                     </React.Fragment>
                   ))}
                 </Grid>
-                <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 2 }}>Inversor</Typography>
+
+                {/* Inversor */}
+                <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 2 }}>
+                  Inversor
+                </Typography>
                 <Grid container spacing={1}>
                   <Grid item xs={4}><Typography variant="caption" fontWeight="bold">Medición</Typography></Grid>
                   <Grid item xs={4}><Typography variant="caption" fontWeight="bold">Esperado</Typography></Grid>
                   <Grid item xs={4}><Typography variant="caption" fontWeight="bold">Actual</Typography></Grid>
                   {formData.pruebasEstaticas.inversor.map((item, index) => (
                     <React.Fragment key={index}>
-                      <Grid item xs={4}><Typography variant="caption">{item.medicion}</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="caption">{item.esperado}</Typography></Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="caption">{item.medicion}</Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="caption">{item.esperado}</Typography>
+                      </Grid>
                       <Grid item xs={4}>
                         <TextField
                           size="small"
@@ -836,28 +792,118 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
                 <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
                   ⚙️ Equipos de Superficie
                 </Typography>
+                
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <Paper sx={{ p: 2, bgcolor: '#f8fafc' }}>
-                      <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>VSD</Typography>
-                      <TextField fullWidth label="Marca" size="small" value={formData.equipos.vsd.marca} onChange={(e) => handleEquipoChange('vsd', 'marca', e.target.value)} disabled={loading} sx={{ mb: 1 }} />
-                      <TextField fullWidth label="Modelo" size="small" value={formData.equipos.vsd.modelo} onChange={(e) => handleEquipoChange('vsd', 'modelo', e.target.value)} disabled={loading} sx={{ mb: 1 }} />
-                      <TextField fullWidth label="Serie" size="small" value={formData.equipos.vsd.serie} onChange={(e) => handleEquipoChange('vsd', 'serie', e.target.value)} disabled={loading} sx={{ mb: 1 }} />
+                      <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
+                        VSD
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        label="Marca"
+                        size="small"
+                        value={formData.equipos.vsd.marca}
+                        onChange={(e) => handleEquipoChange('vsd', 'marca', e.target.value)}
+                        disabled={loading}
+                        sx={{ mb: 1 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Modelo"
+                        size="small"
+                        value={formData.equipos.vsd.modelo}
+                        onChange={(e) => handleEquipoChange('vsd', 'modelo', e.target.value)}
+                        disabled={loading}
+                        sx={{ mb: 1 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Serie"
+                        size="small"
+                        value={formData.equipos.vsd.serie}
+                        onChange={(e) => handleEquipoChange('vsd', 'serie', e.target.value)}
+                        disabled={loading}
+                        sx={{ mb: 1 }}
+                      />
                       <Grid container spacing={1}>
-                        <Grid item xs={6}><TextField fullWidth label="KVA" size="small" value={formData.equipos.vsd.kva} onChange={(e) => handleEquipoChange('vsd', 'kva', e.target.value)} disabled={loading} /></Grid>
-                        <Grid item xs={6}><TextField fullWidth label="AMPS" size="small" value={formData.equipos.vsd.amps} onChange={(e) => handleEquipoChange('vsd', 'amps', e.target.value)} disabled={loading} /></Grid>
+                        <Grid item xs={6}>
+                          <TextField
+                            fullWidth
+                            label="KVA"
+                            size="small"
+                            value={formData.equipos.vsd.kva}
+                            onChange={(e) => handleEquipoChange('vsd', 'kva', e.target.value)}
+                            disabled={loading}
+                          />
+                        </Grid>
+                        <Grid item xs={6}>
+                          <TextField
+                            fullWidth
+                            label="AMPS"
+                            size="small"
+                            value={formData.equipos.vsd.amps}
+                            onChange={(e) => handleEquipoChange('vsd', 'amps', e.target.value)}
+                            disabled={loading}
+                          />
+                        </Grid>
                       </Grid>
                     </Paper>
                   </Grid>
+
                   <Grid item xs={12} md={6}>
                     <Paper sx={{ p: 2, bgcolor: '#f8fafc' }}>
-                      <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>SUT (Transformador)</Typography>
-                      <TextField fullWidth label="Marca" size="small" value={formData.equipos.sut.marca} onChange={(e) => handleEquipoChange('sut', 'marca', e.target.value)} disabled={loading} sx={{ mb: 1 }} />
-                      <TextField fullWidth label="Modelo" size="small" value={formData.equipos.sut.modelo} onChange={(e) => handleEquipoChange('sut', 'modelo', e.target.value)} disabled={loading} sx={{ mb: 1 }} />
-                      <TextField fullWidth label="Serie" size="small" value={formData.equipos.sut.serie} onChange={(e) => handleEquipoChange('sut', 'serie', e.target.value)} disabled={loading} sx={{ mb: 1 }} />
+                      <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
+                        SUT (Transformador)
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        label="Marca"
+                        size="small"
+                        value={formData.equipos.sut.marca}
+                        onChange={(e) => handleEquipoChange('sut', 'marca', e.target.value)}
+                        disabled={loading}
+                        sx={{ mb: 1 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Modelo"
+                        size="small"
+                        value={formData.equipos.sut.modelo}
+                        onChange={(e) => handleEquipoChange('sut', 'modelo', e.target.value)}
+                        disabled={loading}
+                        sx={{ mb: 1 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Serie"
+                        size="small"
+                        value={formData.equipos.sut.serie}
+                        onChange={(e) => handleEquipoChange('sut', 'serie', e.target.value)}
+                        disabled={loading}
+                        sx={{ mb: 1 }}
+                      />
                       <Grid container spacing={1}>
-                        <Grid item xs={6}><TextField fullWidth label="KVA" size="small" value={formData.equipos.sut.kva} onChange={(e) => handleEquipoChange('sut', 'kva', e.target.value)} disabled={loading} /></Grid>
-                        <Grid item xs={6}><TextField fullWidth label="AMPS" size="small" value={formData.equipos.sut.amps} onChange={(e) => handleEquipoChange('sut', 'amps', e.target.value)} disabled={loading} /></Grid>
+                        <Grid item xs={6}>
+                          <TextField
+                            fullWidth
+                            label="KVA"
+                            size="small"
+                            value={formData.equipos.sut.kva}
+                            onChange={(e) => handleEquipoChange('sut', 'kva', e.target.value)}
+                            disabled={loading}
+                          />
+                        </Grid>
+                        <Grid item xs={6}>
+                          <TextField
+                            fullWidth
+                            label="AMPS"
+                            size="small"
+                            value={formData.equipos.sut.amps}
+                            onChange={(e) => handleEquipoChange('sut', 'amps', e.target.value)}
+                            disabled={loading}
+                          />
+                        </Grid>
                       </Grid>
                     </Paper>
                   </Grid>
@@ -886,21 +932,67 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
 
                 <Divider sx={{ my: 2 }} />
 
+                {/* ============ ACCESORIOS CAMBIADOS ============ */}
                 <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
                   🔧 Accesorios Cambiados
                 </Typography>
                 {formData.accesoriosCambiados.map((item, index) => (
                   <Paper key={index} sx={{ p: 2, mb: 2, bgcolor: '#f8fafc' }}>
                     <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                      <TextField label="Cant" type="number" size="small" value={item.cantidad} onChange={(e) => handleAccesorioChange(index, 'cantidad', parseInt(e.target.value) || 0)} disabled={loading} sx={{ width: 60 }} />
-                      <TextField label="Código SAP" size="small" value={item.codigoSap} onChange={(e) => handleAccesorioChange(index, 'codigoSap', e.target.value)} disabled={loading} sx={{ flex: 1 }} />
-                      <TextField label="Detalle" size="small" value={item.detalle} onChange={(e) => handleAccesorioChange(index, 'detalle', e.target.value)} disabled={loading} sx={{ flex: 2 }} />
-                      <TextField label="Reserva" size="small" value={item.reserva || ''} onChange={(e) => handleAccesorioChange(index, 'reserva', e.target.value)} disabled={loading} sx={{ width: 100 }} placeholder="Código alfanumérico" />
-                      <IconButton size="small" color="error" onClick={() => removeAccesorio(index)} disabled={loading || formData.accesoriosCambiados.length <= 1}><DeleteIcon fontSize="small" /></IconButton>
+                      <TextField
+                        label="Cant"
+                        type="number"
+                        size="small"
+                        value={item.cantidad}
+                        onChange={(e) => handleAccesorioChange(index, 'cantidad', parseInt(e.target.value) || 0)}
+                        disabled={loading}
+                        sx={{ width: 60 }}
+                      />
+                      <TextField
+                        label="Código SAP"
+                        size="small"
+                        value={item.codigoSap}
+                        onChange={(e) => handleAccesorioChange(index, 'codigoSap', e.target.value)}
+                        disabled={loading}
+                        sx={{ flex: 1 }}
+                      />
+                      <TextField
+                        label="Detalle"
+                        size="small"
+                        value={item.detalle}
+                        onChange={(e) => handleAccesorioChange(index, 'detalle', e.target.value)}
+                        disabled={loading}
+                        sx={{ flex: 2 }}
+                      />
+                      <TextField
+                        label="Reserva"  // CAMBIO: "Total" → "Reserva"
+                        size="small"
+                        value={item.reserva || ''}
+                        onChange={(e) => handleAccesorioChange(index, 'reserva', e.target.value)}
+                        disabled={loading}
+                        sx={{ width: 100 }}
+                        placeholder="Código alfanumérico"
+                      />
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => removeAccesorio(index)}
+                        disabled={loading || formData.accesoriosCambiados.length <= 1}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
                     </Box>
                   </Paper>
                 ))}
-                <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addAccesorio} disabled={loading}>Agregar accesorio</Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={addAccesorio}
+                  disabled={loading}
+                >
+                  Agregar accesorio
+                </Button>
 
                 <Divider sx={{ my: 2 }} />
 
@@ -933,85 +1025,8 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
               </Box>
             )}
 
-            {/* ====== TAB 5: REGISTRO FOTOGRÁFICO ====== */}
+            {/* ====== TAB 5: FIRMA ====== */}
             {activeTab === 5 && (
-              <Box>
-                <Typography variant="h6" fontWeight="bold" color="primary" gutterBottom>
-                  📸 Registro Fotográfico
-                </Typography>
-                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 3 }}>
-                  Sube imágenes del estado del equipo antes y después del mantenimiento (máximo 5 imágenes por sección)
-                </Typography>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <Paper sx={{ p: 2, bgcolor: '#fef3c7', border: '1px solid #fcd34d' }}>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Typography variant="subtitle1" fontWeight="bold" color="#92400e">🔴 Antes del Mantenimiento</Typography>
-                        <Chip label={`${formData.registroFotografico.antes.length}/5`} size="small" color={formData.registroFotografico.antes.length >= 5 ? 'success' : 'warning'} />
-                      </Box>
-                      <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
-                        {formData.registroFotografico.antes.map((img) => (
-                          <Box key={img.id} sx={{ position: 'relative' }}>
-                            <img src={img.url} alt={img.nombre} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '2px solid #fcd34d' }} />
-                            <IconButton size="small" sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'white' }} onClick={() => handleRemoveFoto('antes', img.id)}><DeleteIcon fontSize="small" color="error" /></IconButton>
-                          </Box>
-                        ))}
-                        {formData.registroFotografico.antes.length === 0 && <Typography variant="caption" color="textSecondary" sx={{ p: 2 }}>No hay imágenes antes del mantenimiento</Typography>}
-                      </Box>
-                      <Box display="flex" gap={1} flexWrap="wrap">
-                        <Button size="small" variant="outlined" component="label" startIcon={<CloudUploadIcon />} disabled={formData.registroFotografico.antes.length >= 5}>
-                          Subir archivo
-                          <input type="file" hidden accept="image/*" multiple onChange={(e) => {
-                            const files = e.target.files;
-                            const remaining = 5 - formData.registroFotografico.antes.length;
-                            const toProcess = Math.min(files.length, remaining);
-                            for (let i = 0; i < toProcess; i++) handleAddFoto('antes', files[i]);
-                            e.target.value = '';
-                          }} />
-                        </Button>
-                        <Button size="small" variant="outlined" color="secondary" startIcon={<PhotoCameraIcon />} onClick={() => handleTomarFoto('antes')} disabled={formData.registroFotografico.antes.length >= 5}>Tomar foto</Button>
-                      </Box>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Paper sx={{ p: 2, bgcolor: '#dcfce7', border: '1px solid #4ade80' }}>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Typography variant="subtitle1" fontWeight="bold" color="#166534">🟢 Después del Mantenimiento</Typography>
-                        <Chip label={`${formData.registroFotografico.despues.length}/5`} size="small" color={formData.registroFotografico.despues.length >= 5 ? 'success' : 'warning'} />
-                      </Box>
-                      <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
-                        {formData.registroFotografico.despues.map((img) => (
-                          <Box key={img.id} sx={{ position: 'relative' }}>
-                            <img src={img.url} alt={img.nombre} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '2px solid #4ade80' }} />
-                            <IconButton size="small" sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'white' }} onClick={() => handleRemoveFoto('despues', img.id)}><DeleteIcon fontSize="small" color="error" /></IconButton>
-                          </Box>
-                        ))}
-                        {formData.registroFotografico.despues.length === 0 && <Typography variant="caption" color="textSecondary" sx={{ p: 2 }}>No hay imágenes después del mantenimiento</Typography>}
-                      </Box>
-                      <Box display="flex" gap={1} flexWrap="wrap">
-                        <Button size="small" variant="outlined" component="label" startIcon={<CloudUploadIcon />} disabled={formData.registroFotografico.despues.length >= 5}>
-                          Subir archivo
-                          <input type="file" hidden accept="image/*" multiple onChange={(e) => {
-                            const files = e.target.files;
-                            const remaining = 5 - formData.registroFotografico.despues.length;
-                            const toProcess = Math.min(files.length, remaining);
-                            for (let i = 0; i < toProcess; i++) handleAddFoto('despues', files[i]);
-                            e.target.value = '';
-                          }} />
-                        </Button>
-                        <Button size="small" variant="outlined" color="secondary" startIcon={<PhotoCameraIcon />} onClick={() => handleTomarFoto('despues')} disabled={formData.registroFotografico.despues.length >= 5}>Tomar foto</Button>
-                      </Box>
-                    </Paper>
-                  </Grid>
-                </Grid>
-                <Box sx={{ mt: 3, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
-                  <Typography variant="body2" color="textSecondary">📊 Resumen: {formData.registroFotografico.antes.length} imágenes antes • {formData.registroFotografico.despues.length} imágenes después</Typography>
-                </Box>
-              </Box>
-            )}
-
-            {/* ====== TAB 6: FIRMA ====== */}
-            {activeTab === 6 && (
               <Box>
                 <Typography variant="subtitle2" fontWeight="bold" color="primary" gutterBottom>
                   ✍️ Firma del Técnico
@@ -1019,58 +1034,63 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
                 
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Nombre Completo" value={formData.firmaTecnico.nombre} onChange={(e) => handleFirmaChange('nombre', e.target.value)} disabled={loading} />
+                    <TextField
+                      fullWidth
+                      label="Nombre Completo"
+                      value={formData.firmaTecnico.nombre}
+                      onChange={(e) => handleFirmaChange('nombre', e.target.value)}
+                      disabled={loading}
+                    />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Cargo" value={formData.firmaTecnico.cargo} onChange={(e) => handleFirmaChange('cargo', e.target.value)} disabled={loading} />
+                    <TextField
+                      fullWidth
+                      label="Cargo"
+                      value={formData.firmaTecnico.cargo}
+                      onChange={(e) => handleFirmaChange('cargo', e.target.value)}
+                      disabled={loading}
+                    />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Teléfono" value={formData.firmaTecnico.telefono} onChange={(e) => handleFirmaChange('telefono', e.target.value)} disabled={loading} />
+                    <TextField
+                      fullWidth
+                      label="Teléfono"
+                      value={formData.firmaTecnico.telefono}
+                      onChange={(e) => handleFirmaChange('telefono', e.target.value)}
+                      disabled={loading}
+                    />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Correo" value={formData.firmaTecnico.correo} onChange={(e) => handleFirmaChange('correo', e.target.value)} disabled={loading} />
+                    <TextField
+                      fullWidth
+                      label="Correo"
+                      value={formData.firmaTecnico.correo}
+                      onChange={(e) => handleFirmaChange('correo', e.target.value)}
+                      disabled={loading}
+                    />
                   </Grid>
                   <Grid item xs={12}>
-                    <TextField fullWidth label="Fecha" type="date" value={formData.firmaTecnico.fecha} onChange={(e) => handleFirmaChange('fecha', e.target.value)} InputLabelProps={{ shrink: true }} disabled={loading} />
+                    <TextField
+                      fullWidth
+                      label="Fecha"
+                      type="date"
+                      value={formData.firmaTecnico.fecha}
+                      onChange={(e) => handleFirmaChange('fecha', e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                      disabled={loading}
+                    />
                   </Grid>
                 </Grid>
 
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>🖊️ Firma Digital</Typography>
-                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>Dibuja tu firma en el recuadro inferior</Typography>
-                  
-                  <SignaturePad
-                    onSave={(dataUrl) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        firmaTecnico: {
-                          ...prev.firmaTecnico,
-                          firmaDigital: dataUrl
-                        }
-                      }));
-                      toast.success('✅ Firma guardada correctamente');
-                    }}
-                    onClear={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        firmaTecnico: {
-                          ...prev.firmaTecnico,
-                          firmaDigital: null
-                        }
-                      }));
-                    }}
-                    value={formData.firmaTecnico.firmaDigital}
-                    disabled={loading}
-                  />
-                  
-                  {formData.firmaTecnico.firmaDigital && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="caption" color="success.main">✅ Firma digital guardada</Typography>
-                      <Box sx={{ mt: 1, border: '1px solid #e5e7eb', borderRadius: 2, p: 1, display: 'inline-block' }}>
-                        <img src={formData.firmaTecnico.firmaDigital} alt="Firma digital" style={{ maxWidth: 200, maxHeight: 80 }} />
-                      </Box>
-                    </Box>
-                  )}
+                <Box sx={{ mt: 3, p: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #ccc' }}>
+                  <Typography variant="caption" color="textSecondary">
+                    Área de Firma (Espacio para imagen o firma digital)
+                  </Typography>
+                  <Box sx={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e5e7eb', borderRadius: 1, mt: 1 }}>
+                    <Typography variant="caption" color="textSecondary">
+                      Firma del Técnico
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
             )}
@@ -1079,8 +1099,16 @@ const MaintenanceForm = ({ open, onClose, maintenanceToEdit, isEditing, vsdId })
         </DialogContent>
 
         <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button onClick={handleClose} variant="outlined" color="inherit" disabled={loading}>Cancelar</Button>
-          <Button type="submit" variant="contained" color="primary" startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />} disabled={loading}>
+          <Button onClick={handleClose} variant="outlined" color="inherit" disabled={loading}>
+            Cancelar
+          </Button>
+          <Button 
+            type="submit" 
+            variant="contained" 
+            color="primary" 
+            startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+            disabled={loading}
+          >
             {loading ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Guardar')}
           </Button>
         </DialogActions>

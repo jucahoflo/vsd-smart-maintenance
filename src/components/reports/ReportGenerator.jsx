@@ -38,6 +38,99 @@ const ReportGenerator = ({ open, onClose }) => {
   const [reportData, setReportData] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
+  // ============ CONFIGURACIÓN ============
+  const CONFIG = {
+    marginLeft: 20,
+    marginRight: 20,
+    marginTop: 20,
+    marginBottom: 20,
+    fontFamily: 'helvetica',
+    fontSizeTitle: 14,
+    fontSizeSubtitle: 12,
+    fontSizeBody: 10,
+    fontSizeCaption: 8,
+    indent: 10,
+    imgMaxWidth: 150,
+    imgMaxHeight: 100,
+    imgSpacing: 10,
+    imgPerRow: 2
+  };
+
+  const getPageWidth = (doc) => doc.internal.pageSize.getWidth();
+  const getPageHeight = (doc) => doc.internal.pageSize.getHeight();
+  const getContentWidth = (doc) => getPageWidth(doc) - CONFIG.marginLeft - CONFIG.marginRight;
+
+  // ============ FUNCIÓN PARA CONVERTIR IMAGEN A BASE64 VÁLIDO ============
+  const convertirImagenBase64 = (imageData) => {
+    if (!imageData) return null;
+    
+    // Si ya es data:image, devolver tal cual
+    if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
+      return imageData;
+    }
+    
+    // Si es una URL, convertir a base64
+    if (typeof imageData === 'string' && (imageData.startsWith('http') || imageData.startsWith('/'))) {
+      // Para URLs, devolvemos la URL directamente y confiamos en que jsPDF la maneje
+      return imageData;
+    }
+    
+    return imageData;
+  };
+
+  // ============ FUNCIÓN PARA AGREGAR IMAGEN CON CONVERSIÓN ============
+  const agregarImagenSegura = (doc, imagenUrl, x, y, ancho, alto) => {
+    if (!imagenUrl) return false;
+    
+    try {
+      let imagenProcesada = imagenUrl;
+      
+      // Si es data:image pero no es PNG o JPEG, convertir a JPEG
+      if (typeof imagenUrl === 'string' && imagenUrl.startsWith('data:image')) {
+        // Extraer el tipo de imagen
+        const tipo = imagenUrl.split(';')[0].split('/')[1];
+        
+        // Si no es PNG o JPEG, crear un canvas para convertir
+        if (tipo && !['png', 'jpeg', 'jpg'].includes(tipo.toLowerCase())) {
+          try {
+            // Crear un elemento img para cargar la imagen
+            const img = new Image();
+            img.src = imagenUrl;
+            // Esperar a que cargue (sincrónico no funciona bien, pero intentamos)
+            // En lugar, usamos un enfoque diferente: agregar la imagen directamente
+            // y dejar que jsPDF intente manejarla
+          } catch (e) {
+            // Si falla, intentar agregar directamente
+          }
+        }
+      }
+      
+      // Intentar agregar la imagen
+      doc.addImage(imagenProcesada, 'JPEG', x, y, ancho, alto);
+      return true;
+    } catch (e) {
+      console.warn('Error al agregar imagen:', e);
+      
+      // Si falla, intentar con formato PNG
+      try {
+        doc.addImage(imagenUrl, 'PNG', x, y, ancho, alto);
+        return true;
+      } catch (e2) {
+        console.warn('Error al agregar imagen como PNG:', e2);
+        
+        // Dibujar un rectángulo como placeholder
+        doc.setDrawColor(200, 200, 200);
+        doc.setFillColor(245, 245, 245);
+        doc.roundedRect(x, y, ancho, alto, 3, 3, 'FD');
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(150, 150, 150);
+        doc.text('Imagen no disponible', x + ancho/2, y + alto/2, { align: 'center' });
+        return false;
+      }
+    }
+  };
+
   // ============ FUNCIÓN PARA AGREGAR LOGO ============
   const agregarLogo = (doc, x, y, size = 28) => {
     try {
@@ -45,19 +138,15 @@ const ReportGenerator = ({ open, onClose }) => {
       doc.addImage(logoUrl, 'PNG', x, y, size, size);
       return true;
     } catch (e) {
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(x, y, size, size, 3, 3, 'F');
-      doc.setDrawColor(60, 60, 60);
-      doc.roundedRect(x, y, size, size, 3, 3, 'S');
-      
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(10);
+      // Si falla, mostrar texto
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.text('INEMEC', x + 2, y + 12);
-      doc.setFontSize(5);
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.text('Industrial', x + 2, y + 19);
-      doc.text('& Mechanical', x + 2, y + 24);
+      doc.text('Industrial & Mechanical', x + 2, y + 19);
+      doc.text('Solutions', x + 2, y + 24);
       return false;
     }
   };
@@ -82,7 +171,7 @@ const ReportGenerator = ({ open, onClose }) => {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
-    doc.text('A continuación, un registro fotográfico de las condiciones de los equipos:', 15, y);
+    doc.text('Registro fotográfico de las condiciones de los equipos:', 15, y);
     y += 6;
 
     const maxImages = Math.min(imagenes.length, 4);
@@ -106,47 +195,122 @@ const ReportGenerator = ({ open, onClose }) => {
         const newX = startX + newCol * (imgSize + spacing);
         const newY = 20 + newRow * (imgSize + spacing + 15);
         
-        try {
-          doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
-          doc.setFontSize(7);
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(100, 100, 100);
-          doc.text(`Imagen ${i+1}`, newX + imgSize/2, newY + imgSize + 5, { align: 'center' });
-        } catch (e) {
-          doc.setDrawColor(200, 200, 200);
-          doc.setFillColor(240, 240, 240);
-          doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'italic');
-          doc.setTextColor(150, 150, 150);
-          doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
-          doc.text(`${i+1}`, newX + imgSize/2, newY + imgSize/2 + 6, { align: 'center' });
-        }
-        continue;
-      }
-      
-      try {
-        doc.addImage(imagenes[i].url, 'JPEG', x, yPos, imgSize, imgSize);
+        agregarImagenSegura(doc, imagenes[i].url, newX, newY, imgSize, imgSize);
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100, 100, 100);
-        doc.text(`Imagen ${i+1}`, x + imgSize/2, yPos + imgSize + 5, { align: 'center' });
-      } catch (e) {
-        doc.setDrawColor(200, 200, 200);
-        doc.setFillColor(240, 240, 240);
-        doc.roundedRect(x, yPos, imgSize, imgSize, 3, 3, 'FD');
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'italic');
-        doc.setTextColor(150, 150, 150);
-        doc.text('Imagen', x + imgSize/2, yPos + imgSize/2, { align: 'center' });
-        doc.text(`${i+1}`, x + imgSize/2, yPos + imgSize/2 + 6, { align: 'center' });
+        doc.text(`Imagen ${i+1}`, newX + imgSize/2, newY + imgSize + 5, { align: 'center' });
+        continue;
       }
+      
+      agregarImagenSegura(doc, imagenes[i].url, x, yPos, imgSize, imgSize);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Imagen ${i+1}`, x + imgSize/2, yPos + imgSize + 5, { align: 'center' });
     }
 
     const rows = Math.ceil(maxImages / imagesPerRow);
     y += rows * (imgSize + spacing + 15) + 10;
     
     return y;
+  };
+
+  // ============ FUNCIÓN PARA REGISTRO FOTOGRÁFICO ============
+  const agregarRegistroFotografico = (doc, registro, y, pageWidth) => {
+    if (!registro) return y;
+    const { antes, despues } = registro;
+    
+    if ((!antes || antes.length === 0) && (!despues || despues.length === 0)) {
+      return y;
+    }
+
+    if (y > 200) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 40, 40);
+    doc.text('📸 REGISTRO FOTOGRÁFICO', 15, y);
+    y += 8;
+
+    const mostrarImagenes = (imagenes, titulo, color, yPos) => {
+      if (!imagenes || imagenes.length === 0) return yPos;
+      
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(color === 'rojo' ? [200, 50, 50] : [50, 150, 50]);
+      doc.text(titulo, 20, yPos);
+      yPos += 6;
+
+      const imagesPerRow = 3;
+      const imgSize = 50;
+      const spacing = 5;
+      const startX = 20;
+
+      for (let i = 0; i < Math.min(imagenes.length, 5); i++) {
+        const row = Math.floor(i / imagesPerRow);
+        const col = i % imagesPerRow;
+        
+        const x = startX + col * (imgSize + spacing);
+        const yImg = yPos + row * (imgSize + spacing + 10);
+        
+        if (yImg + imgSize > 270) {
+          doc.addPage();
+          yPos = 20;
+          const newRow = 0;
+          const newCol = i % imagesPerRow;
+          const newX = startX + newCol * (imgSize + spacing);
+          const newY = 20 + newRow * (imgSize + spacing + 10);
+          agregarImagenSegura(doc, imagenes[i].url, newX, newY, imgSize, imgSize);
+          continue;
+        }
+        
+        agregarImagenSegura(doc, imagenes[i].url, x, yImg, imgSize, imgSize);
+      }
+
+      const rows = Math.ceil(Math.min(imagenes.length, 5) / imagesPerRow);
+      return yPos + rows * (imgSize + spacing + 10) + 8;
+    };
+
+    if (antes && antes.length > 0) {
+      y = mostrarImagenes(antes, '🔴 ANTES del mantenimiento:', 'rojo', y);
+    }
+
+    if (despues && despues.length > 0) {
+      y = mostrarImagenes(despues, '🟢 DESPUÉS del mantenimiento:', 'verde', y);
+    }
+
+    y += 5;
+    return y;
+  };
+
+  // ============ FUNCIÓN PARA FIRMA DIGITAL ============
+  const agregarFirmaDigital = (doc, firmaData, x, y, ancho = 80, alto = 40) => {
+    if (!firmaData) return y;
+    
+    try {
+      doc.addImage(firmaData, 'PNG', x, y, ancho, alto);
+      return y + alto + 5;
+    } catch (e) {
+      try {
+        doc.addImage(firmaData, 'JPEG', x, y, ancho, alto);
+        return y + alto + 5;
+      } catch (e2) {
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(150, 150, 150);
+        doc.text('(Firma digital no disponible)', x, y + 10);
+        return y + 15;
+      }
+    }
   };
 
   const generarReporte = () => {
@@ -219,7 +383,7 @@ const ReportGenerator = ({ open, onClose }) => {
 
         let y = 20;
 
-        // ============ ENCABEZADO CON LOGO ============
+        // ============ ENCABEZADO ============
         doc.setFillColor(40, 40, 40);
         doc.rect(0, 0, pageWidth, 38, 'F');
         agregarLogo(doc, 10, 5, 28);
@@ -356,7 +520,7 @@ const ReportGenerator = ({ open, onClose }) => {
 
         y = doc.lastAutoTable.finalY + 8;
 
-        // ============ 4. EVIDENCIA FOTOGRÁFICA (IMÁGENES DEL VSD) ============
+        // ============ 4. EVIDENCIA FOTOGRÁFICA ============
         const imagenesVSD = vsd.documentos?.imagenes || [];
         if (imagenesVSD.length > 0) {
           y = agregarImagenesVSD(doc, imagenesVSD, y, pageWidth);
@@ -566,94 +730,7 @@ const ReportGenerator = ({ open, onClose }) => {
 
         // ============ 9. REGISTRO FOTOGRÁFICO ============
         if (m.registroFotografico) {
-          const { antes, despues } = m.registroFotografico;
-          
-          if ((antes && antes.length > 0) || (despues && despues.length > 0)) {
-            if (y > 200) {
-              doc.addPage();
-              y = 20;
-            }
-
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(40, 40, 40);
-            doc.text('📸 REGISTRO FOTOGRÁFICO', 15, y);
-            y += 8;
-
-            const mostrarImagenes = (imagenes, titulo, color, yPos) => {
-              if (!imagenes || imagenes.length === 0) return yPos;
-              
-              if (yPos > 250) {
-                doc.addPage();
-                yPos = 20;
-              }
-
-              doc.setFontSize(9);
-              doc.setFont('helvetica', 'bold');
-              doc.setTextColor(color === 'rojo' ? [200, 50, 50] : [50, 150, 50]);
-              doc.text(titulo, 20, yPos);
-              yPos += 6;
-
-              const imagesPerRow = 3;
-              const imgSize = 50;
-              const spacing = 5;
-              const startX = 20;
-
-              for (let i = 0; i < Math.min(imagenes.length, 5); i++) {
-                const row = Math.floor(i / imagesPerRow);
-                const col = i % imagesPerRow;
-                
-                const x = startX + col * (imgSize + spacing);
-                const yImg = yPos + row * (imgSize + spacing + 10);
-                
-                if (yImg + imgSize > 270) {
-                  doc.addPage();
-                  yPos = 20;
-                  const newRow = 0;
-                  const newCol = i % imagesPerRow;
-                  const newX = startX + newCol * (imgSize + spacing);
-                  const newY = 20 + newRow * (imgSize + spacing + 10);
-                  try {
-                    doc.addImage(imagenes[i].url, 'JPEG', newX, newY, imgSize, imgSize);
-                  } catch (e) {
-                    doc.setDrawColor(200, 200, 200);
-                    doc.setFillColor(240, 240, 240);
-                    doc.roundedRect(newX, newY, imgSize, imgSize, 3, 3, 'FD');
-                    doc.setFontSize(6);
-                    doc.setFont('helvetica', 'italic');
-                    doc.setTextColor(150, 150, 150);
-                    doc.text('Imagen', newX + imgSize/2, newY + imgSize/2, { align: 'center' });
-                  }
-                  continue;
-                }
-                
-                try {
-                  doc.addImage(imagenes[i].url, 'JPEG', x, yImg, imgSize, imgSize);
-                } catch (e) {
-                  doc.setDrawColor(200, 200, 200);
-                  doc.setFillColor(240, 240, 240);
-                  doc.roundedRect(x, yImg, imgSize, imgSize, 3, 3, 'FD');
-                  doc.setFontSize(6);
-                  doc.setFont('helvetica', 'italic');
-                  doc.setTextColor(150, 150, 150);
-                  doc.text('Imagen', x + imgSize/2, yImg + imgSize/2, { align: 'center' });
-                }
-              }
-
-              const rows = Math.ceil(Math.min(imagenes.length, 5) / imagesPerRow);
-              return yPos + rows * (imgSize + spacing + 10) + 8;
-            };
-
-            if (antes && antes.length > 0) {
-              y = mostrarImagenes(antes, '🔴 ANTES del mantenimiento:', 'rojo', y);
-            }
-
-            if (despues && despues.length > 0) {
-              y = mostrarImagenes(despues, '🟢 DESPUÉS del mantenimiento:', 'verde', y);
-            }
-
-            y += 5;
-          }
+          y = agregarRegistroFotografico(doc, m.registroFotografico, y, pageWidth);
         }
 
         // ============ 10. CONCLUSIONES Y RECOMENDACIONES ============
@@ -730,6 +807,21 @@ const ReportGenerator = ({ open, onClose }) => {
         doc.setFont('helvetica', 'italic');
         doc.setTextColor(100, 100, 100);
         doc.text('Firma del Técnico', 15, y);
+
+        // ============ FIRMA DIGITAL ============
+        if (m.firmaTecnico?.firmaDigital) {
+          y += 12;
+          if (y > pageHeight - 30) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(40, 40, 40);
+          doc.text('Firma Digital:', 15, y);
+          y += 6;
+          y = agregarFirmaDigital(doc, m.firmaTecnico.firmaDigital, 15, y, 80, 40);
+        }
 
         // ============ PIE DE PÁGINA ============
         const pageCount = doc.internal.pages.length;

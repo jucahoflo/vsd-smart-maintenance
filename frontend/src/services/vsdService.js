@@ -13,15 +13,11 @@ export const crearVSD = async (datos) => {
 };
 
 export const actualizarVSD = async (datos) => {
-  const { codigo_vsd, ...datosSinCodigo } = datos;
-  
-  // Si el codigo_vsd es undefined o viene vacío, NO actualizar (Seguridad extra)
-  if (!codigo_vsd) {
-    console.error("Intento de actualizar sin codigo_vsd. Operación cancelada.");
-    return false;
-  }
+  // SEPARACIÓN ESTRICTA
+  const codigo_vsd = datos.codigo_vsd;
+  delete datos.codigo_vsd; // Borramos la propiedad del objeto que se va a enviar
 
-  const { error } = await supabase.from('vsd').update(datosSinCodigo).eq('codigo_vsd', codigo_vsd);
+  const { error } = await supabase.from('vsd').update(datos).eq('codigo_vsd', codigo_vsd);
   if (error) throw error;
   return true;
 };

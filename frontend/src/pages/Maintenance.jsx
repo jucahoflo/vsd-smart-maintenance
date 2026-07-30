@@ -49,10 +49,9 @@ const Maintenance = () => {
 
   const loadData = async () => {
     try {
-      const [recordsRes, vfdsRes, statsRes] = await Promise.all([
+      const [recordsRes, vfdsRes] = await Promise.all([
         maintenance.getAll(),
-        vfds.getAll(),
-        maintenance.getStats()
+        vfds.getAll()
       ]);
       
       const recordsData = recordsRes.data.data || [];
@@ -68,7 +67,17 @@ const Maintenance = () => {
       
       setRecords(recordsWithCodigo);
       setVfdsList(vfdsData);
-      setStats(statsRes.data.data || {});
+      
+      // Calcular estadísticas manualmente
+      const total = recordsData.length;
+      const completed = recordsData.filter(r => r.status === 'completed').length;
+      const pending = recordsData.filter(r => r.status === 'pending').length;
+      setStats({
+        total,
+        completed,
+        pending,
+        completionRate: total > 0 ? Math.round((completed / total) * 100) : 0
+      });
     } catch (error) {
       console.error('Error loading data:', error);
       showSnackbar('Error al cargar datos', 'error');
@@ -163,7 +172,7 @@ const Maintenance = () => {
 
       const dataToSend = {
         vfd_id: formData.vfd_id,
-        vfd_codigo: formData.vfd_codigo, // ✅ GUARDAMOS EL CÓDIGO
+        vfd_codigo: formData.vfd_codigo,
         type: formData.type,
         priority: formData.priority,
         scheduled_date: formData.scheduled_date,
@@ -426,7 +435,6 @@ const Maintenance = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* 🔑 BUSCAR VFD POR CÓDIGO SIMPLE */}
             <Grid item xs={12}>
               <Box display="flex" gap={1} alignItems="center">
                 <TextField

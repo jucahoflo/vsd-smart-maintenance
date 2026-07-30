@@ -1,20 +1,30 @@
 import { supabase } from './supabaseClient';
 
 export const crearVSD = async (datos) => {
-  const { data: ultimo } = await supabase.from('vsd').select('codigo_vsd').order('created_at', { ascending: false }).limit(1).maybeSingle();
-  let nuevo = "V001";
-  if (ultimo?.codigo_vsd) {
-    const num = parseInt(ultimo.codigo_vsd.replace('V', '')) + 1;
-    nuevo = `V${num.toString().padStart(3, '0')}`;
-  }
-  const { data, error } = await supabase.from('vsd').insert({ codigo_vsd: nuevo, ...datos }).select().single();
+  // Obtener la cantidad total de VSDs actuales en la base de datos
+  const { count, error } = await supabase
+    .from('vsd')
+    .select('*', { count: 'exact', head: true });
+
   if (error) throw error;
+
+  // Generar el código basado en el conteo actual + 1
+  const siguienteNumero = (count || 0) + 1;
+  const nuevoCodigo = `V${siguienteNumero.toString().padStart(3, '0')}`;
+
+  const { data, error: insertError } = await supabase
+    .from('vsd')
+    .insert({ codigo_vsd: nuevoCodigo, ...datos })
+    .select()
+    .single();
+
+  if (insertError) throw insertError;
   return data;
 };
 
 export const actualizarVSD = async (datos) => {
   const { id, codigo_vsd, ...datosSinCodigo } = datos;
-  if (!id) throw new Error("Error Crítico: No se encontró el ID.");
+  if (!id) throw new Error("Error: ID no encontrado.");
   const { error } = await supabase.from('vsd').update(datosSinCodigo).eq('id', id);
   if (error) throw error;
   return true;

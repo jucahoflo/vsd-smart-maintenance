@@ -1,9 +1,6 @@
 const { supabaseAdmin } = require('../config/supabase');
 
 class VFDController {
-  // ===========================
-  // GET - Todos los VFDs
-  // ===========================
   async getAll(req, res) {
     try {
       const { data, error } = await supabaseAdmin
@@ -19,13 +16,11 @@ class VFDController {
         data
       });
     } catch (error) {
+      console.error('Error en getAll:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  // ===========================
-  // GET - VFD por ID
-  // ===========================
   async getById(req, res) {
     try {
       const { id } = req.params;
@@ -33,7 +28,7 @@ class VFDController {
       const { data, error } = await supabaseAdmin
         .from('vfds')
         .select('*')
-        .eq('id', id)
+        .or(`id.eq.${id},equipment_id_simple.eq.${id}`)
         .single();
 
       if (error) throw error;
@@ -47,33 +42,49 @@ class VFDController {
 
       res.json({ success: true, data });
     } catch (error) {
+      console.error('Error en getById:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  // ===========================
-  // POST - Crear VFD
-  // ===========================
   async create(req, res) {
     try {
+      const año = new Date().getFullYear();
+      
+      // Obtener el último código para este año
+      const { data: lastVFD, error: lastError } = await supabaseAdmin
+        .from('vfds')
+        .select('codigo')
+        .like('codigo', `VSD-${año}-%`)
+        .order('codigo', { ascending: false })
+        .limit(1);
+
+      let consecutivo = 1;
+      if (lastVFD && lastVFD.length > 0 && lastVFD[0].codigo) {
+        const parts = lastVFD[0].codigo.split('-');
+        if (parts.length === 3) {
+          const lastNum = parseInt(parts[2]);
+          if (!isNaN(lastNum)) {
+            consecutivo = lastNum + 1;
+          }
+        }
+      }
+
+      const codigo = `VSD-${año}-${String(consecutivo).padStart(3, '0')}`;
+
       const vfdData = {
         ...req.body,
-        user_id: req.user.id
+        codigo,
+        user_id: req.user?.id || null
       };
 
-      // Verificar si ya existe equipment_id
-      const { data: existing } = await supabaseAdmin
-        .from('vfds')
-        .select('equipment_id')
-        .eq('equipment_id', vfdData.equipment_id)
-        .single();
+      // ✅ EL equipment_id_simple se genera automáticamente por el trigger
+      // ✅ equipment_id se genera automáticamente por el trigger
 
-      if (existing) {
-        return res.status(400).json({
-          success: false,
-          error: 'Equipment ID ya existe'
-        });
-      }
+      if (vfdData.serial_number === '') delete vfdData.serial_number;
+      if (vfdData.power_rating === '') delete vfdData.power_rating;
+      if (vfdData.voltage_rating === '') delete vfdData.voltage_rating;
+      if (vfdData.kva === '') delete vfdData.kva;
 
       const { data, error } = await supabaseAdmin
         .from('vfds')
@@ -89,30 +100,14 @@ class VFDController {
         data
       });
     } catch (error) {
+      console.error('Error en create:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  // ===========================
-  // PUT - Actualizar VFD
-  // ===========================
   async update(req, res) {
     try {
       const { id } = req.params;
-
-      // Verificar si existe
-      const { data: existing, error: findError } = await supabaseAdmin
-        .from('vfds')
-        .select('id')
-        .eq('id', id)
-        .single();
-
-      if (findError || !existing) {
-        return res.status(404).json({
-          success: false,
-          error: 'VFD no encontrado'
-        });
-      }
 
       const { data, error } = await supabaseAdmin
         .from('vfds')
@@ -132,29 +127,14 @@ class VFDController {
         data
       });
     } catch (error) {
+      console.error('Error en update:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  // ===========================
-  // DELETE - Eliminar VFD
-  // ===========================
   async delete(req, res) {
     try {
       const { id } = req.params;
-
-      const { data: existing } = await supabaseAdmin
-        .from('vfds')
-        .select('id')
-        .eq('id', id)
-        .single();
-
-      if (!existing) {
-        return res.status(404).json({
-          success: false,
-          error: 'VFD no encontrado'
-        });
-      }
 
       const { error } = await supabaseAdmin
         .from('vfds')
@@ -168,13 +148,124 @@ class VFDController {
         message: '✅ VFD eliminado exitosamente'
       });
     } catch (error) {
+      console.error('Error en delete:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
   // ===========================
-  // GET - Telemetría del VFD
+  // ✅ BUSCAR VFD POR CÓDIGO SIMPLE (V001, V002...)
   // ===========================
+  async buscarPorCodigoSimple(req, res) {
+    try {
+      const { codigo } = req.params;
+
+      const { data, error } = await supabaseAdmin
+        .from('vfds')
+        .select('*')
+        .eq('equipment_id_simple', codigo.toUpperCase())
+        .single();
+
+      if (error || !data) {
+        return res.status(404).json({
+          success: false,
+          error: `No se encontró VFD con código ${codigo}`
+        });
+      }
+
+      res.json({
+        success: true,
+        data
+      });
+    } catch (error) {
+      console.error('Error en buscarPorCodigoSimple:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // ===========================
+  // ✅ BUSCAR VFD POR CÓDIGO (VSD-2024-001)
+  // ===========================
+  async buscarPorCodigo(req, res) {
+    try {
+      const { codigo } = req.params;
+
+      const { data, error } = await supabaseAdmin
+        .from('vfds')
+        .select('*')
+        .eq('codigo', codigo)
+        .single();
+
+      if (error || !data) {
+        return res.status(404).json({
+          success: false,
+          error: `No se encontró VFD con código ${codigo}`
+        });
+      }
+
+      res.json({
+        success: true,
+        data
+      });
+    } catch (error) {
+      console.error('Error en buscarPorCodigo:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // ===========================
+  // ✅ REPORTE COMPLETO POR CÓDIGO SIMPLE
+  // ===========================
+  async getReporteCompleto(req, res) {
+    try {
+      const { codigo } = req.params;
+
+      const { data: vfd, error } = await supabaseAdmin
+        .from('vfds')
+        .select('*')
+        .eq('equipment_id_simple', codigo.toUpperCase())
+        .single();
+
+      if (error || !vfd) {
+        return res.status(404).json({
+          success: false,
+          error: `No se encontró VFD con código ${codigo}`
+        });
+      }
+
+      const { data: mantenimientos } = await supabaseAdmin
+        .from('maintenance_records')
+        .select('*')
+        .eq('vfd_id', vfd.id)
+        .order('created_at', { ascending: false });
+
+      const { data: inventario } = await supabaseAdmin
+        .from('inventory')
+        .select('*')
+        .eq('vfd_id', vfd.id);
+
+      const { data: alertas } = await supabaseAdmin
+        .from('alerts')
+        .select('*')
+        .eq('vfd_id', vfd.id)
+        .order('created_at', { ascending: false });
+
+      res.json({
+        success: true,
+        data: {
+          vfd,
+          mantenimientos: mantenimientos || [],
+          inventario: inventario || [],
+          alertas: alertas || [],
+          total_mantenimientos: mantenimientos?.length || 0
+        }
+      });
+    } catch (error) {
+      console.error('Error en getReporteCompleto:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   async getTelemetry(req, res) {
     try {
       const { id } = req.params;
@@ -195,13 +286,11 @@ class VFDController {
         data
       });
     } catch (error) {
+      console.error('Error en getTelemetry:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  // ===========================
-  // GET - Mantenimiento del VFD
-  // ===========================
   async getMaintenance(req, res) {
     try {
       const { id } = req.params;
@@ -220,13 +309,11 @@ class VFDController {
         data
       });
     } catch (error) {
+      console.error('Error en getMaintenance:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
-  // ===========================
-  // GET - Alertas del VFD
-  // ===========================
   async getAlerts(req, res) {
     try {
       const { id } = req.params;
@@ -245,6 +332,7 @@ class VFDController {
         data
       });
     } catch (error) {
+      console.error('Error en getAlerts:', error);
       res.status(500).json({ success: false, error: error.message });
     }
   }

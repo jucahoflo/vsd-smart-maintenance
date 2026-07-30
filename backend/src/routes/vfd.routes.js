@@ -3,31 +3,29 @@ const router = express.Router();
 const VFDController = require('../controllers/vfd.controller');
 const { authMiddleware, authorize } = require('../middleware/auth');
 
-// Todas las rutas requieren autenticación
 router.use(authMiddleware);
 
-// GET - Todos los VFDs
+// Rutas principales
 router.get('/', VFDController.getAll);
-
-// GET - VFD por ID
 router.get('/:id', VFDController.getById);
 
-// GET - Telemetría del VFD
-router.get('/:id/telemetry', VFDController.getTelemetry);
+// ✅ NUEVA: Buscar por código simple (V001, V002...)
+router.get('/buscar-simple/:codigo', VFDController.buscarPorCodigoSimple);
 
-// GET - Mantenimiento del VFD
-router.get('/:id/maintenance', VFDController.getMaintenance);
+// ✅ NUEVA: Buscar por código (VSD-2024-001)
+router.get('/buscar/:codigo', VFDController.buscarPorCodigo);
 
-// GET - Alertas del VFD
-router.get('/:id/alerts', VFDController.getAlerts);
+// ✅ NUEVA: Reporte completo por código simple
+router.get('/reporte/:codigo', VFDController.getReporteCompleto);
 
-// POST - Crear VFD (supervisor/admin)
+// CRUD
 router.post('/', authorize(['supervisor', 'admin']), VFDController.create);
-
-// PUT - Actualizar VFD (supervisor/admin)
 router.put('/:id', authorize(['supervisor', 'admin']), VFDController.update);
-
-// DELETE - Eliminar VFD (solo admin)
 router.delete('/:id', authorize(['admin']), VFDController.delete);
+
+// Otras rutas
+router.get('/:id/telemetry', VFDController.getTelemetry);
+router.get('/:id/maintenance', VFDController.getMaintenance);
+router.get('/:id/alerts', VFDController.getAlerts);
 
 module.exports = router;

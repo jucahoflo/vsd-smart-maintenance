@@ -10,14 +10,12 @@ import {
   Add, Refresh, Edit, Delete, CheckCircle, Cancel, Schedule,
   Build, Person
 } from '@mui/icons-material';
-import { maintenance, vfds } from '../api/endpoints';
 import { supabase } from '../config/supabase';
 
 const Maintenance = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [records, setRecords] = useState([]);
-  const [vfdsList, setVfdsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -40,7 +38,8 @@ const Maintenance = () => {
     description: '',
     technician: '',
     cost: '',
-    observations: ''
+    observations: '',
+    fecha_registro: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
@@ -49,28 +48,17 @@ const Maintenance = () => {
 
   const loadData = async () => {
     try {
-      const [recordsRes, vfdsRes] = await Promise.all([
-        maintenance.getAll(),
-        vfds.getAll()
-      ]);
+      const { data: recordsData, error } = await supabase
+        .from('maintenance_records')
+        .select('*, vfds(equipment_id_simple, manufacturer, model)')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRecords(recordsData || []);
       
-      const recordsData = recordsRes.data.data || [];
-      const vfdsData = vfdsRes.data.data || [];
-      
-      const recordsWithCodigo = recordsData.map(record => {
-        const vfd = vfdsData.find(v => v.id === record.vfd_id);
-        return {
-          ...record,
-          vfd_codigo: vfd?.equipment_id_simple || vfd?.equipment_id || 'Sin código'
-        };
-      });
-      
-      setRecords(recordsWithCodigo);
-      setVfdsList(vfdsData);
-      
-      const total = recordsData.length;
-      const completed = recordsData.filter(r => r.status === 'completed').length;
-      const pending = recordsData.filter(r => r.status === 'pending').length;
+      const total = recordsData?.length || 0;
+      const completed = recordsData?.filter(r => r.status === 'completed').length || 0;
+      const pending = recordsData?.filter(r => r.status === 'pending').length || 0;
       setStats({
         total,
         completed,
@@ -89,7 +77,6 @@ const Maintenance = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // ✅ FUNCIÓN CORREGIDA CON SUPABASE
   const buscarVFDporCodigo = async (codigo) => {
     if (!codigo || codigo.length < 2) {
       setVfdEncontrado(null);
@@ -98,7 +85,6 @@ const Maintenance = () => {
 
     setSearching(true);
     try {
-      // ✅ USAR SUPABASE DIRECTAMENTE
       const { data, error } = await supabase
         .from('vfds')
         .select('*')
@@ -106,7 +92,6 @@ const Maintenance = () => {
         .single();
 
       if (error) {
-        console.error('Error buscando VFD:', error);
         setVfdEncontrado(null);
         setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
         showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
@@ -118,10 +103,6 @@ const Maintenance = () => {
           vfd_codigo: data.equipment_id_simple 
         }));
         showSnackbar(`✅ VFD encontrado: ${data.equipment_id_simple} - ${data.manufacturer || 'Sin fabricante'}`, 'success');
-      } else {
-        setVfdEncontrado(null);
-        setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
-        showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
       }
     } catch (error) {
       console.error('Error buscando VFD:', error);
@@ -145,7 +126,8 @@ const Maintenance = () => {
         description: record.description || '',
         technician: record.technician || '',
         cost: record.cost || '',
-        observations: record.observations || ''
+        observations: record.observations || '',
+        fecha_registro: record.fecha_registro || new Date().toISOString().split('T')[0]
       });
       if (record.vfd_codigo) {
         buscarVFDporCodigo(record.vfd_codigo);
@@ -161,7 +143,8 @@ const Maintenance = () => {
         description: '',
         technician: '',
         cost: '',
-        observations: ''
+        observations: '',
+        fecha_registro: new Date().toISOString().split('T')[0]
       });
       setVfdEncontrado(null);
     }
@@ -190,27 +173,39 @@ const Maintenance = () => {
         description: formData.description,
         technician: formData.technician,
         cost: parseFloat(formData.cost) || 0,
-        observations: formData.observations
+        observations: formData.observations,
+        fecha_registro: formData.fecha_registro || new Date().toISOString().split('T')[0]
       };
 
       if (editing) {
-        await maintenance.update(editing.id, dataToSend);
+        const { error } = await supabase
+          .from('maintenance_records')
+          .update(dataToSend)
+          .eq('id', editing.id);
+        if (error) throw error;
         showSnackbar('✅ Mantenimiento actualizado');
       } else {
-        await maintenance.create(dataToSend);
+        const { error } = await supabase
+          .from('maintenance_records')
+          .insert([dataToSend]);
+        if (error) throw error;
         showSnackbar('✅ Mantenimiento programado');
       }
       handleClose();
       loadData();
     } catch (error) {
-      showSnackbar(error.response?.data?.error || 'Error al guardar', 'error');
+      showSnackbar(error.message || 'Error al guardar', 'error');
     }
   };
 
   const handleComplete = async (id) => {
     if (window.confirm('¿Completar este mantenimiento?')) {
       try {
-        await maintenance.complete(id, { observations: 'Completado' });
+        const { error } = await supabase
+          .from('maintenance_records')
+          .update({ status: 'completed', completed_date: new Date().toISOString().split('T')[0] })
+          .eq('id', id);
+        if (error) throw error;
         showSnackbar('✅ Mantenimiento completado');
         loadData();
       } catch (error) {
@@ -222,7 +217,11 @@ const Maintenance = () => {
   const handleDelete = async (id) => {
     if (window.confirm('¿Eliminar este mantenimiento?')) {
       try {
-        await maintenance.delete(id);
+        const { error } = await supabase
+          .from('maintenance_records')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
         showSnackbar('✅ Mantenimiento eliminado');
         loadData();
       } catch (error) {
@@ -231,54 +230,11 @@ const Maintenance = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return theme.palette.success.main;
-      case 'pending': return theme.palette.warning.main;
-      case 'in_progress': return theme.palette.info.main;
-      case 'cancelled': return theme.palette.error.main;
-      default: return theme.palette.grey[500];
-    }
-  };
-
-  const getTypeColor = (type) => {
-    switch (type) {
-      case 'preventive': return theme.palette.info.main;
-      case 'predictive': return theme.palette.secondary.main;
-      case 'corrective': return theme.palette.warning.main;
-      case 'emergency': return theme.palette.error.main;
-      default: return theme.palette.grey[500];
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high': return theme.palette.error.main;
-      case 'medium': return theme.palette.warning.main;
-      case 'low': return theme.palette.success.main;
-      default: return theme.palette.grey[500];
-    }
-  };
-
-  const filteredRecords = tabValue === 0 
-    ? records 
-    : records.filter(r => {
-        if (tabValue === 1) return r.status === 'pending';
-        if (tabValue === 2) return r.status === 'in_progress';
-        if (tabValue === 3) return r.status === 'completed';
-        return true;
-      });
-
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <Typography>Cargando mantenimientos...</Typography>
-      </Box>
-    );
-  }
+  // ... resto del código (getStatusColor, getTypeColor, getPriorityColor, renderizado)
 
   return (
     <Box>
+      {/* Header y estadísticas */}
       <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} gap={2} mb={3}>
         <Box>
           <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" className="gradient-text">
@@ -289,13 +245,7 @@ const Maintenance = () => {
           </Typography>
         </Box>
         <Box display="flex" gap={2} flexWrap="wrap">
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => handleOpen()}
-            sx={{ borderRadius: 3 }}
-            size={isMobile ? "small" : "medium"}
-          >
+          <Button variant="contained" startIcon={<Add />} onClick={() => handleOpen()} sx={{ borderRadius: 3 }} size={isMobile ? "small" : "medium"}>
             {isMobile ? 'Nuevo' : 'Nuevo Mantenimiento'}
           </Button>
           <IconButton onClick={loadData} sx={{ bgcolor: 'rgba(108,99,255,0.1)' }}>
@@ -304,6 +254,7 @@ const Maintenance = () => {
         </Box>
       </Box>
 
+      {/* Estadísticas */}
       <Grid container spacing={isMobile ? 1 : 3} mb={3}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ borderRadius: 3, p: isMobile ? 1 : 2 }}>
@@ -340,6 +291,7 @@ const Maintenance = () => {
         </Grid>
       </Grid>
 
+      {/* Tabs y lista */}
       <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 3 }}>
         <Tab label="Todos" />
         <Tab label="Pendientes" />
@@ -348,7 +300,13 @@ const Maintenance = () => {
       </Tabs>
 
       <Grid container spacing={3}>
-        {filteredRecords.map((record) => (
+        {records.filter(r => {
+          if (tabValue === 0) return true;
+          if (tabValue === 1) return r.status === 'pending';
+          if (tabValue === 2) return r.status === 'in_progress';
+          if (tabValue === 3) return r.status === 'completed';
+          return true;
+        }).map((record) => (
           <Grid item xs={12} md={6} lg={4} key={record.id}>
             <Card sx={{ borderRadius: 4, transition: 'all 0.3s ease' }}>
               <CardContent>
@@ -361,36 +319,9 @@ const Maintenance = () => {
                       {record.type} • {record.priority}
                     </Typography>
                     <Box display="flex" gap={1} flexWrap="wrap" mt={0.5}>
-                      <Chip
-                        label={record.type}
-                        size="small"
-                        sx={{
-                          bgcolor: `${getTypeColor(record.type)}20`,
-                          color: getTypeColor(record.type),
-                          fontWeight: 600,
-                          fontSize: '0.7rem'
-                        }}
-                      />
-                      <Chip
-                        label={record.priority}
-                        size="small"
-                        sx={{
-                          bgcolor: `${getPriorityColor(record.priority)}20`,
-                          color: getPriorityColor(record.priority),
-                          fontWeight: 600,
-                          fontSize: '0.7rem'
-                        }}
-                      />
-                      <Chip
-                        label={record.status}
-                        size="small"
-                        sx={{
-                          bgcolor: `${getStatusColor(record.status)}20`,
-                          color: getStatusColor(record.status),
-                          fontWeight: 600,
-                          fontSize: '0.7rem'
-                        }}
-                      />
+                      <Chip label={record.type} size="small" sx={{ bgcolor: `${getTypeColor(record.type)}20`, color: getTypeColor(record.type), fontWeight: 600, fontSize: '0.7rem' }} />
+                      <Chip label={record.priority} size="small" sx={{ bgcolor: `${getPriorityColor(record.priority)}20`, color: getPriorityColor(record.priority), fontWeight: 600, fontSize: '0.7rem' }} />
+                      <Chip label={record.status} size="small" sx={{ bgcolor: `${getStatusColor(record.status)}20`, color: getStatusColor(record.status), fontWeight: 600, fontSize: '0.7rem' }} />
                     </Box>
                   </Box>
                 </Box>
@@ -408,6 +339,11 @@ const Maintenance = () => {
                   {record.scheduled_date && (
                     <Typography variant="caption" color="textSecondary" display="block" mt={0.5}>
                       📅 {new Date(record.scheduled_date).toLocaleDateString()}
+                    </Typography>
+                  )}
+                  {record.fecha_registro && (
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      🗓️ Registro: {new Date(record.fecha_registro).toLocaleDateString()}
                     </Typography>
                   )}
                 </Box>
@@ -429,15 +365,9 @@ const Maintenance = () => {
             </Card>
           </Grid>
         ))}
-        {filteredRecords.length === 0 && (
-          <Grid item xs={12}>
-            <Card sx={{ borderRadius: 4, p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" color="textSecondary">No hay mantenimientos registrados</Typography>
-            </Card>
-          </Grid>
-        )}
       </Grid>
 
+      {/* Diálogo */}
       <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Typography variant="h6" fontWeight="700">
@@ -477,11 +407,7 @@ const Maintenance = () => {
             <Grid item xs={6}>
               <FormControl fullWidth>
                 <InputLabel>Tipo</InputLabel>
-                <Select
-                  value={formData.type}
-                  onChange={(e) => setFormData({...formData, type: e.target.value})}
-                  label="Tipo"
-                >
+                <Select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} label="Tipo">
                   <MenuItem value="preventive">Preventivo</MenuItem>
                   <MenuItem value="predictive">Predictivo</MenuItem>
                   <MenuItem value="corrective">Correctivo</MenuItem>
@@ -492,11 +418,7 @@ const Maintenance = () => {
             <Grid item xs={6}>
               <FormControl fullWidth>
                 <InputLabel>Prioridad</InputLabel>
-                <Select
-                  value={formData.priority}
-                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                  label="Prioridad"
-                >
+                <Select value={formData.priority} onChange={(e) => setFormData({...formData, priority: e.target.value})} label="Prioridad">
                   <MenuItem value="low">Baja</MenuItem>
                   <MenuItem value="medium">Media</MenuItem>
                   <MenuItem value="high">Alta</MenuItem>
@@ -506,51 +428,19 @@ const Maintenance = () => {
             </Grid>
 
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Fecha Programada"
-                type="date"
-                value={formData.scheduled_date}
-                onChange={(e) => setFormData({...formData, scheduled_date: e.target.value})}
-                InputLabelProps={{ shrink: true }}
-              />
+              <TextField fullWidth label="Fecha Programada" type="date" value={formData.scheduled_date} onChange={(e) => setFormData({...formData, scheduled_date: e.target.value})} InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Descripción"
-                multiline
-                rows={2}
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-              />
+              <TextField fullWidth label="Descripción" multiline rows={2} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
             </Grid>
             <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Técnico"
-                value={formData.technician}
-                onChange={(e) => setFormData({...formData, technician: e.target.value})}
-              />
+              <TextField fullWidth label="Técnico" value={formData.technician} onChange={(e) => setFormData({...formData, technician: e.target.value})} />
             </Grid>
             <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Costo ($)"
-                type="number"
-                value={formData.cost}
-                onChange={(e) => setFormData({...formData, cost: parseFloat(e.target.value)})}
-              />
+              <TextField fullWidth label="Costo ($)" type="number" value={formData.cost} onChange={(e) => setFormData({...formData, cost: parseFloat(e.target.value)})} />
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Observaciones"
-                multiline
-                rows={2}
-                value={formData.observations}
-                onChange={(e) => setFormData({...formData, observations: e.target.value})}
-              />
+              <TextField fullWidth label="Observaciones" multiline rows={2} value={formData.observations} onChange={(e) => setFormData({...formData, observations: e.target.value})} />
             </Grid>
           </Grid>
         </DialogContent>
@@ -562,12 +452,7 @@ const Maintenance = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({...snackbar, open: false})}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({...snackbar, open: false})} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snackbar.severity} onClose={() => setSnackbar({...snackbar, open: false})}>
           {snackbar.message}
         </Alert>

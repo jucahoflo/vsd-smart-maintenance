@@ -185,18 +185,24 @@ const VFDs = () => {
 
   const handleSave = async () => {
     try {
-      // Generar código automático V001, V002...
-      const { data: lastVFD } = await supabase
+      // ✅ GENERAR CÓDIGO AUTOMÁTICO V001, V002...
+      const { data: lastVFD, error: lastError } = await supabase
         .from('vfds')
         .select('equipment_id_simple')
         .order('equipment_id_simple', { ascending: false })
         .limit(1);
 
+      if (lastError) console.error('Error obteniendo último VFD:', lastError);
+
       let newCode = 'V001';
       if (lastVFD && lastVFD.length > 0 && lastVFD[0].equipment_id_simple) {
         const lastNum = parseInt(lastVFD[0].equipment_id_simple.replace('V', ''));
-        newCode = `V${String(lastNum + 1).padStart(3, '0')}`;
+        if (!isNaN(lastNum)) {
+          newCode = `V${String(lastNum + 1).padStart(3, '0')}`;
+        }
       }
+
+      console.log('📌 Nuevo código generado:', newCode);
 
       const dataToSend = {
         equipment_id_simple: newCode,
@@ -286,7 +292,6 @@ const VFDs = () => {
     return theme.palette.error.main;
   };
 
-  // ✅ VFDCard definido dentro del componente
   const VFDCard = ({ vfd }) => {
     const images = [vfd.image_url1, vfd.image_url2].filter(Boolean);
 

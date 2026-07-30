@@ -12,3 +12,6 @@ frontend/.vercel/
 .vercel/
 *.vercel
 
+
+.vercel
+.env*

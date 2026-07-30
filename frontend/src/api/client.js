@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-// ✅ URL correcta según el entorno
+// ✅ Usar la URL del backend en Vercel (producción)
 const API_URL = import.meta.env.MODE === 'development' 
   ? 'http://localhost:5000/api'
-  : 'https://qztpmddggqdmaykelcpz.supabase.co'; // Usar Supabase directamente
+  : 'https://vsd-backend-alpha.vercel.app/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -12,7 +12,6 @@ const api = axios.create({
   }
 });
 
-// Token de prueba
 const TEST_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1NTY1ZWRiLTZiNWMtNGQ4NC1iM2U3LTE1MTA3YWZmZDNjMCIsInVzZXJuYW1lIjoianVjYTc2MDMiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODUyOTA5MTAsImV4cCI6MTc4NTg5NTcxMH0.Tnp3zIEGvBxRNN0oDyMojePXeGDjmEgW9oiPHm20Oaw';
 
 api.interceptors.request.use((config) => {

@@ -17,7 +17,7 @@ const VSDPage = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
   const [formData, setFormData] = useState({
-    equipment_id_simple: '',
+    codigo_vsd: '',
     manufacturer: '',
     model: '',
     status: 'online',
@@ -32,9 +32,9 @@ const VSDPage = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('vfds')
+        .from('vsd')
         .select('*')
-        .order('equipment_id_simple', { ascending: true });
+        .order('codigo_vsd', { ascending: true });
 
       if (error) throw error;
       setVfds(data || []);
@@ -54,7 +54,7 @@ const VSDPage = () => {
     if (vfd) {
       setEditing(vfd);
       setFormData({
-        equipment_id_simple: vfd.equipment_id_simple,
+        codigo_vsd: vfd.codigo_vsd,
         manufacturer: vfd.manufacturer || '',
         model: vfd.model || '',
         status: vfd.status || 'online',
@@ -63,7 +63,7 @@ const VSDPage = () => {
     } else {
       setEditing(null);
       setFormData({
-        equipment_id_simple: '',
+        codigo_vsd: '',
         manufacturer: '',
         model: '',
         status: 'online',
@@ -81,7 +81,7 @@ const VSDPage = () => {
   const handleSave = async () => {
     try {
       if (editing) {
-        const codigoOriginal = editing.equipment_id_simple;
+        const codigoOriginal = editing.codigo_vsd;
         const dataToSend = {
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',
@@ -89,8 +89,11 @@ const VSDPage = () => {
           health_score: parseInt(formData.health_score) || 100
         };
 
-        console.log('🔍 ACTUALIZANDO:', codigoOriginal);
-        const { error } = await supabase.from('vfds').update(dataToSend).eq('id', editing.id);
+        const { error } = await supabase
+          .from('vsd')
+          .update(dataToSend)
+          .eq('id', editing.id);
+
         if (error) throw error;
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
@@ -114,7 +117,7 @@ const VSDPage = () => {
   const handleDelete = async (id) => {
     if (window.confirm('¿Eliminar este VSD?')) {
       try {
-        const { error } = await supabase.from('vfds').delete().eq('id', id);
+        const { error } = await supabase.from('vsd').delete().eq('id', id);
         if (error) throw error;
         showSnackbar('✅ VSD eliminado');
         loadData();
@@ -173,7 +176,7 @@ const VSDPage = () => {
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="start">
                   <Box>
-                    <Typography variant="h6" fontWeight="700">{vfd.equipment_id_simple}</Typography>
+                    <Typography variant="h6" fontWeight="700">{vfd.codigo_vsd}</Typography>
                     <Typography variant="body2" color="textSecondary">{vfd.manufacturer || 'Sin fabricante'} {vfd.model || ''}</Typography>
                   </Box>
                   <Chip label={getStatusLabel(vfd.status)} color={getStatusColor(vfd.status)} size="small" />
@@ -200,7 +203,7 @@ const VSDPage = () => {
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
-              <TextField fullWidth label="🔑 Código del VSD" value={formData.equipment_id_simple} disabled InputProps={{ readOnly: true, sx: { backgroundColor: '#f5f5f5' } }} />
+              <TextField fullWidth label="🔑 Código del VSD" value={formData.codigo_vsd} disabled InputProps={{ readOnly: true, sx: { backgroundColor: '#f5f5f5' } }} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Fabricante" value={formData.manufacturer} onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })} />

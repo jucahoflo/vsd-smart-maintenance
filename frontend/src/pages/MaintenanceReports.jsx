@@ -481,8 +481,8 @@ const MaintenanceReports = () => {
                       setVfdEncontrado(null);
                     }
                   }}
-                  placeholder="Ingresa el código del VFD"
-                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Ej: V001, V002'}
+                  placeholder="Ingresa el código del VFD (ej: V001)"
+                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Escribe V001, V002, etc.'}
                   disabled={searching}
                 />
                 {searching && <CircularProgress size={24} />}

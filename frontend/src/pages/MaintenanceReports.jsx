@@ -107,7 +107,7 @@ const MaintenanceReports = () => {
   };
 
   const buscarVFDporCodigo = async (codigo) => {
-    if (!codigo || codigo.length < 2) {
+    if (!codigo || codigo.length < 3) {
       setVfdEncontrado(null);
       return;
     }
@@ -197,6 +197,8 @@ const MaintenanceReports = () => {
       if (report.vfd_codigo) {
         buscarVFDporCodigo(report.vfd_codigo);
       }
+      setPhotosBefore([]);
+      setPhotosAfter([]);
     } else {
       setEditing(null);
       setFormData({
@@ -464,7 +466,6 @@ const MaintenanceReports = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* 🔑 BUSCAR VFD POR CÓDIGO */}
             <Grid item xs={12}>
               <Box display="flex" gap={1} alignItems="center">
                 <TextField
@@ -474,8 +475,10 @@ const MaintenanceReports = () => {
                   onChange={(e) => {
                     const value = e.target.value.toUpperCase();
                     setFormData({...formData, vfd_codigo: value});
-                    if (value.length >= 2) {
+                    if (value.length >= 3) {
                       buscarVFDporCodigo(value);
+                    } else {
+                      setVfdEncontrado(null);
                     }
                   }}
                   placeholder="Ingresa el código del VFD"

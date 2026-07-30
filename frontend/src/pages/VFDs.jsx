@@ -29,6 +29,7 @@ const VFDs = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
+    equipment_id: '',
     manufacturer: '',
     model: '',
     serial_number: '',
@@ -140,6 +141,7 @@ const VFDs = () => {
     if (vfd) {
       setEditing(vfd);
       setFormData({
+        equipment_id: vfd.equipment_id || '',
         manufacturer: vfd.manufacturer || '',
         model: vfd.model || '',
         serial_number: vfd.serial_number || '',
@@ -156,6 +158,7 @@ const VFDs = () => {
     } else {
       setEditing(null);
       setFormData({
+        equipment_id: '',
         manufacturer: '',
         model: '',
         serial_number: '',
@@ -181,6 +184,7 @@ const VFDs = () => {
   const handleSave = async () => {
     try {
       const dataToSend = {
+        equipment_id: formData.equipment_id || null,
         manufacturer: formData.manufacturer || null,
         model: formData.model || null,
         serial_number: formData.serial_number || null,
@@ -195,6 +199,7 @@ const VFDs = () => {
         notes: formData.notes || null
       };
 
+      // âŒ ELIMINAR CAMPOS VACÃOS PARA EVITAR ERRORES 400
       Object.keys(dataToSend).forEach(key => {
         if (dataToSend[key] === '' || dataToSend[key] === null || dataToSend[key] === undefined) {
           delete dataToSend[key];
@@ -423,7 +428,7 @@ const VFDs = () => {
 
           {vfd.notes && (
             <Typography variant="caption" color="textSecondary" display="block" mt={0.5} sx={{ fontStyle: 'italic', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
-              í³ {vfd.notes.length > 60 ? vfd.notes.substring(0, 60) + '...' : vfd.notes}
+              ðŸ“ {vfd.notes.length > 60 ? vfd.notes.substring(0, 60) + '...' : vfd.notes}
             </Typography>
           )}
 
@@ -510,6 +515,15 @@ const VFDs = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Equipment ID"
+                value={formData.equipment_id}
+                onChange={(e) => setFormData({...formData, equipment_id: e.target.value})}
+                required
+              />
+            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth

@@ -14,7 +14,13 @@ export const crearVSD = async (datos) => {
 
 export const actualizarVSD = async (datos) => {
   const { codigo_vsd, ...datosSinCodigo } = datos;
-  if (!codigo_vsd) throw new Error("Error: codigo_vsd no puede estar vacio");
+  
+  // Si el codigo_vsd es undefined o viene vacío, NO actualizar (Seguridad extra)
+  if (!codigo_vsd) {
+    console.error("Intento de actualizar sin codigo_vsd. Operación cancelada.");
+    return false;
+  }
+
   const { error } = await supabase.from('vsd').update(datosSinCodigo).eq('codigo_vsd', codigo_vsd);
   if (error) throw error;
   return true;

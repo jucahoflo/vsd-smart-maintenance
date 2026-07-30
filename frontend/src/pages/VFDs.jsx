@@ -345,6 +345,11 @@ const VFDs = () => {
               <Typography variant="body2" color="textSecondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.875rem' }}>
                 {vfd.manufacturer} • {vfd.model}
               </Typography>
+              {vfd.codigo && (
+                <Typography variant="caption" color="primary" sx={{ fontSize: isMobile ? '0.6rem' : '0.7rem' }}>
+                  🔑 {vfd.codigo}
+                </Typography>
+              )}
             </Box>
             <Chip
               icon={getStatusIcon(vfd.status)}

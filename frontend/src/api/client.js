@@ -1,33 +1,85 @@
-import axios from 'axios';
+import { supabase } from '../config/supabase';
 
-// ✅ Usar la URL del backend en Vercel (producción)
+// Usar Supabase directamente
 const API_URL = import.meta.env.MODE === 'development' 
   ? 'http://localhost:5000/api'
-  : 'https://vsd-backend-alpha.vercel.app/api';
+  : null; // En producción usamos Supabase directamente
 
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
+const api = {
+  get: async (url) => {
+    if (API_URL) {
+      // Desarrollo: usar axios local
+      const axios = (await import('axios')).default;
+      return axios.get(`${API_URL}${url}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+    }
+    // Producción: usar Supabase
+    const table = url.split('/').filter(Boolean)[0];
+    const { data, error } = await supabase
+      .from(table)
+      .select('*');
+    if (error) throw error;
+    return { data: { data } };
+  },
+  post: async (url, body) => {
+    if (API_URL) {
+      const axios = (await import('axios')).default;
+      return axios.post(`${API_URL}${url}`, body, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+    }
+    const table = url.split('/').filter(Boolean)[0];
+    const { data, error } = await supabase
+      .from(table)
+      .insert([body])
+      .select();
+    if (error) throw error;
+    return { data: { data: data[0] } };
+  },
+  put: async (url, body) => {
+    if (API_URL) {
+      const axios = (await import('axios')).default;
+      return axios.put(`${API_URL}${url}`, body, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+    }
+    const parts = url.split('/').filter(Boolean);
+    const table = parts[0];
+    const id = parts[1];
+    const { data, error } = await supabase
+      .from(table)
+      .update(body)
+      .eq('id', id)
+      .select();
+    if (error) throw error;
+    return { data: { data: data[0] } };
+  },
+  delete: async (url) => {
+    if (API_URL) {
+      const axios = (await import('axios')).default;
+      return axios.delete(`${API_URL}${url}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+    }
+    const parts = url.split('/').filter(Boolean);
+    const table = parts[0];
+    const id = parts[1];
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return { data: { success: true } };
   }
-});
-
-const TEST_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1NTY1ZWRiLTZiNWMtNGQ4NC1iM2U3LTE1MTA3YWZmZDNjMCIsInVzZXJuYW1lIjoianVjYTc2MDMiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODUyOTA5MTAsImV4cCI6MTc4NTg5NTcxMH0.Tnp3zIEGvBxRNN0oDyMojePXeGDjmEgW9oiPHm20Oaw';
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token') || TEST_TOKEN;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error.response?.data || error.message);
-    return Promise.reject(error);
-  }
-);
+};
 
 export default api;

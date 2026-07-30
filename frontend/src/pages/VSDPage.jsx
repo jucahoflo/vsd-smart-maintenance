@@ -7,7 +7,6 @@ import {
 } from '@mui/material';
 import { Add, Refresh, Edit, Delete, Speed } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
-import { crearVSD, actualizarVSD } from '../services/vsdService';
 
 const VSDPage = () => {
   const [vfds, setVfds] = useState([]);
@@ -32,7 +31,7 @@ const VSDPage = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('vsd') // ✅ AHORA APUNTA A LA TABLA LIMPIA
+        .from('vsd')
         .select('*')
         .order('codigo_vsd', { ascending: true });
 
@@ -89,19 +88,33 @@ const VSDPage = () => {
         };
 
         const { error } = await supabase
-          .from('vsd') // ✅ AHORA APUNTA A LA TABLA LIMPIA
+          .from('vsd')
           .update(dataToSend)
           .eq('id', editing.id);
 
         if (error) throw error;
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
-        await crearVSD({
-          manufacturer: formData.manufacturer || '',
-          model: formData.model || '',
-          status: formData.status || 'online',
-          health_score: parseInt(formData.health_score) || 100
-        });
+        const { count, error: countError } = await supabase
+          .from('vsd')
+          .select('*', { count: 'exact', head: true });
+
+        if (countError) throw countError;
+
+        const siguienteNumero = (count || 0) + 1;
+        const nuevoCodigo = `V${siguienteNumero.toString().padStart(3, '0')}`;
+
+        const { error } = await supabase
+          .from('vsd')
+          .insert({
+            codigo_vsd: nuevoCodigo,
+            manufacturer: formData.manufacturer || '',
+            model: formData.model || '',
+            status: formData.status || 'online',
+            health_score: parseInt(formData.health_score) || 100
+          });
+
+        if (error) throw error;
         showSnackbar('✅ VSD creado correctamente');
       }
       
@@ -116,7 +129,10 @@ const VSDPage = () => {
   const handleDelete = async (id) => {
     if (window.confirm('¿Eliminar este VSD?')) {
       try {
-        const { error } = await supabase.from('vsd').delete().eq('id', id);
+        const { error } = await supabase
+          .from('vsd')
+          .delete()
+          .eq('id', id);
         if (error) throw error;
         showSnackbar('✅ VSD eliminado');
         loadData();
@@ -195,6 +211,14 @@ const VSDPage = () => {
             </Card>
           </Grid>
         ))}
+        {vfds.length === 0 && (
+          <Grid item xs={12}>
+            <Card sx={{ borderRadius: 4, p: 4, textAlign: 'center' }}>
+              <Typography variant="h6" color="textSecondary">No hay VSDs registrados</Typography>
+              <Typography variant="body2" color="textSecondary" mt={1}>Haz clic en "Nuevo VSD" para crear el primero</Typography>
+            </Card>
+          </Grid>
+        )}
       </Grid>
 
       <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>

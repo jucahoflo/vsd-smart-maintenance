@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import { Add, Refresh, Edit, Delete, Speed } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
+import { crearVSD, actualizarVSD } from '../services/vsdService';
 
 const VSDPage = () => {
   const [vfds, setVfds] = useState([]);
@@ -50,23 +51,6 @@ const VSDPage = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const generarSiguienteCodigo = () => {
-    if (vfds.length === 0) {
-      return 'V001';
-    }
-
-    const numeros = vfds
-      .map(v => {
-        const match = v.equipment_id_simple?.match(/V(\d+)/);
-        return match ? parseInt(match[1]) : 0;
-      })
-      .filter(n => n > 0);
-
-    const maxNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
-    const siguiente = maxNumero + 1;
-    return `V${String(siguiente).padStart(3, '0')}`;
-  };
-
   const handleOpen = (vfd = null) => {
     if (vfd) {
       console.log('✏️ Editando VSD:', vfd.equipment_id_simple);
@@ -79,12 +63,9 @@ const VSDPage = () => {
         health_score: vfd.health_score || 100
       });
     } else {
-      const nuevoCodigo = generarSiguienteCodigo();
-      console.log('🆕 Nuevo VSD, código generado:', nuevoCodigo);
-      
       setEditing(null);
       setFormData({
-        equipment_id_simple: nuevoCodigo,
+        equipment_id_simple: '',
         manufacturer: '',
         model: '',
         status: 'online',
@@ -101,52 +82,19 @@ const VSDPage = () => {
 
   const handleSave = async () => {
     try {
-      if (!formData.equipment_id_simple) {
-        showSnackbar('❌ El código del VSD es obligatorio', 'error');
-        return;
-      }
-
-      const dataToSend = {
-        manufacturer: formData.manufacturer || '',
-        model: formData.model || '',
-        status: formData.status || 'online',
-        health_score: parseInt(formData.health_score) || 100
-      };
-
       if (editing) {
-        console.log('📝 Actualizando VSD (código fijo):', editing.equipment_id_simple);
-        
-        const { error } = await supabase
-          .from('vfds')
-          .update(dataToSend)
-          .eq('id', editing.id);
-        
-        if (error) throw error;
+        const { id, equipment_id_simple, ...dataToSend } = formData;
+        await actualizarVSD({ id, ...dataToSend, codigo_vsd: equipment_id_simple });
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
-        const newData = {
+        const { equipment_id_simple, ...dataToSend } = formData;
+        await crearVSD({
           ...dataToSend,
-          equipment_id_simple: formData.equipment_id_simple.toUpperCase()
-        };
-
-        console.log('📝 Creando nuevo VSD:', newData.equipment_id_simple);
-        
-        const { data: existing } = await supabase
-          .from('vfds')
-          .select('equipment_id_simple')
-          .eq('equipment_id_simple', newData.equipment_id_simple)
-          .single();
-
-        if (existing) {
-          showSnackbar(`❌ El código ${newData.equipment_id_simple} ya existe`, 'error');
-          return;
-        }
-
-        const { error } = await supabase
-          .from('vfds')
-          .insert([newData]);
-        
-        if (error) throw error;
+          nombre: formData.manufacturer,
+          modelo: formData.model,
+          estado: formData.status,
+          health_score: formData.health_score
+        });
         showSnackbar('✅ VSD creado correctamente');
       }
       
@@ -321,13 +269,12 @@ const VSDPage = () => {
                   fullWidth
                   label="🔑 Código del VSD"
                   value={formData.equipment_id_simple}
-                  onChange={(e) => {
-                    const value = e.target.value.toUpperCase();
-                    setFormData({ ...formData, equipment_id_simple: value });
+                  disabled
+                  helperText="El código se asignará automáticamente al guardar"
+                  InputProps={{
+                    readOnly: true,
+                    sx: { backgroundColor: '#f5f5f5' }
                   }}
-                  helperText="Código autogenerado, puedes modificarlo si es necesario"
-                  inputProps={{ pattern: '^V\\d{3}$' }}
-                  autoFocus={true}
                 />
               )}
             </Grid>

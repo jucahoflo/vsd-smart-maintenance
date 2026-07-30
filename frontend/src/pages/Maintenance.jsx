@@ -8,10 +8,10 @@ import {
 } from '@mui/material';
 import {
   Add, Refresh, Edit, Delete, CheckCircle, Cancel, Schedule,
-  Build, Person, Search
+  Build, Person
 } from '@mui/icons-material';
 import { maintenance, vfds } from '../api/endpoints';
-import api from '../api/client';
+import { supabase } from '../config/supabase';
 
 const Maintenance = () => {
   const theme = useTheme();
@@ -89,6 +89,7 @@ const Maintenance = () => {
     setSnackbar({ open: true, message, severity });
   };
 
+  // ✅ FUNCIÓN CORREGIDA CON SUPABASE
   const buscarVFDporCodigo = async (codigo) => {
     if (!codigo || codigo.length < 2) {
       setVfdEncontrado(null);
@@ -97,19 +98,30 @@ const Maintenance = () => {
 
     setSearching(true);
     try {
-      const res = await api.get(`/vfds/buscar-simple/${codigo}`);
-      const vfd = res.data.data;
-      setVfdEncontrado(vfd || null);
-      if (vfd) {
+      // ✅ USAR SUPABASE DIRECTAMENTE
+      const { data, error } = await supabase
+        .from('vfds')
+        .select('*')
+        .eq('equipment_id_simple', codigo.toUpperCase())
+        .single();
+
+      if (error) {
+        console.error('Error buscando VFD:', error);
+        setVfdEncontrado(null);
+        setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
+        showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
+      } else if (data) {
+        setVfdEncontrado(data);
         setFormData(prev => ({ 
           ...prev, 
-          vfd_id: vfd.id,
-          vfd_codigo: vfd.equipment_id_simple 
+          vfd_id: data.id,
+          vfd_codigo: data.equipment_id_simple 
         }));
-        showSnackbar(`✅ VFD encontrado: ${vfd.equipment_id_simple} - ${vfd.manufacturer || 'Sin fabricante'}`, 'success');
+        showSnackbar(`✅ VFD encontrado: ${data.equipment_id_simple} - ${data.manufacturer || 'Sin fabricante'}`, 'success');
       } else {
-        showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
+        setVfdEncontrado(null);
         setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
+        showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
       }
     } catch (error) {
       console.error('Error buscando VFD:', error);
@@ -448,7 +460,7 @@ const Maintenance = () => {
                     }
                   }}
                   placeholder="Ingresa el código del VFD"
-                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'} ${vfdEncontrado.model || ''}` : 'Ej: V001, V002'}
+                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Ej: V001, V002'}
                   disabled={searching}
                 />
                 {searching && <CircularProgress size={24} />}

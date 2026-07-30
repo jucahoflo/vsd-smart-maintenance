@@ -20,11 +20,8 @@ export default function EditVSD() {
 
   useEffect(() => {
     const loadVSD = async () => {
-      const { data, error } = await supabase
-        .from('vsd')
-        .select('*')
-        .eq('codigo_vsd', codigo_vsd)
-        .single();
+      if (!codigo_vsd) return;
+      const { data, error } = await supabase.from('vsd').select('*').eq('codigo_vsd', codigo_vsd).single();
       if (error) console.error(error);
       if (data) setVsdData(data);
       setLoading(false);
@@ -39,11 +36,15 @@ export default function EditVSD() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await actualizarVSD(vsdData);
-    navigate(`/vsds/${vsdData.codigo_vsd}`);
+    try {
+      await actualizarVSD(vsdData);
+      navigate(`/vsds/${vsdData.codigo_vsd}`);
+    } catch (error) {
+      alert("Error al guardar: " + error.message);
+    }
   };
 
-  if (loading) return <div>Cargando datos del VSD...</div>;
+  if (loading) return <div>Cargando datos...</div>;
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -51,86 +52,24 @@ export default function EditVSD() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">Código VSD</label>
-          <input
-            type="text"
-            name="codigo_vsd"
-            value={vsdData.codigo_vsd}
-            disabled
-            className="w-full p-2 border rounded bg-gray-200 cursor-not-allowed"
-          />
+          <input type="text" value={vsdData.codigo_vsd} disabled className="w-full p-2 border rounded bg-gray-200 cursor-not-allowed" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Nombre</label>
-          <input
-            type="text"
-            name="nombre"
-            value={vsdData.nombre}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
-          />
+          <input type="text" name="nombre" value={vsdData.nombre} onChange={handleChange} className="w-full p-2 border rounded" required />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Modelo</label>
-          <input
-            type="text"
-            name="modelo"
-            value={vsdData.modelo}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
-          />
+          <input type="text" name="modelo" value={vsdData.modelo} onChange={handleChange} className="w-full p-2 border rounded" required />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Estado</label>
-          <select
-            name="estado"
-            value={vsdData.estado}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-          >
+          <select name="estado" value={vsdData.estado} onChange={handleChange} className="w-full p-2 border rounded">
             <option value="online">Online</option>
             <option value="offline">Offline</option>
           </select>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Potencia (kW)</label>
-            <input
-              type="text"
-              name="potencia"
-              value={vsdData.potencia || ''}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Voltaje (V)</label>
-            <input
-              type="text"
-              name="voltaje"
-              value={vsdData.voltaje || ''}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">KVA</label>
-            <input
-              type="text"
-              name="kva"
-              value={vsdData.kva || ''}
-              onChange={handleChange}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-        </div>
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-        >
-          Guardar Cambios
-        </button>
+        <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Guardar Cambios</button>
       </form>
     </div>
   );

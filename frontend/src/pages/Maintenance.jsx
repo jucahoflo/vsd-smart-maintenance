@@ -77,6 +77,36 @@ const Maintenance = () => {
     setSnackbar({ open: true, message, severity });
   };
 
+  // ✅ FUNCIONES DE COLOR
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return theme.palette.success.main;
+      case 'pending': return theme.palette.warning.main;
+      case 'in_progress': return theme.palette.info.main;
+      case 'cancelled': return theme.palette.error.main;
+      default: return theme.palette.grey[500];
+    }
+  };
+
+  const getTypeColor = (type) => {
+    switch (type) {
+      case 'preventive': return theme.palette.info.main;
+      case 'predictive': return theme.palette.secondary.main;
+      case 'corrective': return theme.palette.warning.main;
+      case 'emergency': return theme.palette.error.main;
+      default: return theme.palette.grey[500];
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return theme.palette.error.main;
+      case 'medium': return theme.palette.warning.main;
+      case 'low': return theme.palette.success.main;
+      default: return theme.palette.grey[500];
+    }
+  };
+
   const buscarVFDporCodigo = async (codigo) => {
     if (!codigo || codigo.length < 2) {
       setVfdEncontrado(null);
@@ -230,11 +260,25 @@ const Maintenance = () => {
     }
   };
 
-  // ... resto del código (getStatusColor, getTypeColor, getPriorityColor, renderizado)
+  const filteredRecords = tabValue === 0 
+    ? records 
+    : records.filter(r => {
+        if (tabValue === 1) return r.status === 'pending';
+        if (tabValue === 2) return r.status === 'in_progress';
+        if (tabValue === 3) return r.status === 'completed';
+        return true;
+      });
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <Typography>Cargando mantenimientos...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box>
-      {/* Header y estadísticas */}
       <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} gap={2} mb={3}>
         <Box>
           <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" className="gradient-text">
@@ -254,7 +298,6 @@ const Maintenance = () => {
         </Box>
       </Box>
 
-      {/* Estadísticas */}
       <Grid container spacing={isMobile ? 1 : 3} mb={3}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ borderRadius: 3, p: isMobile ? 1 : 2 }}>
@@ -291,7 +334,6 @@ const Maintenance = () => {
         </Grid>
       </Grid>
 
-      {/* Tabs y lista */}
       <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 3 }}>
         <Tab label="Todos" />
         <Tab label="Pendientes" />
@@ -300,13 +342,7 @@ const Maintenance = () => {
       </Tabs>
 
       <Grid container spacing={3}>
-        {records.filter(r => {
-          if (tabValue === 0) return true;
-          if (tabValue === 1) return r.status === 'pending';
-          if (tabValue === 2) return r.status === 'in_progress';
-          if (tabValue === 3) return r.status === 'completed';
-          return true;
-        }).map((record) => (
+        {filteredRecords.map((record) => (
           <Grid item xs={12} md={6} lg={4} key={record.id}>
             <Card sx={{ borderRadius: 4, transition: 'all 0.3s ease' }}>
               <CardContent>
@@ -319,9 +355,36 @@ const Maintenance = () => {
                       {record.type} • {record.priority}
                     </Typography>
                     <Box display="flex" gap={1} flexWrap="wrap" mt={0.5}>
-                      <Chip label={record.type} size="small" sx={{ bgcolor: `${getTypeColor(record.type)}20`, color: getTypeColor(record.type), fontWeight: 600, fontSize: '0.7rem' }} />
-                      <Chip label={record.priority} size="small" sx={{ bgcolor: `${getPriorityColor(record.priority)}20`, color: getPriorityColor(record.priority), fontWeight: 600, fontSize: '0.7rem' }} />
-                      <Chip label={record.status} size="small" sx={{ bgcolor: `${getStatusColor(record.status)}20`, color: getStatusColor(record.status), fontWeight: 600, fontSize: '0.7rem' }} />
+                      <Chip
+                        label={record.type}
+                        size="small"
+                        sx={{
+                          bgcolor: `${getTypeColor(record.type)}20`,
+                          color: getTypeColor(record.type),
+                          fontWeight: 600,
+                          fontSize: '0.7rem'
+                        }}
+                      />
+                      <Chip
+                        label={record.priority}
+                        size="small"
+                        sx={{
+                          bgcolor: `${getPriorityColor(record.priority)}20`,
+                          color: getPriorityColor(record.priority),
+                          fontWeight: 600,
+                          fontSize: '0.7rem'
+                        }}
+                      />
+                      <Chip
+                        label={record.status}
+                        size="small"
+                        sx={{
+                          bgcolor: `${getStatusColor(record.status)}20`,
+                          color: getStatusColor(record.status),
+                          fontWeight: 600,
+                          fontSize: '0.7rem'
+                        }}
+                      />
                     </Box>
                   </Box>
                 </Box>
@@ -365,9 +428,15 @@ const Maintenance = () => {
             </Card>
           </Grid>
         ))}
+        {filteredRecords.length === 0 && (
+          <Grid item xs={12}>
+            <Card sx={{ borderRadius: 4, p: 4, textAlign: 'center' }}>
+              <Typography variant="h6" color="textSecondary">No hay mantenimientos registrados</Typography>
+            </Card>
+          </Grid>
+        )}
       </Grid>
 
-      {/* Diálogo */}
       <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Typography variant="h6" fontWeight="700">

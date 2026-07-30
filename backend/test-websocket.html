@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VSD WebSocket Test</title>
+</head>
+<body>
+    <h1>🔌 VSD Smart Maintenance - WebSocket Test</h1>
+    <div id="status">Conectando...</div>
+    <div id="data"></div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io('http://localhost:5000');
+        const vfdId = 'bb4da02b-59be-4f3d-9864-6ca91f03cf9e';
+
+        socket.on('connect', () => {
+            document.getElementById('status').innerHTML = '✅ Conectado al WebSocket';
+            console.log('Conectado al WebSocket');
+
+            // Unirse a sala del VFD
+            socket.emit('join-vfd', vfdId);
+            console.log(`Unido al VFD: ${vfdId}`);
+        });
+
+        socket.on('telemetry-received', (data) => {
+            document.getElementById('data').innerHTML = `
+                <h3>📊 Telemetría en tiempo real</h3>
+                <p>Frecuencia: ${data.frequency} Hz</p>
+                <p>Voltaje: ${data.voltage} V</p>
+                <p>Corriente: ${data.current} A</p>
+                <p>Potencia: ${data.power} kW</p>
+                <p>Temperatura: ${data.temperature} °C</p>
+                <p>Torque: ${data.torque} %</p>
+                <small>${new Date(data.timestamp).toLocaleString()}</small>
+            `;
+        });
+
+        socket.on('alerts', (alerts) => {
+            alert(`🚨 Nueva alerta: ${alerts.length} alertas detectadas`);
+            console.log('Alertas:', alerts);
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('status').innerHTML = '❌ Desconectado';
+        });
+    </script>
+</body>
+</html>

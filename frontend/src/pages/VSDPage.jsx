@@ -32,7 +32,7 @@ const VSDPage = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('vsd')
+        .from('vsd') // ✅ AHORA APUNTA A LA TABLA LIMPIA
         .select('*')
         .order('codigo_vsd', { ascending: true });
 
@@ -81,7 +81,6 @@ const VSDPage = () => {
   const handleSave = async () => {
     try {
       if (editing) {
-        // 🚨 USAMOS EL CÓDIGO QUE YA ESTÁ EN LA BASE DE DATOS
         const dataToSend = {
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',
@@ -90,7 +89,7 @@ const VSDPage = () => {
         };
 
         const { error } = await supabase
-          .from('vsd')
+          .from('vsd') // ✅ AHORA APUNTA A LA TABLA LIMPIA
           .update(dataToSend)
           .eq('id', editing.id);
 

@@ -81,26 +81,21 @@ const VSDPage = () => {
   const handleSave = async () => {
     try {
       if (editing) {
-        // CRUCIAL: Usar el código original del VSD que estamos editando, NO el del formulario
         const codigoOriginal = editing.equipment_id_simple;
-        
         const dataToSend = {
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',
           status: formData.status || 'online',
           health_score: parseInt(formData.health_score) || 100
         };
-
-        console.log('📝 Actualizando VSD:', codigoOriginal);
         await actualizarVSD({
           id: editing.id,
-          codigo_vsd: codigoOriginal, // Pasamos el código original y fijo
+          codigo_vsd: codigoOriginal,
           ...dataToSend
         });
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
         const { equipment_id_simple, ...dataToSend } = formData;
-        console.log('📝 Creando nuevo VSD');
         await crearVSD({
           ...dataToSend,
           nombre: formData.manufacturer,
@@ -110,7 +105,6 @@ const VSDPage = () => {
         });
         showSnackbar('✅ VSD creado correctamente');
       }
-      
       handleClose();
       loadData();
     } catch (error) {

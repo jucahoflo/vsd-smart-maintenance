@@ -16,10 +16,25 @@ import Settings from './pages/Settings';
 const theme = createTheme({
   palette: {
     mode: 'light',
-    primary: { main: '#1a237e' },
-    secondary: { main: '#dc004e' },
+    primary: { 
+      main: '#6C63FF',
+      light: '#8B83FF',
+      dark: '#4A42CC',
+    },
+    secondary: { 
+      main: '#FF6B6B',
+      light: '#FF8E8E',
+      dark: '#CC4A4A',
+    },
+    background: {
+      default: '#F0F2F5',
+      paper: '#FFFFFF',
+    },
   },
   shape: { borderRadius: 12 },
+  typography: {
+    fontFamily: '"Inter", "Segoe UI", "Roboto", sans-serif',
+  },
 });
 
 function App() {

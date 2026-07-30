@@ -8,11 +8,20 @@ export const SocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+    // SOLO CONECTAR EN DESARROLLO LOCAL
+    const isDevelopment = import.meta.env.MODE === 'development';
+    
+    if (!isDevelopment) {
+      console.log('🔌 WebSocket desactivado en producción');
+      setConnected(false);
+      return;
+    }
+
     console.log('🔌 Intentando conectar WebSocket...');
     
     const newSocket = io('http://localhost:5000', {
       transports: ['polling', 'websocket'],
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 3,
       reconnectionDelay: 1000
     });
 
@@ -23,6 +32,7 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on('connect_error', (err) => {
       console.error('❌ WebSocket error:', err.message);
+      setConnected(false);
     });
 
     newSocket.on('disconnect', () => {
@@ -33,7 +43,7 @@ export const SocketProvider = ({ children }) => {
     setSocket(newSocket);
 
     return () => {
-      newSocket.close();
+      if (newSocket) newSocket.close();
     };
   }, []);
 

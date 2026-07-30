@@ -31,14 +31,14 @@ const VSDPage = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('vsd')
+        .from('vsd') // ✅ CAMBIADO DE vfds A vsd
         .select('*')
         .order('codigo_vsd', { ascending: true });
 
       if (error) throw error;
       setVfds(data || []);
     } catch (error) {
-      console.error('❌ Error loading VSDs:', error);
+      console.error('❌ Error al cargar VSDs:', error);
       showSnackbar('Error al cargar VSDs', 'error');
     } finally {
       setLoading(false);
@@ -88,7 +88,7 @@ const VSDPage = () => {
         };
 
         const { error } = await supabase
-          .from('vsd')
+          .from('vsd') // ✅ CAMBIADO DE vfds A vsd
           .update(dataToSend)
           .eq('id', editing.id);
 
@@ -96,7 +96,7 @@ const VSDPage = () => {
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
         const { count, error: countError } = await supabase
-          .from('vsd')
+          .from('vsd') // ✅ CAMBIADO DE vfds A vsd
           .select('*', { count: 'exact', head: true });
 
         if (countError) throw countError;
@@ -105,7 +105,7 @@ const VSDPage = () => {
         const nuevoCodigo = `V${siguienteNumero.toString().padStart(3, '0')}`;
 
         const { error } = await supabase
-          .from('vsd')
+          .from('vsd') // ✅ CAMBIADO DE vfds A vsd
           .insert({
             codigo_vsd: nuevoCodigo,
             manufacturer: formData.manufacturer || '',
@@ -130,7 +130,7 @@ const VSDPage = () => {
     if (window.confirm('¿Eliminar este VSD?')) {
       try {
         const { error } = await supabase
-          .from('vsd')
+          .from('vsd') // ✅ CAMBIADO DE vfds A vsd
           .delete()
           .eq('id', id);
         if (error) throw error;

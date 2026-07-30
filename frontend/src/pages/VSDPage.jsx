@@ -81,30 +81,36 @@ const VSDPage = () => {
   const handleSave = async () => {
     try {
       if (editing) {
+        // Usar el código original que ya está en la base de datos
         const codigoOriginal = editing.equipment_id_simple;
+        
         const dataToSend = {
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',
           status: formData.status || 'online',
           health_score: parseInt(formData.health_score) || 100
         };
-        await actualizarVSD({
-          id: editing.id,
-          codigo_vsd: codigoOriginal,
-          ...dataToSend
-        });
+
+        console.log('📝 Actualizando VSD:', codigoOriginal);
+        
+        const { error } = await supabase
+          .from('vfds')
+          .update(dataToSend)
+          .eq('id', editing.id);
+
+        if (error) throw error;
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
-        const { equipment_id_simple, ...dataToSend } = formData;
+        console.log('📝 Creando nuevo VSD');
         await crearVSD({
-          ...dataToSend,
-          nombre: formData.manufacturer,
-          modelo: formData.model,
-          estado: formData.status,
-          health_score: formData.health_score
+          manufacturer: formData.manufacturer || '',
+          model: formData.model || '',
+          status: formData.status || 'online',
+          health_score: parseInt(formData.health_score) || 100
         });
         showSnackbar('✅ VSD creado correctamente');
       }
+      
       handleClose();
       loadData();
     } catch (error) {

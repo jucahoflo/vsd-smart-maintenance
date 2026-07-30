@@ -4,13 +4,13 @@ import {
   Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, FormControl, InputLabel,
   IconButton, useTheme, useMediaQuery, Snackbar, Alert,
-  Tabs, Tab, Divider, Paper, Checkbox,
+  Tabs, Tab, Divider, Paper, Checkbox, FormControlLabel,
   ImageList, ImageListItem, CircularProgress
 } from '@mui/material';
 import {
-  Add, Refresh, Edit, Delete, Close,
+  Add, Refresh, Edit, Delete, Print, Close,
   CheckCircle, Cancel, Schedule, Build,
-  PhotoCamera, Description,
+  PhotoCamera, Description, Download,
   Image as ImageIcon
 } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
@@ -254,52 +254,39 @@ const MaintenanceReports = () => {
         return;
       }
 
-      if (!formData.vfd_codigo) {
-        showSnackbar('❌ El código del VFD es requerido', 'error');
-        return;
-      }
-
       const dataToSend = {
         vfd_id: formData.vfd_id,
         vfd_codigo: formData.vfd_codigo,
         report_date: formData.report_date,
         report_time: formData.report_time,
-        company: formData.company || null,
-        location: formData.location || null,
-        base: formData.base || null,
-        area: formData.area || null,
-        process: formData.process || null,
-        well: formData.well || null,
-        service_ticket: formData.service_ticket || null,
-        maintenance_type: formData.maintenance_type || 'Preventivo',
-        vsd_brand: formData.vsd_brand || null,
-        vsd_model: formData.vsd_model || null,
-        vsd_serial: formData.vsd_serial || null,
-        vsd_kva: formData.vsd_kva ? parseFloat(formData.vsd_kva) : null,
-        vsd_amps: formData.vsd_amps ? parseFloat(formData.vsd_amps) : null,
-        sut_brand: formData.sut_brand || null,
-        sut_model: formData.sut_model || null,
-        sut_serial: formData.sut_serial || null,
-        sut_kva: formData.sut_kva ? parseFloat(formData.sut_kva) : null,
-        sut_amps: formData.sut_amps ? parseFloat(formData.sut_amps) : null,
-        checklist: formData.checklist || [],
-        activities: formData.activities || null,
-        parts_changed: formData.parts_changed || [],
-        conclusions: formData.conclusions || null,
-        recommendations: formData.recommendations || null,
-        technician_name: formData.technician_name || null,
-        supervisor_name: formData.supervisor_name || null,
-        status: formData.status || 'draft',
+        company: formData.company,
+        location: formData.location,
+        base: formData.base,
+        area: formData.area,
+        process: formData.process,
+        well: formData.well,
+        service_ticket: formData.service_ticket,
+        maintenance_type: formData.maintenance_type,
+        vsd_brand: formData.vsd_brand,
+        vsd_model: formData.vsd_model,
+        vsd_serial: formData.vsd_serial,
+        vsd_kva: formData.vsd_kva,
+        vsd_amps: formData.vsd_amps,
+        sut_brand: formData.sut_brand,
+        sut_model: formData.sut_model,
+        sut_serial: formData.sut_serial,
+        sut_kva: formData.sut_kva,
+        sut_amps: formData.sut_amps,
+        checklist: formData.checklist,
+        activities: formData.activities,
+        parts_changed: formData.parts_changed,
+        conclusions: formData.conclusions,
+        recommendations: formData.recommendations,
+        technician_name: formData.technician_name,
+        supervisor_name: formData.supervisor_name,
+        status: formData.status,
         fecha_registro: formData.fecha_registro || new Date().toISOString().split('T')[0]
       };
-
-      Object.keys(dataToSend).forEach(key => {
-        if (dataToSend[key] === '' || dataToSend[key] === null || dataToSend[key] === undefined) {
-          delete dataToSend[key];
-        }
-      });
-
-      console.log('📤 Datos a guardar:', dataToSend);
 
       if (editing) {
         const { error } = await supabase
@@ -318,7 +305,6 @@ const MaintenanceReports = () => {
       handleClose();
       loadData();
     } catch (error) {
-      console.error('❌ Error al guardar:', error);
       showSnackbar(error.message || 'Error al guardar', 'error');
     }
   };
@@ -489,14 +475,14 @@ const MaintenanceReports = () => {
                   onChange={(e) => {
                     const value = e.target.value.toUpperCase();
                     setFormData({...formData, vfd_codigo: value});
-                  }}
-                  onBlur={() => {
-                    if (formData.vfd_codigo && formData.vfd_codigo.length >= 3) {
-                      buscarVFDporCodigo(formData.vfd_codigo);
+                    if (value.length >= 3) {
+                      buscarVFDporCodigo(value);
+                    } else {
+                      setVfdEncontrado(null);
                     }
                   }}
-                  placeholder="Ingresa el código del VFD (ej: V001)"
-                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Escribe V001, V002, etc.'}
+                  placeholder="Ingresa el código del VFD"
+                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Ej: V001, V002'}
                   disabled={searching}
                 />
                 {searching && <CircularProgress size={24} />}

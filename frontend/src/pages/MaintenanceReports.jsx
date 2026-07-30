@@ -475,7 +475,7 @@ const MaintenanceReports = () => {
                   onChange={(e) => {
                     const value = e.target.value.toUpperCase();
                     setFormData({...formData, vfd_codigo: value});
-                    if (value.length >= 3) {
+                    if (value.length >= 2) {
                       buscarVFDporCodigo(value);
                     } else {
                       setVfdEncontrado(null);

@@ -81,9 +81,7 @@ const VSDPage = () => {
   const handleSave = async () => {
     try {
       if (editing) {
-        // Usar el código original que ya está en la base de datos
         const codigoOriginal = editing.equipment_id_simple;
-        
         const dataToSend = {
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',
@@ -91,17 +89,11 @@ const VSDPage = () => {
           health_score: parseInt(formData.health_score) || 100
         };
 
-        console.log('📝 Actualizando VSD:', codigoOriginal);
-        
-        const { error } = await supabase
-          .from('vfds')
-          .update(dataToSend)
-          .eq('id', editing.id);
-
+        console.log('🔍 ACTUALIZANDO:', codigoOriginal);
+        const { error } = await supabase.from('vfds').update(dataToSend).eq('id', editing.id);
         if (error) throw error;
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
-        console.log('📝 Creando nuevo VSD');
         await crearVSD({
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',

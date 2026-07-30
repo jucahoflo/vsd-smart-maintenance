@@ -93,16 +93,20 @@ const Maintenance = () => {
       const vfd = res.data.data;
       setVfdEncontrado(vfd || null);
       if (vfd) {
-        setFormData(prev => ({ ...prev, vfd_id: vfd.id }));
+        setFormData(prev => ({ 
+          ...prev, 
+          vfd_id: vfd.id,
+          vfd_codigo: vfd.equipment_id_simple 
+        }));
         showSnackbar(`✅ VFD encontrado: ${vfd.equipment_id} (${vfd.equipment_id_simple})`, 'success');
       } else {
         showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
-        setFormData(prev => ({ ...prev, vfd_id: '' }));
+        setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
       }
     } catch (error) {
       console.error('Error buscando VFD:', error);
       setVfdEncontrado(null);
-      setFormData(prev => ({ ...prev, vfd_id: '' }));
+      setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
       showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
     } finally {
       setSearching(false);
@@ -159,6 +163,7 @@ const Maintenance = () => {
 
       const dataToSend = {
         vfd_id: formData.vfd_id,
+        vfd_codigo: formData.vfd_codigo, // ✅ GUARDAMOS EL CÓDIGO
         type: formData.type,
         priority: formData.priority,
         scheduled_date: formData.scheduled_date,

@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import axios from 'axios';
 
 // Usar Supabase directamente
 const API_URL = import.meta.env.MODE === 'development' 
@@ -10,7 +11,6 @@ const getToken = async () => {
   const token = localStorage.getItem('token');
   if (token) return token;
   
-  // Si no hay token, intentar obtener sesión de Supabase
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
     localStorage.setItem('token', session.access_token);
@@ -19,52 +19,73 @@ const getToken = async () => {
   return null;
 };
 
+// Configuración de Supabase con autenticación
+const supabaseWithAuth = async () => {
+  const token = await getToken();
+  return supabase;
+};
+
 const api = {
   get: async (url) => {
     const token = await getToken();
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
     if (API_URL) {
-      const axios = (await import('axios')).default;
-      return axios.get(`${API_URL}${url}`, { headers });
+      // Desarrollo: usar axios
+      const response = await axios.get(`${API_URL}${url}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      return { data: response.data };
     }
     
     // Producción: usar Supabase
     const table = url.split('/').filter(Boolean)[0];
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .headers(headers);
+    let query = supabase.from(table).select('*');
+    
+    // Si hay filtros en la URL (ej: ?status=eq.active)
+    const queryParams = url.split('?')[1];
+    if (queryParams) {
+      const params = new URLSearchParams(queryParams);
+      for (const [key, value] of params) {
+        if (key.includes('eq.')) {
+          const field = key.split('.')[0];
+          const val = value;
+          query = query.eq(field, val);
+        }
+      }
+    }
+    
+    const { data, error } = await query;
     if (error) throw error;
     return { data: { data } };
   },
   
   post: async (url, body) => {
     const token = await getToken();
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
     if (API_URL) {
-      const axios = (await import('axios')).default;
-      return axios.post(`${API_URL}${url}`, body, { headers });
+      const response = await axios.post(`${API_URL}${url}`, body, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      return { data: response.data };
     }
     
     const table = url.split('/').filter(Boolean)[0];
     const { data, error } = await supabase
       .from(table)
       .insert([body])
-      .select()
-      .headers(headers);
+      .select();
     if (error) throw error;
     return { data: { data: data[0] } };
   },
   
   put: async (url, body) => {
     const token = await getToken();
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
     if (API_URL) {
-      const axios = (await import('axios')).default;
-      return axios.put(`${API_URL}${url}`, body, { headers });
+      const response = await axios.put(`${API_URL}${url}`, body, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      return { data: response.data };
     }
     
     const parts = url.split('/').filter(Boolean);
@@ -74,19 +95,19 @@ const api = {
       .from(table)
       .update(body)
       .eq('id', id)
-      .select()
-      .headers(headers);
+      .select();
     if (error) throw error;
     return { data: { data: data[0] } };
   },
   
   delete: async (url) => {
     const token = await getToken();
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
     if (API_URL) {
-      const axios = (await import('axios')).default;
-      return axios.delete(`${API_URL}${url}`, { headers });
+      const response = await axios.delete(`${API_URL}${url}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      return { data: response.data };
     }
     
     const parts = url.split('/').filter(Boolean);
@@ -95,8 +116,7 @@ const api = {
     const { error } = await supabase
       .from(table)
       .delete()
-      .eq('id', id)
-      .headers(headers);
+      .eq('id', id);
     if (error) throw error;
     return { data: { success: true } };
   }

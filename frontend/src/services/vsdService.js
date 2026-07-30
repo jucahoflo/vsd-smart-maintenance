@@ -14,6 +14,7 @@ export const crearVSD = async (datosFormulario) => {
 
 export const actualizarVSD = async (datosFormulario) => {
   const { codigo_vsd, ...datosActualizables } = datosFormulario;
+  if (!codigo_vsd) throw new Error("El código VSD es obligatorio para actualizar");
   const { error } = await supabase.from('vsd').update(datosActualizables).eq('codigo_vsd', codigo_vsd);
   if (error) throw error;
   return true;

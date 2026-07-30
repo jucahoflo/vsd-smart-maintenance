@@ -475,14 +475,16 @@ const MaintenanceReports = () => {
                   onChange={(e) => {
                     const value = e.target.value.toUpperCase();
                     setFormData({...formData, vfd_codigo: value});
-                    if (value.length >= 3) {
-                      buscarVFDporCodigo(value);
-                    } else {
-                      setVfdEncontrado(null);
+                    // ✅ NO BUSCAR MIENTRAS ESCRIBE
+                  }}
+                  onBlur={() => {
+                    // ✅ BUSCAR CUANDO SALGA DEL CAMPO
+                    if (formData.vfd_codigo && formData.vfd_codigo.length >= 3) {
+                      buscarVFDporCodigo(formData.vfd_codigo);
                     }
                   }}
-                  placeholder="Ingresa el código del VFD"
-                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Ej: V001, V002'}
+                  placeholder="Ingresa el código del VFD (ej: V001)"
+                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Escribe V001, V002, etc.'}
                   disabled={searching}
                 />
                 {searching && <CircularProgress size={24} />}

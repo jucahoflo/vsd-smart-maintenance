@@ -13,11 +13,14 @@ export const crearVSD = async (datos) => {
 };
 
 export const actualizarVSD = async (datos) => {
-  // SEPARACIÓN ESTRICTA
-  const codigo_vsd = datos.codigo_vsd;
-  delete datos.codigo_vsd; // Borramos la propiedad del objeto que se va a enviar
+  // EXTRAER EL ID Y EL CODIGO
+  const { id, codigo_vsd, ...datosSinCodigo } = datos;
 
-  const { error } = await supabase.from('vsd').update(datos).eq('codigo_vsd', codigo_vsd);
+  // SI NO HAY ID, ERROR
+  if (!id) throw new Error("Error Crítico: No se encontró el ID del VSD.");
+
+  // ACTUALIZAR USANDO EL ID (NUNCA POR CODIGO_VSD)
+  const { error } = await supabase.from('vsd').update(datosSinCodigo).eq('id', id);
   if (error) throw error;
   return true;
 };

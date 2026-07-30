@@ -8,6 +8,7 @@ export default function EditVSD() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [vsdData, setVsdData] = useState({
+    id: '',
     codigo_vsd: '',
     nombre: '',
     modelo: '',

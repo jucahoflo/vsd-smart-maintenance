@@ -30,6 +30,7 @@ const VFDs = () => {
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     equipment_id: '',
+    equipment_id_simple: '',
     manufacturer: '',
     model: '',
     serial_number: '',
@@ -55,6 +56,7 @@ const VFDs = () => {
     if (searchTerm) {
       setFilteredList(vfdsList.filter(v => 
         v.equipment_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        v.equipment_id_simple?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         v.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         v.model?.toLowerCase().includes(searchTerm.toLowerCase())
       ));
@@ -142,6 +144,7 @@ const VFDs = () => {
       setEditing(vfd);
       setFormData({
         equipment_id: vfd.equipment_id || '',
+        equipment_id_simple: vfd.equipment_id_simple || '',
         manufacturer: vfd.manufacturer || '',
         model: vfd.model || '',
         serial_number: vfd.serial_number || '',
@@ -159,6 +162,7 @@ const VFDs = () => {
       setEditing(null);
       setFormData({
         equipment_id: '',
+        equipment_id_simple: '',
         manufacturer: '',
         model: '',
         serial_number: '',
@@ -340,14 +344,14 @@ const VFDs = () => {
           <Box display="flex" justifyContent="space-between" alignItems="start" flexWrap="wrap" gap={1}>
             <Box>
               <Typography variant={isMobile ? "subtitle1" : "h6"} fontWeight="700" sx={{ fontSize: isMobile ? '1rem' : '1.25rem' }}>
-                {vfd.equipment_id}
+                {vfd.equipment_id || vfd.equipment_id_simple}
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.875rem' }}>
                 {vfd.manufacturer} • {vfd.model}
               </Typography>
-              {vfd.codigo && (
+              {vfd.equipment_id_simple && (
                 <Typography variant="caption" color="primary" sx={{ fontSize: isMobile ? '0.6rem' : '0.7rem' }}>
-                  🔑 {vfd.codigo}
+                  🔑 {vfd.equipment_id_simple}
                 </Typography>
               )}
             </Box>
@@ -514,15 +518,20 @@ const VFDs = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
+            {/* 📌 EQUIPMENT ID - AUTOMÁTICO */}
+            <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Equipment ID"
-                value={formData.equipment_id}
-                onChange={(e) => setFormData({...formData, equipment_id: e.target.value})}
-                required
+                label="Código del VFD"
+                value={formData.equipment_id_simple || 'Se generará automáticamente'}
+                disabled
+                InputProps={{
+                  readOnly: true,
+                }}
+                helperText="El ID se genera automáticamente al guardar (V001, V002...)"
               />
             </Grid>
+
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -541,7 +550,7 @@ const VFDs = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="Serial Number"

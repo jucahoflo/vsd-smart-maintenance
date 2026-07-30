@@ -4,13 +4,14 @@ import {
   Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, FormControl, InputLabel,
   IconButton, useTheme, useMediaQuery, Snackbar, Alert,
-  LinearProgress, Avatar, Tabs, Tab
+  Tabs, Tab, LinearProgress, CircularProgress
 } from '@mui/material';
 import {
-  Add, Refresh, CheckCircle, Cancel, Edit, Delete,
-  Build, Warning, Check, Schedule, Person
+  Add, Refresh, Edit, Delete, CheckCircle, Cancel, Schedule,
+  Build, Person, Search
 } from '@mui/icons-material';
 import { maintenance, vfds } from '../api/endpoints';
+import api from '../api/client';
 
 const Maintenance = () => {
   const theme = useTheme();
@@ -22,16 +23,16 @@ const Maintenance = () => {
   const [editing, setEditing] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [searching, setSearching] = useState(false);
+  const [vfdEncontrado, setVfdEncontrado] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     completed: 0,
     pending: 0,
-    inProgress: 0,
-    completionRate: 0,
-    byType: {},
-    byPriority: {}
+    completionRate: 0
   });
   const [formData, setFormData] = useState({
+    vfd_codigo: '',
     vfd_id: '',
     type: 'preventive',
     priority: 'medium',
@@ -39,7 +40,6 @@ const Maintenance = () => {
     description: '',
     technician: '',
     cost: '',
-    parts_used: [],
     observations: ''
   });
 
@@ -54,8 +54,20 @@ const Maintenance = () => {
         vfds.getAll(),
         maintenance.getStats()
       ]);
-      setRecords(recordsRes.data.data || []);
-      setVfdsList(vfdsRes.data.data || []);
+      
+      const recordsData = recordsRes.data.data || [];
+      const vfdsData = vfdsRes.data.data || [];
+      
+      const recordsWithCodigo = recordsData.map(record => {
+        const vfd = vfdsData.find(v => v.id === record.vfd_id);
+        return {
+          ...record,
+          vfd_codigo: vfd?.equipment_id_simple || vfd?.equipment_id || 'Sin código'
+        };
+      });
+      
+      setRecords(recordsWithCodigo);
+      setVfdsList(vfdsData);
       setStats(statsRes.data.data || {});
     } catch (error) {
       console.error('Error loading data:', error);
@@ -69,23 +81,55 @@ const Maintenance = () => {
     setSnackbar({ open: true, message, severity });
   };
 
+  const buscarVFDporCodigo = async (codigo) => {
+    if (!codigo || codigo.length < 2) {
+      setVfdEncontrado(null);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const res = await api.get(`/vfds/buscar-simple/${codigo}`);
+      const vfd = res.data.data;
+      setVfdEncontrado(vfd || null);
+      if (vfd) {
+        setFormData(prev => ({ ...prev, vfd_id: vfd.id }));
+        showSnackbar(`✅ VFD encontrado: ${vfd.equipment_id} (${vfd.equipment_id_simple})`, 'success');
+      } else {
+        showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
+        setFormData(prev => ({ ...prev, vfd_id: '' }));
+      }
+    } catch (error) {
+      console.error('Error buscando VFD:', error);
+      setVfdEncontrado(null);
+      setFormData(prev => ({ ...prev, vfd_id: '' }));
+      showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
+    } finally {
+      setSearching(false);
+    }
+  };
+
   const handleOpen = (record = null) => {
     if (record) {
       setEditing(record);
       setFormData({
-        vfd_id: record.vfd_id,
+        vfd_codigo: record.vfd_codigo || '',
+        vfd_id: record.vfd_id || '',
         type: record.type,
         priority: record.priority,
         scheduled_date: record.scheduled_date || '',
         description: record.description || '',
         technician: record.technician || '',
         cost: record.cost || '',
-        parts_used: record.parts_used || [],
         observations: record.observations || ''
       });
+      if (record.vfd_codigo) {
+        buscarVFDporCodigo(record.vfd_codigo);
+      }
     } else {
       setEditing(null);
       setFormData({
+        vfd_codigo: '',
         vfd_id: '',
         type: 'preventive',
         priority: 'medium',
@@ -93,9 +137,9 @@ const Maintenance = () => {
         description: '',
         technician: '',
         cost: '',
-        parts_used: [],
         observations: ''
       });
+      setVfdEncontrado(null);
     }
     setOpenDialog(true);
   };
@@ -103,15 +147,32 @@ const Maintenance = () => {
   const handleClose = () => {
     setOpenDialog(false);
     setEditing(null);
+    setVfdEncontrado(null);
   };
 
   const handleSave = async () => {
     try {
+      if (!formData.vfd_id) {
+        showSnackbar('❌ Primero busca y selecciona un VFD válido', 'error');
+        return;
+      }
+
+      const dataToSend = {
+        vfd_id: formData.vfd_id,
+        type: formData.type,
+        priority: formData.priority,
+        scheduled_date: formData.scheduled_date,
+        description: formData.description,
+        technician: formData.technician,
+        cost: parseFloat(formData.cost) || 0,
+        observations: formData.observations
+      };
+
       if (editing) {
-        await maintenance.update(editing.id, formData);
+        await maintenance.update(editing.id, dataToSend);
         showSnackbar('✅ Mantenimiento actualizado');
       } else {
-        await maintenance.create(formData);
+        await maintenance.create(dataToSend);
         showSnackbar('✅ Mantenimiento programado');
       }
       handleClose();
@@ -124,11 +185,7 @@ const Maintenance = () => {
   const handleComplete = async (id) => {
     if (window.confirm('¿Completar este mantenimiento?')) {
       try {
-        await maintenance.complete(id, {
-          observations: 'Mantenimiento completado',
-          hours_used: 2,
-          cost: 0
-        });
+        await maintenance.complete(id, { observations: 'Completado' });
         showSnackbar('✅ Mantenimiento completado');
         loadData();
       } catch (error) {
@@ -159,16 +216,6 @@ const Maintenance = () => {
     }
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed': return <CheckCircle sx={{ color: '#00B894' }} />;
-      case 'pending': return <Schedule sx={{ color: '#FDCB6E' }} />;
-      case 'in_progress': return <Build sx={{ color: '#74B9FF' }} />;
-      case 'cancelled': return <Cancel sx={{ color: '#FF6B6B' }} />;
-      default: return <Build />;
-    }
-  };
-
   const getTypeColor = (type) => {
     switch (type) {
       case 'preventive': return theme.palette.info.main;
@@ -184,14 +231,8 @@ const Maintenance = () => {
       case 'high': return theme.palette.error.main;
       case 'medium': return theme.palette.warning.main;
       case 'low': return theme.palette.success.main;
-      case 'critical': return theme.palette.error.main;
       default: return theme.palette.grey[500];
     }
-  };
-
-  const getVFDLabel = (vfdId) => {
-    const vfd = vfdsList.find(v => v.id === vfdId);
-    return vfd ? vfd.equipment_id : vfdId;
   };
 
   const filteredRecords = tabValue === 0 
@@ -213,7 +254,6 @@ const Maintenance = () => {
 
   return (
     <Box>
-      {/* Header */}
       <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} gap={2} mb={3}>
         <Box>
           <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" className="gradient-text">
@@ -239,7 +279,6 @@ const Maintenance = () => {
         </Box>
       </Box>
 
-      {/* Estadísticas */}
       <Grid container spacing={isMobile ? 1 : 3} mb={3}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ borderRadius: 3, p: isMobile ? 1 : 2 }}>
@@ -270,17 +309,12 @@ const Maintenance = () => {
             <CardContent sx={{ p: isMobile ? 1 : 2 }}>
               <Typography variant="caption" color="textSecondary">Completitud</Typography>
               <Typography variant="h5" fontWeight="700">{stats.completionRate || 0}%</Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={stats.completionRate || 0} 
-                sx={{ height: 4, borderRadius: 2, mt: 0.5 }}
-              />
+              <LinearProgress variant="determinate" value={stats.completionRate || 0} sx={{ height: 4, borderRadius: 2, mt: 0.5 }} />
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Tabs */}
       <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 3 }}>
         <Tab label="Todos" />
         <Tab label="Pendientes" />
@@ -288,23 +322,18 @@ const Maintenance = () => {
         <Tab label="Completados" />
       </Tabs>
 
-      {/* Lista de mantenimientos */}
       <Grid container spacing={3}>
         {filteredRecords.map((record) => (
           <Grid item xs={12} md={6} lg={4} key={record.id}>
-            <Card sx={{ 
-              borderRadius: 4,
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                transform: isMobile ? 'none' : 'translateY(-4px)',
-                boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
-              }
-            }}>
+            <Card sx={{ borderRadius: 4, transition: 'all 0.3s ease' }}>
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="start">
                   <Box>
                     <Typography variant="h6" fontWeight="700">
-                      {getVFDLabel(record.vfd_id)}
+                      {record.vfd_codigo || 'Sin código'}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      {record.type} • {record.priority}
                     </Typography>
                     <Box display="flex" gap={1} flexWrap="wrap" mt={0.5}>
                       <Chip
@@ -328,7 +357,6 @@ const Maintenance = () => {
                         }}
                       />
                       <Chip
-                        icon={getStatusIcon(record.status)}
                         label={record.status}
                         size="small"
                         sx={{
@@ -357,21 +385,11 @@ const Maintenance = () => {
                       📅 {new Date(record.scheduled_date).toLocaleDateString()}
                     </Typography>
                   )}
-                  {record.cost > 0 && (
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      💰 ${record.cost}
-                    </Typography>
-                  )}
                 </Box>
 
                 <Box mt={2} display="flex" justifyContent="flex-end" gap={1}>
                   {record.status !== 'completed' && (
-                    <Button
-                      size="small"
-                      color="success"
-                      startIcon={<Check />}
-                      onClick={() => handleComplete(record.id)}
-                    >
+                    <Button size="small" color="success" startIcon={<CheckCircle />} onClick={() => handleComplete(record.id)}>
                       Completar
                     </Button>
                   )}
@@ -389,15 +407,12 @@ const Maintenance = () => {
         {filteredRecords.length === 0 && (
           <Grid item xs={12}>
             <Card sx={{ borderRadius: 4, p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" color="textSecondary">
-                No hay mantenimientos registrados
-              </Typography>
+              <Typography variant="h6" color="textSecondary">No hay mantenimientos registrados</Typography>
             </Card>
           </Grid>
         )}
       </Grid>
 
-      {/* Dialog */}
       <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Typography variant="h6" fontWeight="700">
@@ -406,22 +421,35 @@ const Maintenance = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* 🔑 BUSCAR VFD POR CÓDIGO SIMPLE */}
             <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>VFD</InputLabel>
-                <Select
-                  value={formData.vfd_id}
-                  onChange={(e) => setFormData({...formData, vfd_id: e.target.value})}
-                  label="VFD"
-                >
-                  {vfdsList.map((vfd) => (
-                    <MenuItem key={vfd.id} value={vfd.id}>
-                      {vfd.equipment_id} - {vfd.manufacturer}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Box display="flex" gap={1} alignItems="center">
+                <TextField
+                  fullWidth
+                  label="🔑 Código del VFD (ej: V001)"
+                  value={formData.vfd_codigo}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setFormData({...formData, vfd_codigo: value});
+                    if (value.length >= 2) {
+                      buscarVFDporCodigo(value);
+                    }
+                  }}
+                  placeholder="Ingresa el código del VFD"
+                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id} - ${vfdEncontrado.manufacturer}` : 'Ej: V001, V002'}
+                  disabled={searching}
+                />
+                {searching && <CircularProgress size={24} />}
+              </Box>
+              {vfdEncontrado && (
+                <Box mt={1} p={1} bgcolor="success.light" borderRadius={1}>
+                  <Typography variant="body2">
+                    📌 {vfdEncontrado.manufacturer} • {vfdEncontrado.model} • {vfdEncontrado.equipment_id_simple}
+                  </Typography>
+                </Box>
+              )}
             </Grid>
+
             <Grid item xs={6}>
               <FormControl fullWidth>
                 <InputLabel>Tipo</InputLabel>
@@ -452,6 +480,7 @@ const Maintenance = () => {
                 </Select>
               </FormControl>
             </Grid>
+
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -503,7 +532,7 @@ const Maintenance = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave}>
+          <Button variant="contained" onClick={handleSave} disabled={!vfdEncontrado}>
             {editing ? 'Actualizar' : 'Crear'}
           </Button>
         </DialogActions>

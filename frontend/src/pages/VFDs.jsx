@@ -29,8 +29,6 @@ const VFDs = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
-    equipment_id: '',
-    equipment_id_simple: '',
     manufacturer: '',
     model: '',
     serial_number: '',
@@ -56,7 +54,6 @@ const VFDs = () => {
     if (searchTerm) {
       setFilteredList(vfdsList.filter(v => 
         v.equipment_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.equipment_id_simple?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         v.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         v.model?.toLowerCase().includes(searchTerm.toLowerCase())
       ));
@@ -143,8 +140,6 @@ const VFDs = () => {
     if (vfd) {
       setEditing(vfd);
       setFormData({
-        equipment_id: vfd.equipment_id || '',
-        equipment_id_simple: vfd.equipment_id_simple || '',
         manufacturer: vfd.manufacturer || '',
         model: vfd.model || '',
         serial_number: vfd.serial_number || '',
@@ -161,8 +156,6 @@ const VFDs = () => {
     } else {
       setEditing(null);
       setFormData({
-        equipment_id: '',
-        equipment_id_simple: '',
         manufacturer: '',
         model: '',
         serial_number: '',
@@ -188,7 +181,6 @@ const VFDs = () => {
   const handleSave = async () => {
     try {
       const dataToSend = {
-        equipment_id: formData.equipment_id || null,
         manufacturer: formData.manufacturer || null,
         model: formData.model || null,
         serial_number: formData.serial_number || null,
@@ -344,7 +336,7 @@ const VFDs = () => {
           <Box display="flex" justifyContent="space-between" alignItems="start" flexWrap="wrap" gap={1}>
             <Box>
               <Typography variant={isMobile ? "subtitle1" : "h6"} fontWeight="700" sx={{ fontSize: isMobile ? '1rem' : '1.25rem' }}>
-                {vfd.equipment_id || vfd.equipment_id_simple}
+                {vfd.equipment_id}
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.875rem' }}>
                 {vfd.manufacturer} • {vfd.model}
@@ -431,7 +423,7 @@ const VFDs = () => {
 
           {vfd.notes && (
             <Typography variant="caption" color="textSecondary" display="block" mt={0.5} sx={{ fontStyle: 'italic', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
-              📝 {vfd.notes.length > 60 ? vfd.notes.substring(0, 60) + '...' : vfd.notes}
+              ��� {vfd.notes.length > 60 ? vfd.notes.substring(0, 60) + '...' : vfd.notes}
             </Typography>
           )}
 
@@ -518,20 +510,6 @@ const VFDs = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* 📌 EQUIPMENT ID - AUTOMÁTICO */}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Código del VFD"
-                value={formData.equipment_id_simple || 'Se generará automáticamente'}
-                disabled
-                InputProps={{
-                  readOnly: true,
-                }}
-                helperText="El ID se genera automáticamente al guardar (V001, V002...)"
-              />
-            </Grid>
-
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth

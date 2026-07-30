@@ -68,7 +68,6 @@ const Maintenance = () => {
       setRecords(recordsWithCodigo);
       setVfdsList(vfdsData);
       
-      // Calcular estadísticas manualmente
       const total = recordsData.length;
       const completed = recordsData.filter(r => r.status === 'completed').length;
       const pending = recordsData.filter(r => r.status === 'pending').length;
@@ -107,7 +106,7 @@ const Maintenance = () => {
           vfd_id: vfd.id,
           vfd_codigo: vfd.equipment_id_simple 
         }));
-        showSnackbar(`✅ VFD encontrado: ${vfd.equipment_id} (${vfd.equipment_id_simple})`, 'success');
+        showSnackbar(`✅ VFD encontrado: ${vfd.equipment_id_simple} - ${vfd.manufacturer || 'Sin fabricante'}`, 'success');
       } else {
         showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
         setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
@@ -449,7 +448,7 @@ const Maintenance = () => {
                     }
                   }}
                   placeholder="Ingresa el código del VFD"
-                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id} - ${vfdEncontrado.manufacturer}` : 'Ej: V001, V002'}
+                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'} ${vfdEncontrado.model || ''}` : 'Ej: V001, V002'}
                   disabled={searching}
                 />
                 {searching && <CircularProgress size={24} />}
@@ -457,7 +456,7 @@ const Maintenance = () => {
               {vfdEncontrado && (
                 <Box mt={1} p={1} bgcolor="success.light" borderRadius={1}>
                   <Typography variant="body2">
-                    📌 {vfdEncontrado.manufacturer} • {vfdEncontrado.model} • {vfdEncontrado.equipment_id_simple}
+                    📌 {vfdEncontrado.equipment_id_simple} - {vfdEncontrado.manufacturer || 'Sin fabricante'} {vfdEncontrado.model || ''}
                   </Typography>
                 </Box>
               )}

@@ -1,17 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
-  Box, Typography, Grid, Card, CardContent, Chip,
+  Grid, Card, CardContent, Typography, Box, Chip,
   Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, FormControl, InputLabel,
   IconButton, useTheme, useMediaQuery, Snackbar, Alert,
-  LinearProgress, Tabs, Tab
+  LinearProgress, Tabs, Tab, CircularProgress
 } from '@mui/material';
 import {
-  Add, Refresh, Edit, Delete, Search,
+  Add, Refresh, Edit, Delete, Search, Close,
   Warning as WarningIcon,
   CheckCircle as CheckIcon,
+  Inventory as InventoryIcon,
+  Speed as SpeedIcon
 } from '@mui/icons-material';
-import { inventory } from '../api/endpoints';
+import { supabase } from '../config/supabase';
 
 const Inventory = () => {
   const theme = useTheme();
@@ -24,6 +26,8 @@ const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [tabValue, setTabValue] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [searching, setSearching] = useState(false);
+  const [vfdEncontrado, setVfdEncontrado] = useState(null);
   const [formData, setFormData] = useState({
     part_number: '',
     name: '',
@@ -34,6 +38,8 @@ const Inventory = () => {
     location: '',
     supplier: '',
     price: 0,
+    vfd_codigo: '',
+    vfd_id: '',
     notes: ''
   });
 
@@ -46,7 +52,8 @@ const Inventory = () => {
       setFilteredItems(items.filter(item =>
         item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.part_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category?.toLowerCase().includes(searchTerm.toLowerCase())
+        item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.vfd_codigo?.toLowerCase().includes(searchTerm.toLowerCase())
       ));
     } else {
       setFilteredItems(items);
@@ -56,9 +63,14 @@ const Inventory = () => {
   const loadInventory = async () => {
     try {
       setLoading(true);
-      const res = await inventory.getAll();
-      setItems(res.data.data || []);
-      setFilteredItems(res.data.data || []);
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setItems(data || []);
+      setFilteredItems(data || []);
     } catch (error) {
       console.error('Error loading inventory:', error);
       showSnackbar('Error al cargar inventario', 'error');
@@ -71,10 +83,63 @@ const Inventory = () => {
     setSnackbar({ open: true, message, severity });
   };
 
+  const buscarVFDporCodigo = async (codigo) => {
+    if (!codigo || codigo.length < 2) {
+      setVfdEncontrado(null);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const { data, error } = await supabase
+        .from('vfds')
+        .select('*')
+        .eq('equipment_id_simple', codigo.toUpperCase())
+        .single();
+
+      if (error) {
+        setVfdEncontrado(null);
+        setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
+        showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
+      } else if (data) {
+        setVfdEncontrado(data);
+        setFormData(prev => ({ 
+          ...prev, 
+          vfd_id: data.id,
+          vfd_codigo: data.equipment_id_simple 
+        }));
+        showSnackbar(`✅ VFD encontrado: ${data.equipment_id_simple} - ${data.manufacturer || 'Sin fabricante'}`, 'success');
+      }
+    } catch (error) {
+      console.error('Error buscando VFD:', error);
+      setVfdEncontrado(null);
+      setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
+      showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
+    } finally {
+      setSearching(false);
+    }
+  };
+
   const handleOpen = (item = null) => {
     if (item) {
       setEditing(item);
-      setFormData(item);
+      setFormData({
+        part_number: item.part_number || '',
+        name: item.name || '',
+        description: item.description || '',
+        category: item.category || 'Electrónicos',
+        quantity: item.quantity || 0,
+        min_quantity: item.min_quantity || 5,
+        location: item.location || '',
+        supplier: item.supplier || '',
+        price: item.price || 0,
+        vfd_codigo: item.vfd_codigo || '',
+        vfd_id: item.vfd_id || '',
+        notes: item.notes || ''
+      });
+      if (item.vfd_codigo) {
+        buscarVFDporCodigo(item.vfd_codigo);
+      }
     } else {
       setEditing(null);
       setFormData({
@@ -87,8 +152,11 @@ const Inventory = () => {
         location: '',
         supplier: '',
         price: 0,
+        vfd_codigo: '',
+        vfd_id: '',
         notes: ''
       });
+      setVfdEncontrado(null);
     }
     setOpenDialog(true);
   };
@@ -96,28 +164,55 @@ const Inventory = () => {
   const handleClose = () => {
     setOpenDialog(false);
     setEditing(null);
+    setVfdEncontrado(null);
   };
 
   const handleSave = async () => {
     try {
+      const dataToSend = {
+        part_number: formData.part_number,
+        name: formData.name,
+        description: formData.description || '',
+        category: formData.category || 'Otros',
+        quantity: parseInt(formData.quantity) || 0,
+        min_quantity: parseInt(formData.min_quantity) || 5,
+        location: formData.location || '',
+        supplier: formData.supplier || '',
+        price: parseFloat(formData.price) || 0,
+        vfd_codigo: formData.vfd_codigo || null,
+        vfd_id: formData.vfd_id || null,
+        notes: formData.notes || ''
+      };
+
       if (editing) {
-        await inventory.update(editing.id, formData);
+        const { error } = await supabase
+          .from('inventory')
+          .update(dataToSend)
+          .eq('id', editing.id);
+        if (error) throw error;
         showSnackbar('✅ Item actualizado');
       } else {
-        await inventory.create(formData);
+        const { error } = await supabase
+          .from('inventory')
+          .insert([dataToSend]);
+        if (error) throw error;
         showSnackbar('✅ Item agregado al inventario');
       }
       handleClose();
       loadInventory();
     } catch (error) {
-      showSnackbar(error.response?.data?.error || 'Error al guardar', 'error');
+      showSnackbar(error.message || 'Error al guardar', 'error');
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('¿Eliminar este item del inventario?')) {
       try {
-        await inventory.delete(id);
+        const { error } = await supabase
+          .from('inventory')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
         showSnackbar('✅ Item eliminado');
         loadInventory();
       } catch (error) {
@@ -167,7 +262,6 @@ const Inventory = () => {
 
   return (
     <Box>
-      {/* Header */}
       <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} gap={2} mb={3}>
         <Box>
           <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" className="gradient-text">
@@ -203,14 +297,12 @@ const Inventory = () => {
         </Box>
       </Box>
 
-      {/* Tabs */}
       <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 3 }}>
         {tabs.map((tab) => (
           <Tab key={tab.value} label={tab.label} />
         ))}
       </Tabs>
 
-      {/* Lista de items */}
       <Grid container spacing={3}>
         {filteredByTab().map((item) => {
           const stock = getStockStatus(item);
@@ -233,6 +325,11 @@ const Inventory = () => {
                       <Typography variant="h6" fontWeight="700">
                         {item.name}
                       </Typography>
+                      {item.vfd_codigo && (
+                        <Typography variant="caption" color="primary">
+                          🔑 VFD: {item.vfd_codigo}
+                        </Typography>
+                      )}
                     </Box>
                     <Chip
                       label={stock.label}
@@ -325,7 +422,6 @@ const Inventory = () => {
         )}
       </Grid>
 
-      {/* Dialog */}
       <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Typography variant="h6" fontWeight="700">
@@ -334,6 +430,35 @@ const Inventory = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* 🔑 BUSCAR VFD POR CÓDIGO */}
+            <Grid item xs={12}>
+              <Box display="flex" gap={1} alignItems="center">
+                <TextField
+                  fullWidth
+                  label="🔑 Código del VFD (ej: V001)"
+                  value={formData.vfd_codigo}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setFormData({...formData, vfd_codigo: value});
+                    if (value.length >= 2) {
+                      buscarVFDporCodigo(value);
+                    }
+                  }}
+                  placeholder="Asignar a un VFD (opcional)"
+                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Ej: V001, V002 (opcional)'}
+                  disabled={searching}
+                />
+                {searching && <CircularProgress size={24} />}
+              </Box>
+              {vfdEncontrado && (
+                <Box mt={1} p={1} bgcolor="success.light" borderRadius={1}>
+                  <Typography variant="body2">
+                    📌 {vfdEncontrado.equipment_id_simple} - {vfdEncontrado.manufacturer || 'Sin fabricante'} {vfdEncontrado.model || ''}
+                  </Typography>
+                </Box>
+              )}
+            </Grid>
+
             <Grid item xs={12}>
               <TextField
                 fullWidth

@@ -53,7 +53,6 @@ const VFDs = () => {
   useEffect(() => {
     if (searchTerm) {
       setFilteredList(vfdsList.filter(v => 
-        v.equipment_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         v.equipment_id_simple?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         v.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         v.model?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -141,6 +140,7 @@ const VFDs = () => {
     if (vfd) {
       setEditing(vfd);
       setFormData({
+        equipment_id_simple: vfd.equipment_id_simple || '',
         manufacturer: vfd.manufacturer || '',
         model: vfd.model || '',
         serial_number: vfd.serial_number || '',
@@ -157,6 +157,7 @@ const VFDs = () => {
     } else {
       setEditing(null);
       setFormData({
+        equipment_id_simple: '',
         manufacturer: '',
         model: '',
         serial_number: '',
@@ -196,7 +197,6 @@ const VFDs = () => {
         notes: formData.notes || null
       };
 
-      // ✅ ELIMINAR CAMPOS VACÍOS
       Object.keys(dataToSend).forEach(key => {
         if (dataToSend[key] === '' || dataToSend[key] === null || dataToSend[key] === undefined) {
           delete dataToSend[key];
@@ -295,7 +295,7 @@ const VFDs = () => {
                 >
                   <img
                     src={img}
-                    alt={`${vfd.equipment_id} - ${idx + 1}`}
+                    alt={`VFD ${vfd.equipment_id_simple} - ${idx + 1}`}
                     style={{ 
                       width: '100%', 
                       height: '100%', 
@@ -338,16 +338,11 @@ const VFDs = () => {
           <Box display="flex" justifyContent="space-between" alignItems="start" flexWrap="wrap" gap={1}>
             <Box>
               <Typography variant={isMobile ? "subtitle1" : "h6"} fontWeight="700" sx={{ fontSize: isMobile ? '1rem' : '1.25rem' }}>
-                {vfd.equipment_id || '--'}
+                {vfd.equipment_id_simple || '--'}
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.875rem' }}>
                 {vfd.manufacturer} • {vfd.model}
               </Typography>
-              {vfd.equipment_id_simple && (
-                <Typography variant="caption" color="primary" sx={{ fontSize: isMobile ? '0.6rem' : '0.7rem' }}>
-                  🔑 {vfd.equipment_id_simple}
-                </Typography>
-              )}
             </Box>
             <Chip
               icon={getStatusIcon(vfd.status)}
@@ -512,20 +507,19 @@ const VFDs = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* 🔑 EQUIPMENT ID - AUTOMÁTICO (NO SE EDITA) */}
             <Grid item xs={12}>
               <Typography variant="caption" color="textSecondary">
-                📌 ID del VFD: <strong>{formData.equipment_id || 'Se generará automáticamente (VFD-001...)'}</strong>
+                📌 Código del VFD: <strong>{formData.equipment_id_simple || 'Se generará automáticamente (V001, V002...)'}</strong>
               </Typography>
               <TextField
                 fullWidth
-                label="Equipment ID (Automático)"
-                value={formData.equipment_id || 'Se generará al guardar'}
+                label="Código (Automático)"
+                value={formData.equipment_id_simple || 'Se generará al guardar'}
                 disabled
                 InputProps={{
                   readOnly: true,
                 }}
-                helperText="El ID se genera automáticamente"
+                helperText="El código se genera automáticamente"
               />
             </Grid>
 

@@ -1,20 +1,18 @@
 import { supabase } from './supabaseClient';
 
 export const crearVSD = async (datos) => {
-  // Obtener la cantidad de VSDs actuales
   const { count, error } = await supabase
-    .from('vfds')
+    .from('vsd')
     .select('*', { count: 'exact', head: true });
 
   if (error) throw error;
 
-  // Generar el código basado en el número actual de registros
   const siguienteNumero = (count || 0) + 1;
   const nuevoCodigo = `V${siguienteNumero.toString().padStart(3, '0')}`;
 
   const { data, error: insertError } = await supabase
-    .from('vfds')
-    .insert({ equipment_id_simple: nuevoCodigo, ...datos })
+    .from('vsd')
+    .insert({ codigo_vsd: nuevoCodigo, ...datos })
     .select()
     .single();
 
@@ -23,9 +21,10 @@ export const crearVSD = async (datos) => {
 };
 
 export const actualizarVSD = async (datos) => {
+  // 🚨 NO GENERAMOS NINGÚN CÓDIGO AQUÍ. SOLO ACTUALIZAMOS.
   const { id, ...datosSinCodigo } = datos;
-  if (!id) throw new Error("Error: ID no encontrado.");
-  const { error } = await supabase.from('vfds').update(datosSinCodigo).eq('id', id);
+  if (!id) throw new Error("ID no encontrado.");
+  const { error } = await supabase.from('vsd').update(datosSinCodigo).eq('id', id);
   if (error) throw error;
   return true;
 };

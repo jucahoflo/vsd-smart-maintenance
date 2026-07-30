@@ -81,7 +81,7 @@ const VSDPage = () => {
   const handleSave = async () => {
     try {
       if (editing) {
-        const codigoOriginal = editing.codigo_vsd;
+        // 🚨 USAMOS EL CÓDIGO QUE YA ESTÁ EN LA BASE DE DATOS
         const dataToSend = {
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',

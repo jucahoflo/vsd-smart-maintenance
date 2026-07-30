@@ -1,24 +1,41 @@
 import { supabase } from './supabaseClient';
 
 export const crearVSD = async (datos) => {
-  // Obtener la cantidad total de VSDs actuales en la base de datos
-  const { count, error } = await supabase
-    .from('vsd')
-    .select('*', { count: 'exact', head: true });
+  let intentos = 0;
+  let nuevoCodigo = '';
+  let insertado = false;
+  let data = null;
 
-  if (error) throw error;
+  while (!insertado && intentos < 50) {
+    intentos++;
+    // Intentar desde V001 en adelante hasta encontrar uno libre
+    const codigoBase = `V${intentos.toString().padStart(3, '0')}`;
+    
+    // Verificar si el código ya existe en la tabla
+    const { data: existe, error: checkError } = await supabase
+      .from('vsd')
+      .select('id')
+      .eq('codigo_vsd', codigoBase)
+      .maybeSingle();
 
-  // Generar el código basado en el conteo actual + 1
-  const siguienteNumero = (count || 0) + 1;
-  const nuevoCodigo = `V${siguienteNumero.toString().padStart(3, '0')}`;
+    if (checkError) throw checkError;
 
-  const { data, error: insertError } = await supabase
-    .from('vsd')
-    .insert({ codigo_vsd: nuevoCodigo, ...datos })
-    .select()
-    .single();
+    if (!existe) {
+      nuevoCodigo = codigoBase;
+      const { data: insertedData, error: insertError } = await supabase
+        .from('vsd')
+        .insert({ codigo_vsd: nuevoCodigo, ...datos })
+        .select()
+        .single();
+      
+      if (!insertError) {
+        data = insertedData;
+        insertado = true;
+      }
+    }
+  }
 
-  if (insertError) throw insertError;
+  if (!insertado) throw new Error("No se pudo asignar un código VSD único.");
   return data;
 };
 

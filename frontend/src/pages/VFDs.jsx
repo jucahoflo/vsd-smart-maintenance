@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Grid, Card, CardContent, Typography, Box, Chip,
   Button, TextField, Dialog, DialogTitle, DialogContent,
@@ -183,7 +183,6 @@ const VFDs = () => {
 
   const handleSave = async () => {
     try {
-      // ✅ VALIDAR Y CONVERTIR CAMPOS NUMÉRICOS
       const dataToSend = {
         equipment_id: formData.equipment_id || null,
         manufacturer: formData.manufacturer || null,
@@ -200,7 +199,6 @@ const VFDs = () => {
         notes: formData.notes || null
       };
 
-      // ✅ ELIMINAR CAMPOS VACÍOS PARA EVITAR ERRORES
       Object.keys(dataToSend).forEach(key => {
         if (dataToSend[key] === '' || dataToSend[key] === null || dataToSend[key] === undefined) {
           delete dataToSend[key];
@@ -234,8 +232,212 @@ const VFDs = () => {
     }
   };
 
-  // ... resto del código (getStatusColor, getStatusIcon, getHealthColor, VFDCard)
-  // (mantener igual que antes)
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'online': return theme.palette.success.main;
+      case 'offline': return theme.palette.error.main;
+      case 'alarm': return theme.palette.warning.main;
+      case 'maintenance': return theme.palette.info.main;
+      default: return theme.palette.grey[500];
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'online': return <OnlineIcon sx={{ color: '#00B894', fontSize: 20 }} />;
+      case 'offline': return <OfflineIcon sx={{ color: '#FF6B6B', fontSize: 20 }} />;
+      case 'alarm': return <WarningIcon sx={{ color: '#FDCB6E', fontSize: 20 }} />;
+      case 'maintenance': return <BuildIcon sx={{ color: '#74B9FF', fontSize: 20 }} />;
+      default: return <SpeedIcon />;
+    }
+  };
+
+  const getHealthColor = (score) => {
+    if (score >= 80) return theme.palette.success.main;
+    if (score >= 60) return theme.palette.warning.main;
+    return theme.palette.error.main;
+  };
+
+  const VFDCard = ({ vfd }) => {
+    const images = [vfd.image_url1, vfd.image_url2].filter(Boolean);
+
+    return (
+      <Card sx={{ 
+        borderRadius: 4,
+        transition: 'all 0.3s ease',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        '&:hover': {
+          transform: isMobile ? 'none' : 'translateY(-8px)',
+          boxShadow: isMobile ? '0 4px 8px rgba(0,0,0,0.1)' : '0 16px 32px rgba(0,0,0,0.12)'
+        }
+      }}>
+        {images.length > 0 ? (
+          <Box sx={{ 
+            position: 'relative', 
+            height: isMobile ? 140 : 180, 
+            overflow: 'hidden',
+            minHeight: isMobile ? 140 : 180
+          }}>
+            <Box sx={{ 
+              display: 'flex', 
+              height: '100%',
+              overflow: 'hidden',
+              position: 'relative'
+            }}>
+              {images.slice(0, 2).map((img, idx) => (
+                <Box 
+                  key={idx} 
+                  sx={{ 
+                    flex: images.length === 1 ? 1 : '50%',
+                    height: '100%',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <img
+                    src={img}
+                    alt={`${vfd.equipment_id} - ${idx + 1}`}
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover'
+                    }}
+                  />
+                </Box>
+              ))}
+            </Box>
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                bgcolor: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                fontSize: isMobile ? '0.6rem' : '0.7rem'
+              }}
+            >
+              {images.length} 📷
+            </Box>
+          </Box>
+        ) : (
+          <Box sx={{ 
+            height: isMobile ? 100 : 120, 
+            bgcolor: '#f5f5f5', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <ImageIcon sx={{ fontSize: isMobile ? 30 : 40, color: '#ccc' }} />
+          </Box>
+        )}
+
+        <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: isMobile ? 2 : 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="start" flexWrap="wrap" gap={1}>
+            <Box>
+              <Typography variant={isMobile ? "subtitle1" : "h6"} fontWeight="700" sx={{ fontSize: isMobile ? '1rem' : '1.25rem' }}>
+                {vfd.equipment_id}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.875rem' }}>
+                {vfd.manufacturer} • {vfd.model}
+              </Typography>
+            </Box>
+            <Chip
+              icon={getStatusIcon(vfd.status)}
+              label={vfd.status}
+              size="small"
+              sx={{
+                bgcolor: `${getStatusColor(vfd.status)}20`,
+                color: getStatusColor(vfd.status),
+                fontWeight: 600,
+                fontSize: isMobile ? '0.6rem' : '0.75rem',
+                height: isMobile ? 24 : 32
+              }}
+            />
+          </Box>
+
+          <Box mt={2}>
+            <Grid container spacing={isMobile ? 0.5 : 1}>
+              <Grid item xs={4}>
+                <Typography variant="caption" color="textSecondary" sx={{ fontSize: isMobile ? '0.55rem' : '0.75rem' }}>
+                  Potencia
+                </Typography>
+                <Typography fontWeight="600" sx={{ fontSize: isMobile ? '0.8rem' : '1rem' }}>
+                  {vfd.power_rating || '--'} kW
+                </Typography>
+              </Grid>
+              <Grid item xs={4}>
+                <Typography variant="caption" color="textSecondary" sx={{ fontSize: isMobile ? '0.55rem' : '0.75rem' }}>
+                  Voltaje
+                </Typography>
+                <Typography fontWeight="600" sx={{ fontSize: isMobile ? '0.8rem' : '1rem' }}>
+                  {vfd.voltage_rating || '--'} V
+                </Typography>
+              </Grid>
+              <Grid item xs={4}>
+                <Typography variant="caption" color="textSecondary" sx={{ fontSize: isMobile ? '0.55rem' : '0.75rem' }}>
+                  KVA
+                </Typography>
+                <Typography fontWeight="600" sx={{ fontSize: isMobile ? '0.8rem' : '1rem' }}>
+                  {vfd.kva || '--'}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Box mt={2}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="caption" color="textSecondary" sx={{ fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
+                Health Score
+              </Typography>
+              <Typography fontWeight="700" sx={{ color: getHealthColor(vfd.health_score || 100), fontSize: isMobile ? '0.8rem' : '1rem' }}>
+                {vfd.health_score || 100}%
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={vfd.health_score || 100}
+              sx={{
+                height: isMobile ? 4 : 6,
+                borderRadius: 3,
+                mt: 0.5,
+                bgcolor: `${getHealthColor(vfd.health_score || 100)}25`,
+                '& .MuiLinearProgress-bar': {
+                  bgcolor: getHealthColor(vfd.health_score || 100),
+                  borderRadius: 3
+                }
+              }}
+            />
+          </Box>
+
+          {vfd.site && (
+            <Typography variant="caption" color="textSecondary" display="block" mt={1} sx={{ fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
+              📍 {vfd.site} • {vfd.department || ''}
+            </Typography>
+          )}
+
+          {vfd.notes && (
+            <Typography variant="caption" color="textSecondary" display="block" mt={0.5} sx={{ fontStyle: 'italic', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
+              📝 {vfd.notes.length > 60 ? vfd.notes.substring(0, 60) + '...' : vfd.notes}
+            </Typography>
+          )}
+
+          <Box mt={2} display="flex" justifyContent="flex-end" gap={1} sx={{ mt: 'auto' }}>
+            <IconButton size="small" onClick={() => handleOpen(vfd)} sx={{ color: theme.palette.primary.main }}>
+              <Edit fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={() => handleDelete(vfd.id)} sx={{ color: theme.palette.error.main }}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  };
 
   if (loading) {
     return (
@@ -247,7 +449,6 @@ const VFDs = () => {
 
   return (
     <Box>
-      {/* Header */}
       <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} gap={2} mb={4}>
         <Box>
           <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" className="gradient-text">
@@ -283,7 +484,6 @@ const VFDs = () => {
         </Box>
       </Box>
 
-      {/* Grid de VFDs */}
       <Grid container spacing={3}>
         {filteredList.map((vfd, index) => (
           <Grid item xs={12} sm={6} lg={4} key={vfd.id} className={`fade-in fade-in-delay-${(index % 4) + 1}`}>
@@ -301,7 +501,6 @@ const VFDs = () => {
         )}
       </Grid>
 
-      {/* Dialog */}
       <Dialog open={openDialog} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>
           <Typography variant="h6" fontWeight="700">
@@ -399,7 +598,6 @@ const VFDs = () => {
               />
             </Grid>
             
-            {/* Imágenes */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" fontWeight="600" sx={{ mt: 1, mb: 1 }}>
                 📷 Imágenes (máximo 2)

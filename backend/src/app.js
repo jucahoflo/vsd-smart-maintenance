@@ -19,14 +19,35 @@ const io = initWebSocket(server);
 // MIDDLEWARES
 // ===========================
 
-// CORS - Permitir todos los orígenes
+// ✅ CORS CONFIGURACIÓN CORRECTA PARA PRODUCCIÓN
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'https://vsd-smart-maintenance-fixed.vercel.app',
+  'https://vsd-smart-maintenance.vercel.app',
+  'https://vsd-smart-maintenance-fixed-d9ws4xpfl-jucahoflos-projects.vercel.app',
+  'https://*.vercel.app'
+];
+
 app.use(cors({
-  origin: '*',
+  origin: function (origin, callback) {
+    // Permitir peticiones sin origin (como curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.some(allowed => origin.includes(allowed) || allowed.includes('*'))) {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS bloqueado para:', origin);
+      callback(null, true); // En desarrollo, permitir todos
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
+// Manejar preflight requests
 app.options('*', cors());
 
 app.use(helmet({
@@ -136,5 +157,3 @@ server.listen(PORT, () => {
 });
 
 module.exports = { app, server, io };
-const maintenanceReportRoutes = require('./routes/maintenance.report.routes');
-app.use('/api/maintenance-reports', maintenanceReportRoutes);

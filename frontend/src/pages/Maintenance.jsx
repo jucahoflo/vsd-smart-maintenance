@@ -318,6 +318,8 @@ const Maintenance = () => {
         checklist: checklist
       };
 
+      console.log('📤 Enviando datos a Supabase:', dataToSend);
+
       const { error } = await supabase
         .from('maintenance_logs')
         .insert(dataToSend);

@@ -3,9 +3,10 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Button, Chip,
   CircularProgress, IconButton, Snackbar, Alert, Stack,
-  TextField, InputAdornment
+  TextField, InputAdornment, Card, CardContent
 } from '@mui/material';
-import { PictureAsPdf, Search, Refresh } from '@mui/icons-material';
+import { PictureAsPdf, Search, Refresh, Build } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { generateMaintenancePDF } from '../components/GenerateMaintenancePDF';
 
@@ -14,6 +15,7 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadReports();
@@ -46,7 +48,6 @@ const Reports = () => {
 
   const handleDownloadPDF = async (report) => {
     try {
-      // Verificar si el VSD existe
       if (!report.vsd) {
         showSnackbar('No se encontró información del VSD para este reporte.', 'error');
         return;
@@ -69,7 +70,6 @@ const Reports = () => {
     }
   };
 
-  // Filtrar reportes por búsqueda
   const filteredReports = reports.filter((rep) => 
     rep.codigo_vsd?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     rep.tecnico?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -110,6 +110,7 @@ const Reports = () => {
               ),
             }}
             sx={{ width: 250 }}
+            disabled={reports.length === 0}
           />
           <IconButton onClick={loadReports} sx={{ bgcolor: 'rgba(108,99,255,0.1)' }}>
             <Refresh />
@@ -118,14 +119,29 @@ const Reports = () => {
       </Box>
 
       {reports.length === 0 ? (
-        <Paper sx={{ p: 4, borderRadius: 3, textAlign: 'center' }}>
-          <Typography variant="h6" color="textSecondary">
-            No hay reportes de mantenimiento registrados.
-          </Typography>
-          <Typography variant="body2" color="textSecondary" mt={1}>
-            Registra un mantenimiento desde el módulo de Mantenimiento para verlo aquí.
-          </Typography>
-        </Paper>
+        <Card sx={{ borderRadius: 4, p: 4, textAlign: 'center', bgcolor: '#f8f9fa' }}>
+          <CardContent>
+            <Box sx={{ mb: 2, fontSize: 64 }}>
+              📄
+            </Box>
+            <Typography variant="h6" color="textSecondary" gutterBottom>
+              No hay reportes de mantenimiento registrados
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+              Aún no se ha registrado ningún mantenimiento en el sistema. 
+              <br />
+              Ve al módulo de Mantenimiento y registra tu primer reporte para que aparezca aquí.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<Build />}
+              onClick={() => navigate('/maintenance')}
+              sx={{ borderRadius: 3 }}
+            >
+              Ir a Mantenimiento
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
           <Table>

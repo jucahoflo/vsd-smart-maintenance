@@ -3,9 +3,10 @@ import {
   Box, Typography, TextField, Button, Card, CardContent, Grid,
   Snackbar, Alert, CircularProgress, Chip, Paper, Divider,
   InputAdornment, FormControl, InputLabel, Select, MenuItem,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  IconButton, Avatar, Stack
 } from '@mui/material';
-import { Search, Refresh, FilePresent } from '@mui/icons-material';
+import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
 // 1. CHECKLIST DE MANTENIMIENTO
@@ -28,7 +29,7 @@ const getDefaultChecklist = () => {
       { id: 'cbm2', label: 'Predictivo de Calidad de Energía en cada Pozo', done: false, anomaly: '', observations: '' },
       { id: 'cbm3', label: 'Predictivo de Mediciones Eléctricas', done: false, anomaly: '', observations: '' },
     ],
-    // 🆕 3 Tablas de Pruebas Estáticas
+    // 🆕 Tablas de Pruebas Estáticas
     static_tests: {
       converter_1: [
         { meter_plus: 'DC BUS +', meter_minus: 'Entrada R', expected: 'Cargando', actual: '' },
@@ -72,6 +73,11 @@ const getDefaultChecklist = () => {
         { meter_plus: 'Entrada S', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
         { meter_plus: 'Entrada T', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
       ]
+    },
+    // 🆕 Registros fotográficos
+    photos: {
+      before: [],
+      after: []
     }
   };
 };
@@ -81,6 +87,7 @@ const Maintenance = () => {
   const [vfdEncontrado, setVfdEncontrado] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
   const [maintenanceForm, setMaintenanceForm] = useState({
@@ -91,7 +98,7 @@ const Maintenance = () => {
     observations: ''
   });
 
-  // Estado del checklist completo (incluye las pruebas estáticas)
+  // Estado del checklist completo (incluye fotos)
   const [checklist, setChecklist] = useState(getDefaultChecklist());
 
   const showSnackbar = (message, severity = 'success') => {
@@ -140,7 +147,7 @@ const Maintenance = () => {
     setChecklist(getDefaultChecklist());
   };
 
-  // Lógica para alternar checkboxes del mantenimiento
+  // Funciones del checklist
   const toggleChecklistItem = (sectionKey, id, field) => {
     setChecklist(prev => ({
       ...prev,
@@ -150,7 +157,6 @@ const Maintenance = () => {
     }));
   };
 
-  // Lógica para escribir texto en los campos del checklist
   const updateChecklistText = (sectionKey, id, field, value) => {
     setChecklist(prev => ({
       ...prev,
@@ -160,7 +166,6 @@ const Maintenance = () => {
     }));
   };
 
-  // 🆕 Lógica específica para escribir en la tabla de pruebas estáticas
   const updateStaticTestValue = (testKey, index, value) => {
     setChecklist(prev => ({
       ...prev,
@@ -169,6 +174,54 @@ const Maintenance = () => {
         [testKey]: prev.static_tests[testKey].map((item, i) => 
           i === index ? { ...item, actual: value } : item
         )
+      }
+    }));
+  };
+
+  // 🆕 Función para subir fotos (Antes/Después)
+  const uploadPhoto = async (file, stage) => {
+    if (!file || !vfdEncontrado) return;
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `mant_${vfdEncontrado.codigo_vsd}_${stage}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('vsd_images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('vsd_images')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+      
+      setChecklist(prev => ({
+        ...prev,
+        photos: {
+          ...prev.photos,
+          [stage]: [...prev.photos[stage], publicUrl]
+        }
+      }));
+
+      showSnackbar(`✅ Foto de ${stage === 'before' ? 'Antes' : 'Después'} subida`, 'success');
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      showSnackbar('❌ Error al subir la foto', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removePhoto = (stage, index) => {
+    setChecklist(prev => ({
+      ...prev,
+      photos: {
+        ...prev.photos,
+        [stage]: prev.photos[stage].filter((_, i) => i !== index)
       }
     }));
   };
@@ -235,7 +288,7 @@ const Maintenance = () => {
     }
   };
 
-  // Renderizador de la tabla de checklist
+  // Renderizador del checklist
   const renderChecklistSection = (title, sectionKey, items) => (
     <Box mt={2}>
       <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#f0f0f0', p: 1, borderRadius: 1 }}>
@@ -292,7 +345,7 @@ const Maintenance = () => {
     </Box>
   );
 
-  // 🆕 Renderizador de las tablas de pruebas estáticas
+  // Renderizador de pruebas estáticas
   const renderStaticTestTable = (title, testKey, items) => (
     <Box mt={3}>
       <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#1976d2', color: 'white', p: 1, borderRadius: 1 }}>
@@ -332,6 +385,58 @@ const Maintenance = () => {
     </Box>
   );
 
+  // 🆕 Renderizador de fotos
+  const renderPhotoSection = (title, stage) => {
+    const photos = checklist.photos[stage];
+    return (
+      <Box mt={3}>
+        <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#f5f5f5', p: 1, borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>📷 {title} ({photos.length}/5)</span>
+          {photos.length < 5 && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={uploadingImage ? <CircularProgress size={20} /> : <CloudUpload />}
+              component="label"
+              disabled={uploadingImage}
+            >
+              Subir foto
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => uploadPhoto(e.target.files[0], stage)}
+              />
+            </Button>
+          )}
+        </Typography>
+        <Grid container spacing={1} sx={{ mt: 1 }}>
+          {photos.map((url, index) => (
+            <Grid item xs={4} sm={3} md={2} key={index}>
+              <Box sx={{ position: 'relative', border: '1px solid #ddd', borderRadius: 2, p: 0.5, textAlign: 'center' }}>
+                <Avatar variant="rounded" src={url} sx={{ width: '100%', height: 80, objectFit: 'cover' }} />
+                <IconButton 
+                  size="small" 
+                  color="error" 
+                  sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'white', boxShadow: 1 }}
+                  onClick={() => removePhoto(stage, index)}
+                >
+                  <DeleteForever fontSize="small" />
+                </IconButton>
+              </Box>
+            </Grid>
+          ))}
+          {photos.length === 0 && (
+            <Grid item xs={12}>
+              <Typography variant="caption" color="textSecondary">No hay fotos subidas para esta sección.</Typography>
+            </Grid>
+          )}
+        </Grid>
+      </Box>
+    );
+  };
+
   return (
     <Box>
       <Box mb={4}>
@@ -339,7 +444,7 @@ const Maintenance = () => {
           🔧 Mantenimiento Shelter - Skid
         </Typography>
         <Typography variant="body2" color="textSecondary">
-          Busca un VSD para registrar el mantenimiento preventivo, predictivo y pruebas estáticas
+          Registro completo con pruebas estáticas y evidencia fotográfica
         </Typography>
       </Box>
 
@@ -360,7 +465,7 @@ const Maintenance = () => {
                   </InputAdornment>
                 ),
               }}
-              disabled={loading || saving}
+              disabled={loading || saving || uploadingImage}
             />
           </Grid>
           <Grid item xs={6} md={2}>
@@ -368,7 +473,7 @@ const Maintenance = () => {
               variant="contained" 
               fullWidth 
               onClick={buscarVFD}
-              disabled={loading || saving || !searchCode.trim()}
+              disabled={loading || saving || uploadingImage || !searchCode.trim()}
               startIcon={loading ? <CircularProgress size={20} /> : null}
               sx={{ height: 56 }}
             >
@@ -380,7 +485,7 @@ const Maintenance = () => {
               variant="outlined" 
               fullWidth 
               onClick={limpiarBusqueda}
-              disabled={loading || saving}
+              disabled={loading || saving || uploadingImage}
               startIcon={<Refresh />}
               sx={{ height: 56 }}
             >
@@ -497,26 +602,30 @@ const Maintenance = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            {/* CHECKLIST DE MANTENIMIENTO */}
             {renderChecklistSection('Mantenimiento Preventivo Shelter – Skid', 'shelter_skid', checklist.shelter_skid)}
             {renderChecklistSection('Mantenimiento CBM en VSD', 'cbm_vsd', checklist.cbm_vsd)}
 
             <Divider sx={{ my: 3 }} />
 
-            {/* 🆕 PRUEBAS ESTÁTICAS DEL VSD */}
             <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>⚡ Pruebas Estáticas del VSD</Typography>
             {renderStaticTestTable('Prueba Estática Conversor I', 'converter_1', checklist.static_tests.converter_1)}
             {renderStaticTestTable('Prueba Estática Inversora II', 'inverter_2', checklist.static_tests.inverter_2)}
             {renderStaticTestTable('Prueba Estática Conversor', 'converter_3', checklist.static_tests.converter_3)}
 
-            {/* BOTÓN DE GUARDAR */}
+            <Divider sx={{ my: 3 }} />
+
+            {/* 🆕 SECCIÓN DE FOTOS */}
+            <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>📷 Registro Fotográfico</Typography>
+            {renderPhotoSection('Antes del mantenimiento', 'before')}
+            {renderPhotoSection('Después del mantenimiento', 'after')}
+
             <Box mt={4} display="flex" justifyContent="flex-end">
               <Button
                 variant="contained"
                 size="large"
                 startIcon={<FilePresent />}
                 onClick={guardarMantenimiento}
-                disabled={saving || !maintenanceForm.descripcion.trim()}
+                disabled={saving || uploadingImage || !maintenanceForm.descripcion.trim()}
                 sx={{ px: 4, py: 1.5, borderRadius: 3 }}
               >
                 {saving ? 'Guardando...' : 'Finalizar y Generar Reporte'}

@@ -1,85 +1,48 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import io from 'socket.io-client';
+import { io } from 'socket.io-client';
 
-export const SocketContext = createContext();
+const SocketContext = createContext();
+
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useSocket must be used within a SocketProvider');
+  }
+  return context;
+};
 
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    // SOLO CONECTAR EN DESARROLLO LOCAL
-    const isDevelopment = import.meta.env.MODE === 'development';
-    
-    if (!isDevelopment) {
-      console.log('🔌 WebSocket desactivado en producción');
-      setConnected(false);
-      return;
-    }
-
-    console.log('🔌 Intentando conectar WebSocket...');
-    
-    const newSocket = io('http://localhost:5000', {
-      transports: ['polling', 'websocket'],
-      reconnectionAttempts: 3,
-      reconnectionDelay: 1000
+    // Conexión al servidor de sockets (puedes cambiar la URL si tienes un backend real)
+    // Si no tienes backend de sockets, esto conectará a un servidor dummy o se quedará offline
+    const socketInstance = io('https://your-socket-server.com', {
+      autoConnect: false
     });
 
-    newSocket.on('connect', () => {
-      console.log('✅ WebSocket conectado');
+    socketInstance.on('connect', () => {
       setConnected(true);
+      console.log('🔌 Socket conectado');
     });
 
-    newSocket.on('connect_error', (err) => {
-      console.error('❌ WebSocket error:', err.message);
+    socketInstance.on('disconnect', () => {
       setConnected(false);
+      console.log('🔌 Socket desconectado');
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('❌ WebSocket desconectado');
-      setConnected(false);
-    });
-
-    setSocket(newSocket);
+    socketInstance.connect();
+    setSocket(socketInstance);
 
     return () => {
-      if (newSocket) newSocket.close();
+      socketInstance.disconnect();
     };
   }, []);
 
-  const joinVFD = (vfdId) => {
-    if (socket && connected) {
-      socket.emit('join-vfd', vfdId);
-    }
-  };
-
-  const onTelemetry = (callback) => {
-    if (socket) {
-      socket.on('telemetry-received', callback);
-      return () => socket.off('telemetry-received', callback);
-    }
-    return () => {};
-  };
-
-  const onAlerts = (callback) => {
-    if (socket) {
-      socket.on('alerts', callback);
-      return () => socket.off('alerts', callback);
-    }
-    return () => {};
-  };
-
   return (
-    <SocketContext.Provider value={{
-      socket,
-      connected,
-      joinVFD,
-      onTelemetry,
-      onAlerts
-    }}>
+    <SocketContext.Provider value={{ socket, connected }}>
       {children}
     </SocketContext.Provider>
   );
 };
-
-export const useSocket = () => useContext(SocketContext);

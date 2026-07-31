@@ -3,9 +3,9 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SyncProvider } from './context/SyncContext';
+import { SocketProvider } from './context/SocketContext'; // ✅ IMPORTADO
 
-import theme from './theme.js'; // ✅ CORREGIDO CON EXTENSIÓN .js
-
+import theme from './theme.js';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import VFDs from './pages/VFDs';
@@ -19,18 +19,20 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <SyncProvider>
-        <Router>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/vfds" element={<VFDs />} />
-              <Route path="/maintenance" element={<Maintenance />} />
-              <Route path="/inventory" element={<Inventory />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </Layout>
-        </Router>
+        <SocketProvider> {/* ✅ ENVUELTO AQUÍ */}
+          <Router>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/vfds" element={<VFDs />} />
+                <Route path="/maintenance" element={<Maintenance />} />
+                <Route path="/inventory" element={<Inventory />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/settings" element={<Settings />} />
+              </Routes>
+            </Layout>
+          </Router>
+        </SocketProvider>
       </SyncProvider>
     </ThemeProvider>
   );

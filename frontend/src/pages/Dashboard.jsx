@@ -9,7 +9,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import WarningIcon from '@mui/icons-material/Warning';
 import BuildIcon from '@mui/icons-material/Build';
 import { useSocket } from '../hooks/useSocket';
-import { vfds, alerts, maintenance } from '../api/endpoints';
+import { supabase } from '../config/supabase';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Area, AreaChart,
@@ -17,51 +17,24 @@ import {
   BarChart, Bar
 } from 'recharts';
 
-// Datos de prueba para mostrar siempre los gráficos
-const MOCK_HEALTH_DATA = [
-  { date: 'Lun', health: 85 },
-  { date: 'Mar', health: 88 },
-  { date: 'Mié', health: 82 },
-  { date: 'Jue', health: 90 },
-  { date: 'Vie', health: 81 },
-  { date: 'Sáb', health: 78 },
-  { date: 'Dom', health: 84 }
-];
-
-const MOCK_MAINTENANCE_DATA = [
-  { name: 'Preventivo', value: 12 },
-  { name: 'Correctivo', value: 5 },
-  { name: 'Predictivo', value: 3 },
-  { name: 'Emergencia', value: 2 }
-];
-
-const MOCK_VFDS = [
-  { id: '1', equipment_id: 'VFD-001', manufacturer: 'ABB', status: 'online', health_score: 95 },
-  { id: '2', equipment_id: 'VFD-002', manufacturer: 'Siemens', status: 'online', health_score: 88 },
-  { id: '3', equipment_id: 'VFD-003', manufacturer: 'Danfoss', status: 'alarm', health_score: 65 },
-  { id: '4', equipment_id: 'VFD-004', manufacturer: 'Schneider', status: 'offline', health_score: 45 },
-  { id: '5', equipment_id: 'VFD-005', manufacturer: 'Yaskawa', status: 'online', health_score: 92 },
-  { id: '6', equipment_id: 'VFD-006', manufacturer: 'ABB', status: 'online', health_score: 100 }
-];
-
 const Dashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { connected } = useSocket();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    totalVFDs: 6,
-    onlineVFDs: 4,
-    offlineVFDs: 1,
-    alarmVFDs: 1,
+    totalVFDs: 0,
+    onlineVFDs: 0,
+    offlineVFDs: 0,
+    alarmVFDs: 0,
     maintenanceVFDs: 0,
-    avgHealth: 81,
-    activeAlerts: 1,
-    pendingMaintenance: 2
+    avgHealth: 0,
+    activeAlerts: 0,
+    pendingMaintenance: 0
   });
-  const [healthHistory, setHealthHistory] = useState(MOCK_HEALTH_DATA);
-  const [maintenanceData, setMaintenanceData] = useState(MOCK_MAINTENANCE_DATA);
-  const [vfdsList, setVfdsList] = useState(MOCK_VFDS);
+  const [healthHistory, setHealthHistory] = useState([]);
+  const [maintenanceData, setMaintenanceData] = useState([]);
+  const [vfdsList, setVfdsList] = useState([]);
 
   useEffect(() => {
     loadData();
@@ -69,15 +42,17 @@ const Dashboard = () => {
 
   const loadData = async () => {
     try {
-      const [vfdsRes, alertsRes, maintenanceRes] = await Promise.all([
-        vfds.getAll(),
-        alerts.getActive(),
-        maintenance.getAll()
-      ]);
+      setLoading(true);
+      
+      // 1. Obtener todos los VSDs de tu tabla real
+      const { data: vsdData, error } = await supabase
+        .from('vsd')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const vfdsData = vfdsRes.data.data || [];
-      const alertsData = alertsRes.data.data || [];
-      const maintenanceData = maintenanceRes.data.data || [];
+      if (error) throw error;
+
+      const vfdsData = vsdData || [];
 
       if (vfdsData.length > 0) {
         setVfdsList(vfdsData);
@@ -97,23 +72,33 @@ const Dashboard = () => {
           alarmVFDs: alarm,
           maintenanceVFDs: maintenance,
           avgHealth,
-          activeAlerts: alertsData.length,
-          pendingMaintenance: maintenanceData.filter(m => m.status === 'pending').length
+          activeAlerts: alarm, // Asumimos que las alarmas son los VSDs en estado 'alarm'
+          pendingMaintenance: maintenance // Asumimos que mantenimiento son los VSDs en estado 'maintenance'
         });
 
+        // Generar historial de salud basado en los datos reales
         const healthData = vfdsData.map(v => ({
           date: new Date(v.created_at || Date.now()).toLocaleDateString(),
           health: v.health_score || 100
         }));
         if (healthData.length > 0) setHealthHistory(healthData);
 
-        const maintenanceByType = maintenanceData.reduce((acc, m) => {
-          acc[m.type] = (acc[m.type] || 0) + 1;
+        // Datos de mantenimiento basados en el estado real
+        const maintenanceByType = vfdsData.reduce((acc, v) => {
+          if (v.status === 'maintenance') {
+            acc['Mantenimiento'] = (acc['Mantenimiento'] || 0) + 1;
+          } else if (v.status === 'alarm') {
+            acc['Alarma'] = (acc['Alarma'] || 0) + 1;
+          } else if (v.status === 'offline') {
+            acc['Offline'] = (acc['Offline'] || 0) + 1;
+          } else if (v.status === 'online') {
+            acc['Online'] = (acc['Online'] || 0) + 1;
+          }
           return acc;
         }, {});
         
         const maintData = Object.keys(maintenanceByType).map(key => ({
-          name: key.charAt(0).toUpperCase() + key.slice(1),
+          name: key,
           value: maintenanceByType[key]
         }));
         if (maintData.length > 0) setMaintenanceData(maintData);
@@ -163,7 +148,7 @@ const Dashboard = () => {
       {/* Métricas */}
       <Grid container spacing={3} mb={3}>
         <Grid item xs={6} sm={3}>
-          <MetricCard title="Total VFDs" value={stats.totalVFDs} icon={<SpeedIcon />} color={theme.palette.primary.main} subtitle={`${stats.onlineVFDs} en línea`} />
+          <MetricCard title="Total VSDs" value={stats.totalVFDs} icon={<SpeedIcon />} color={theme.palette.primary.main} subtitle={`${stats.onlineVFDs} en línea`} />
         </Grid>
         <Grid item xs={6} sm={3}>
           <MetricCard title="Health Score" value={`${stats.avgHealth}%`} icon={<TrendingUpIcon />} color={stats.avgHealth > 80 ? theme.palette.success.main : theme.palette.warning.main} subtitle={stats.avgHealth > 80 ? 'Excelente' : 'Atención'} />
@@ -193,7 +178,7 @@ const Dashboard = () => {
             <Typography variant="h6" gutterBottom>📈 Health Score Histórico</Typography>
             <Box sx={{ height: 280 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={healthHistory}>
+                <AreaChart data={healthHistory.length > 0 ? healthHistory : [{date: 'Sin datos', health: 0}]}>
                   <defs>
                     <linearGradient id="healthGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.8}/>
@@ -212,10 +197,10 @@ const Dashboard = () => {
           </Paper>
         </Grid>
 
-        {/* Gráfico 2: Estado VFDs */}
+        {/* Gráfico 2: Estado VSDs */}
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 3, borderRadius: 3 }}>
-            <Typography variant="h6" gutterBottom>🍩 Estado de VFDs</Typography>
+            <Typography variant="h6" gutterBottom>🍩 Estado de VSDs</Typography>
             <Box sx={{ height: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -245,13 +230,13 @@ const Dashboard = () => {
           </Paper>
         </Grid>
 
-        {/* Gráfico 3: Mantenimientos */}
+        {/* Gráfico 3: Mantenimientos por Estado */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, borderRadius: 3 }}>
-            <Typography variant="h6" gutterBottom>📊 Mantenimientos por Tipo</Typography>
+            <Typography variant="h6" gutterBottom>📊 Distribución por Estado</Typography>
             <Box sx={{ height: 250 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={maintenanceData}>
+                <BarChart data={maintenanceData.length > 0 ? maintenanceData : [{name: 'Sin datos', value: 0}]}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
@@ -264,15 +249,15 @@ const Dashboard = () => {
           </Paper>
         </Grid>
 
-        {/* Gráfico 4: Tabla VFDs */}
+        {/* Gráfico 4: Tabla Últimos VSDs */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, borderRadius: 3 }}>
-            <Typography variant="h6" gutterBottom>📋 Últimos VFDs</Typography>
+            <Typography variant="h6" gutterBottom>📋 Últimos VSDs</Typography>
             <Box sx={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>ID</th>
+                    <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Código</th>
                     <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Fabricante</th>
                     <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Estado</th>
                     <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ddd' }}>Health</th>
@@ -281,7 +266,7 @@ const Dashboard = () => {
                 <tbody>
                   {vfdsList.slice(0, 5).map((vfd) => (
                     <tr key={vfd.id}>
-                      <td style={{ padding: '8px', borderBottom: '1px solid #f0f0f0' }}>{vfd.equipment_id}</td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #f0f0f0' }}>{vfd.codigo_vsd}</td>
                       <td style={{ padding: '8px', borderBottom: '1px solid #f0f0f0' }}>{vfd.manufacturer}</td>
                       <td style={{ padding: '8px', borderBottom: '1px solid #f0f0f0' }}>
                         <Chip label={vfd.status} size="small" color={vfd.status === 'online' ? 'success' : vfd.status === 'alarm' ? 'warning' : vfd.status === 'offline' ? 'error' : 'default'} />

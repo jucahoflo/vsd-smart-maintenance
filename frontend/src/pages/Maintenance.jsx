@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Card, CardContent, Grid,
   Snackbar, Alert, CircularProgress, Chip, Paper, Divider,
@@ -6,8 +6,9 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   IconButton, Avatar, Stack, Tooltip
 } from '@mui/material';
-import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera, Add, Delete } from '@mui/icons-material';
+import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera, Add, Delete, ArrowBack } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 const getDefaultChecklist = () => {
   return {
@@ -83,12 +84,17 @@ const getDefaultChecklist = () => {
 };
 
 const Maintenance = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const reportId = searchParams.get('reportId');
+
   const [searchCode, setSearchCode] = useState('');
   const [vfdEncontrado, setVfdEncontrado] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [isEditingReport, setIsEditingReport] = useState(false);
   
   const [maintenanceForm, setMaintenanceForm] = useState({
     tipo: 'Preventivo',
@@ -106,6 +112,50 @@ const Maintenance = () => {
   });
 
   const [checklist, setChecklist] = useState(getDefaultChecklist());
+
+  useEffect(() => {
+    if (reportId) {
+      loadReportForEdit(reportId);
+    }
+  }, [reportId]);
+
+  const loadReportForEdit = async (id) => {
+    setLoading(true);
+    setIsEditingReport(true);
+    try {
+      const { data, error } = await supabase
+        .from('maintenance_logs')
+        .select('*, vsd:vsd_id(*)')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        setVfdEncontrado(data.vsd);
+        setMaintenanceForm({
+          tipo: data.tipo || 'Preventivo',
+          descripcion: data.descripcion || '',
+          tecnico: data.tecnico || '',
+          costo: data.costo || '',
+          observations: data.observations || '',
+          fecha_inicio: data.fecha_inicio || '',
+          fecha_fin: data.fecha_fin || '',
+          sitio: data.sitio || '',
+          pozo: data.pozo || '',
+          modulo_produccion: data.modulo_produccion || '',
+          taller: data.taller || '',
+          conclusiones: data.conclusiones || ''
+        });
+        setChecklist(data.checklist || getDefaultChecklist());
+      }
+    } catch (error) {
+      console.error('Error loading report:', error);
+      showSnackbar('Error al cargar el reporte para editar', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -134,6 +184,7 @@ const Maintenance = () => {
       conclusiones: ''
     });
     setChecklist(getDefaultChecklist());
+    setIsEditingReport(false);
     
     try {
       const codigo = searchCode.trim().toUpperCase();
@@ -177,6 +228,8 @@ const Maintenance = () => {
       conclusiones: ''
     });
     setChecklist(getDefaultChecklist());
+    setIsEditingReport(false);
+    navigate('/maintenance');
   };
 
   const toggleChecklistItem = (sectionKey, id, field) => {
@@ -300,27 +353,30 @@ const Maintenance = () => {
 
     setSaving(true);
     try {
-      // 1. Obtener el último número de mantenimiento para este VSD
-      const { data: lastMaint, error: countError } = await supabase
-        .from('maintenance_logs')
-        .select('maintenance_number')
-        .eq('codigo_vsd', vfdEncontrado.codigo_vsd)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (countError) throw countError;
-
       let nextNumber = '01';
-      if (lastMaint && lastMaint.maintenance_number) {
-        const currentNum = parseInt(lastMaint.maintenance_number);
-        nextNumber = String(currentNum + 1).padStart(2, '0');
+      
+      if (!isEditingReport) {
+        // Si es nuevo, calcular el siguiente número
+        const { data: lastMaint, error: countError } = await supabase
+          .from('maintenance_logs')
+          .select('maintenance_number')
+          .eq('codigo_vsd', vfdEncontrado.codigo_vsd)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (countError) throw countError;
+
+        if (lastMaint && lastMaint.maintenance_number) {
+          const currentNum = parseInt(lastMaint.maintenance_number);
+          nextNumber = String(currentNum + 1).padStart(2, '0');
+        }
       }
 
       const dataToSend = {
         vsd_id: vfdEncontrado.id,
         codigo_vsd: vfdEncontrado.codigo_vsd,
-        maintenance_number: nextNumber,
+        maintenance_number: isEditingReport ? undefined : nextNumber,
         tipo: maintenanceForm.tipo || 'Preventivo',
         descripcion: maintenanceForm.descripcion,
         tecnico: maintenanceForm.tecnico || 'No especificado',
@@ -338,22 +394,22 @@ const Maintenance = () => {
 
       console.log('📤 Enviando datos a Supabase:', dataToSend);
 
-      const { error } = await supabase
-        .from('maintenance_logs')
-        .insert(dataToSend);
-
-      if (error) {
-        console.error('❌ Error detallado de Supabase:', error);
-        throw error;
+      if (isEditingReport) {
+        // ACTUALIZAR REPORTE EXISTENTE
+        const { error } = await supabase
+          .from('maintenance_logs')
+          .update(dataToSend)
+          .eq('id', reportId);
+        if (error) throw error;
+        showSnackbar('✅ Reporte actualizado correctamente', 'success');
+      } else {
+        // CREAR NUEVO REPORTE
+        const { error } = await supabase
+          .from('maintenance_logs')
+          .insert(dataToSend);
+        if (error) throw error;
+        showSnackbar(`✅ Mantenimiento #${nextNumber} registrado`, 'success');
       }
-      
-      const totalItems = checklist.shelter_skid.length + checklist.cbm_vsd.length;
-      const doneItems = [...checklist.shelter_skid, ...checklist.cbm_vsd].filter(i => i.done).length;
-
-      showSnackbar(
-        `✅ Mantenimiento #${nextNumber} registrado para ${vfdEncontrado.codigo_vsd} (${doneItems}/${totalItems} tareas realizadas)`, 
-        'success'
-      );
       
       setMaintenanceForm({
         tipo: 'Preventivo',
@@ -370,6 +426,8 @@ const Maintenance = () => {
         conclusiones: ''
       });
       setChecklist(getDefaultChecklist());
+      setIsEditingReport(false);
+      navigate('/reports');
     } catch (error) {
       console.error('❌ Error guardando mantenimiento:', error);
       showSnackbar('Error al guardar el mantenimiento: ' + (error.message || error.error_description || 'Error desconocido'), 'error');
@@ -637,60 +695,71 @@ const Maintenance = () => {
   return (
     <Box>
       <Box mb={4}>
-        <Typography variant="h4" fontWeight="800" color="primary">
-          🔧 Mantenimiento Shelter - Skid
-        </Typography>
+        {isEditingReport ? (
+          <Box display="flex" alignItems="center" gap={2} mb={2}>
+            <IconButton onClick={() => navigate('/reports')}><ArrowBack /></IconButton>
+            <Typography variant="h4" fontWeight="800" color="primary">
+              ✏️ Editar Reporte #{reportId?.slice(0, 4)}
+            </Typography>
+          </Box>
+        ) : (
+          <Typography variant="h4" fontWeight="800" color="primary">
+            🔧 Mantenimiento Shelter - Skid
+          </Typography>
+        )}
         <Typography variant="body2" color="textSecondary">
-          Registro completo con pruebas estáticas, evidencia fotográfica y control de materiales
+          {isEditingReport ? 'Modifica los datos del reporte y guarda los cambios.' : 'Registro completo con pruebas estáticas, evidencia fotográfica y control de materiales'}
         </Typography>
       </Box>
 
-      <Paper elevation={3} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={8}>
-            <TextField
-              fullWidth
-              label="🔍 Buscar VSD por código"
-              value={searchCode}
-              onChange={(e) => setSearchCode(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && buscarVFD()}
-              placeholder="Ej: V001, V002, V003"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search />
-                  </InputAdornment>
-                ),
-              }}
-              disabled={loading || saving || uploadingImage}
-            />
+      {!isEditingReport && (
+        <Paper elevation={3} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={8}>
+              <TextField
+                fullWidth
+                label="🔍 Buscar VSD por código"
+                value={searchCode}
+                onChange={(e) => setSearchCode(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && buscarVFD()}
+                placeholder="Ej: V001, V002, V003"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search />
+                    </InputAdornment>
+                  ),
+                }}
+                disabled={loading || saving || uploadingImage}
+              />
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <Button 
+                variant="contained" 
+                fullWidth 
+                onClick={buscarVFD}
+                disabled={loading || saving || uploadingImage || !searchCode.trim()}
+                startIcon={loading ? <CircularProgress size={20} /> : null}
+                sx={{ height: 56 }}
+              >
+                {loading ? 'Buscando...' : 'Buscar'}
+              </Button>
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <Button 
+                variant="outlined" 
+                fullWidth 
+                onClick={limpiarBusqueda}
+                disabled={loading || saving || uploadingImage}
+                startIcon={<Refresh />}
+                sx={{ height: 56 }}
+              >
+                Limpiar
+              </Button>
+            </Grid>
           </Grid>
-          <Grid item xs={6} md={2}>
-            <Button 
-              variant="contained" 
-              fullWidth 
-              onClick={buscarVFD}
-              disabled={loading || saving || uploadingImage || !searchCode.trim()}
-              startIcon={loading ? <CircularProgress size={20} /> : null}
-              sx={{ height: 56 }}
-            >
-              {loading ? 'Buscando...' : 'Buscar'}
-            </Button>
-          </Grid>
-          <Grid item xs={6} md={2}>
-            <Button 
-              variant="outlined" 
-              fullWidth 
-              onClick={limpiarBusqueda}
-              disabled={loading || saving || uploadingImage}
-              startIcon={<Refresh />}
-              sx={{ height: 56 }}
-            >
-              Limpiar
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
+        </Paper>
+      )}
 
       {vfdEncontrado && (
         <Card sx={{ borderRadius: 4, mb: 3, overflow: 'hidden' }}>
@@ -894,7 +963,7 @@ const Maintenance = () => {
                 disabled={saving || uploadingImage || !maintenanceForm.descripcion.trim()}
                 sx={{ px: 4, py: 1.5, borderRadius: 3 }}
               >
-                {saving ? 'Guardando...' : 'Finalizar y Generar Reporte'}
+                {isEditingReport ? 'Actualizar Reporte' : 'Finalizar y Generar Reporte'}
               </Button>
             </Box>
           </CardContent>

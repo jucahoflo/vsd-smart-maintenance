@@ -6,7 +6,8 @@ import {
   InputAdornment, Stack, Card, CardContent, Dialog, DialogTitle,
   DialogContent, DialogActions
 } from '@mui/material';
-import { PictureAsPdf, Search, Refresh, Delete } from '@mui/icons-material';
+import { PictureAsPdf, Search, Refresh, Delete, Edit } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { generateMaintenancePDF } from '../components/GenerateMaintenancePDF';
 
@@ -15,8 +16,9 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const navigate = useNavigate();
 
-  // 🆕 Estados para eliminar con contraseña
+  // Estados para eliminar con contraseña
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState(null);
   const [deletePassword, setDeletePassword] = useState('');
@@ -67,7 +69,7 @@ const Reports = () => {
     }
   };
 
-  // 🆕 Lógica para eliminar con contraseña
+  // Lógica para eliminar con contraseña
   const handleDeleteClick = (report) => {
     setReportToDelete(report);
     setDeletePassword('');
@@ -95,6 +97,10 @@ const Reports = () => {
     } catch (error) {
       showSnackbar('Error al eliminar el reporte', 'error');
     }
+  };
+
+  const handleEditClick = (report) => {
+    navigate(`/maintenance?reportId=${report.id}`);
   };
 
   const getStatusLabel = (status) => {
@@ -235,6 +241,14 @@ const Reports = () => {
                           </Button>
                           <IconButton 
                             size="small" 
+                            color="primary"
+                            onClick={() => handleEditClick(report)}
+                            sx={{ mr: 1 }}
+                          >
+                            <Edit />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
                             color="error" 
                             onClick={() => handleDeleteClick(report)}
                           >
@@ -251,7 +265,7 @@ const Reports = () => {
         </Stack>
       )}
 
-      {/* 🆕 Diálogo de Confirmación de Eliminación con Contraseña */}
+      {/* Diálogo de Confirmación de Eliminación con Contraseña */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle><Typography variant="h6" fontWeight="700" color="error">⚠️ Confirmar Eliminación</Typography></DialogTitle>
         <DialogContent>

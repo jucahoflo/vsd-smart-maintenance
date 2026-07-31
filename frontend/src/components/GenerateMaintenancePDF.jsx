@@ -5,16 +5,24 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // COLORES CORPORATIVOS (Basados en el PDF enviado)
-  const primaryColor = [0, 51, 102]; // Azul oscuro corporativo
+  // COLORES CORPORATIVOS
+  const primaryColor = [0, 51, 102]; // Azul oscuro
   const secondaryColor = [200, 30, 30]; // Rojo INEMEC
 
-  // 1. LOGOTIPO
+  // 1. CARGAR LOGOTIPO INEMEC
+  let logoLoaded = false;
   try {
+    // Ruta absoluta desde la raíz del sitio
     doc.addImage('/images/logo-inemec.png', 'PNG', 15, 10, 30, 15);
+    logoLoaded = true;
   } catch (error) {
+    console.warn('Logo no cargado, usando texto:', error);
+  }
+
+  if (!logoLoaded) {
     doc.setFontSize(16);
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    doc.setFont('helvetica', 'bold');
     doc.text('INEMEC', 15, 20);
   }
 
@@ -28,7 +36,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.setLineWidth(0.5);
   doc.line(15, 25, pageWidth - 15, 25);
 
-  // 3. INFORMACIÓN GENERAL (Sección 1)
+  // 3. INFORMACIÓN GENERAL
   let yPos = 35;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
@@ -62,7 +70,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
 
   yPos = doc.lastAutoTable.finalY + 10;
 
-  // 4. OBJETIVO GENERAL (Sección 2)
+  // 4. OBJETIVO GENERAL
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -79,7 +87,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.text(objetivoText, 15, yPos);
   yPos += (objetivoText.length * 5) + 5;
 
-  // 5. EQUIPOS DE SUPERFICIE (Sección 3 - NUEVO)
+  // 5. EQUIPOS DE SUPERFICIE
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -107,7 +115,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
 
   yPos = doc.lastAutoTable.finalY + 10;
 
-  // 6. LISTA DE CHEQUEO (Sección 4)
+  // 6. LISTA DE CHEQUEO
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -144,7 +152,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     yPos += 7;
   }
 
-  // 7. PRUEBAS ESTÁTICAS (Sección 5)
+  // 7. PRUEBAS ESTÁTICAS
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -157,7 +165,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   if (maintenanceData.checklist?.static_tests) {
     const staticTests = maintenanceData.checklist.static_tests;
     
-    // 5.1 Conversor
+    // Conversor
     const testData = staticTests.converter_1?.map(row => [
       row.meter_plus + ' / ' + row.meter_minus, 
       row.expected, 
@@ -176,7 +184,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     yPos = doc.lastAutoTable.finalY + 10;
   }
 
-  // 8. FIRMA DEL TÉCNICO (Sección Final)
+  // 8. FIRMA DEL TÉCNICO
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);

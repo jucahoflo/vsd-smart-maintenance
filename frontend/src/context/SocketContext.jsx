@@ -16,27 +16,35 @@ export const SocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    // Conexión al servidor de sockets (puedes cambiar la URL si tienes un backend real)
-    // Si no tienes backend de sockets, esto conectará a un servidor dummy o se quedará offline
-    const socketInstance = io('https://your-socket-server.com', {
-      autoConnect: false
-    });
+    // ENLACE DE SEGURIDAD: Conectamos a un servidor de sockets VACÍO
+    // Esto evita que Vercel falle al compilar y permite que la app cargue
+    let socketInstance = null;
 
-    socketInstance.on('connect', () => {
-      setConnected(true);
-      console.log('🔌 Socket conectado');
-    });
+    try {
+      socketInstance = io({
+        autoConnect: false
+      });
+      
+      socketInstance.on('connect', () => {
+        setConnected(true);
+        console.log('🔌 Socket conectado (modo seguro)');
+      });
 
-    socketInstance.on('disconnect', () => {
-      setConnected(false);
-      console.log('🔌 Socket desconectado');
-    });
+      socketInstance.on('disconnect', () => {
+        setConnected(false);
+        console.log('🔌 Socket desconectado');
+      });
 
-    socketInstance.connect();
-    setSocket(socketInstance);
+      socketInstance.connect();
+      setSocket(socketInstance);
+    } catch (error) {
+      console.warn('⚠️ Socket no disponible, app funcionando en modo normal');
+    }
 
     return () => {
-      socketInstance.disconnect();
+      if (socketInstance) {
+        socketInstance.disconnect();
+      }
     };
   }, []);
 

@@ -372,12 +372,14 @@ const Maintenance = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Observaciones Generales"
+                  label="Ubicación de la intervención"
                   value={maintenanceForm.observations}
                   onChange={(e) => setMaintenanceForm({ ...maintenanceForm, observations: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12}>
+              
+              {/* Observaciones Generales (Ahora es multiline igual que Descripción) */}
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   size="small"
@@ -385,8 +387,19 @@ const Maintenance = () => {
                   value={maintenanceForm.descripcion}
                   onChange={(e) => setMaintenanceForm({ ...maintenanceForm, descripcion: e.target.value })}
                   multiline
-                  rows={2}
+                  rows={3}
                   required
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="📌 Observaciones Generales"
+                  value={maintenanceForm.observations}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, observations: e.target.value })}
+                  multiline
+                  rows={3} // Igualado al tamaño de descripción
                 />
               </Grid>
             </Grid>

@@ -3,13 +3,12 @@ import {
   Box, Typography, TextField, Button, Card, CardContent, Grid,
   Snackbar, Alert, CircularProgress, Chip, Paper, Divider,
   InputAdornment, FormControl, InputLabel, Select, MenuItem,
-  FormGroup, FormControlLabel, Checkbox, Stack, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
 } from '@mui/material';
-import { Search, Refresh, Build, Event, Check, FilePresent } from '@mui/icons-material';
+import { Search, Refresh, FilePresent } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
-// 1. DEFINICIÓN DEL CHECKLIST BASADO EN LA IMAGEN
+// 1. CHECKLIST DE MANTENIMIENTO
 const getDefaultChecklist = () => {
   return {
     shelter_skid: [
@@ -28,7 +27,52 @@ const getDefaultChecklist = () => {
       { id: 'cbm1', label: 'Predictivo de Termografía en SCP, ESD, SCA, CSA, VSD, SCP, GFC y CDP.', done: false, anomaly: '', observations: '' },
       { id: 'cbm2', label: 'Predictivo de Calidad de Energía en cada Pozo', done: false, anomaly: '', observations: '' },
       { id: 'cbm3', label: 'Predictivo de Mediciones Eléctricas', done: false, anomaly: '', observations: '' },
-    ]
+    ],
+    // 🆕 3 Tablas de Pruebas Estáticas
+    static_tests: {
+      converter_1: [
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada R', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada S', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada T', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada R', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada S', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada T', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+      ],
+      inverter_2: [
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada R', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada S', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada T', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada R', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada S', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada T', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+      ],
+      converter_3: [
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada R', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada S', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada T', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada R', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada S', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada T', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+      ]
+    }
   };
 };
 
@@ -47,7 +91,7 @@ const Maintenance = () => {
     observations: ''
   });
 
-  // Estado del checklist completo
+  // Estado del checklist completo (incluye las pruebas estáticas)
   const [checklist, setChecklist] = useState(getDefaultChecklist());
 
   const showSnackbar = (message, severity = 'success') => {
@@ -96,7 +140,7 @@ const Maintenance = () => {
     setChecklist(getDefaultChecklist());
   };
 
-  // Funciones para manejar el checklist complejo
+  // Lógica para alternar checkboxes del mantenimiento
   const toggleChecklistItem = (sectionKey, id, field) => {
     setChecklist(prev => ({
       ...prev,
@@ -106,12 +150,26 @@ const Maintenance = () => {
     }));
   };
 
+  // Lógica para escribir texto en los campos del checklist
   const updateChecklistText = (sectionKey, id, field, value) => {
     setChecklist(prev => ({
       ...prev,
       [sectionKey]: prev[sectionKey].map(item => 
         item.id === id ? { ...item, [field]: value } : item
       )
+    }));
+  };
+
+  // 🆕 Lógica específica para escribir en la tabla de pruebas estáticas
+  const updateStaticTestValue = (testKey, index, value) => {
+    setChecklist(prev => ({
+      ...prev,
+      static_tests: {
+        ...prev.static_tests,
+        [testKey]: prev.static_tests[testKey].map((item, i) => 
+          i === index ? { ...item, actual: value } : item
+        )
+      }
     }));
   };
 
@@ -134,7 +192,6 @@ const Maintenance = () => {
           tecnico: maintenanceForm.tecnico || 'No especificado',
           costo: parseFloat(maintenanceForm.costo) || 0,
           observations: maintenanceForm.observations || '',
-          // Guardamos el checklist completo y complejo como JSON
           checklist: checklist
         });
 
@@ -148,7 +205,6 @@ const Maintenance = () => {
         'success'
       );
       
-      // Limpiar formulario
       setMaintenanceForm({ tipo: 'Preventivo', descripcion: '', tecnico: '', costo: '', observations: '' });
       setChecklist(getDefaultChecklist());
     } catch (error) {
@@ -191,7 +247,7 @@ const Maintenance = () => {
             <TableRow sx={{ bgcolor: '#fafafa' }}>
               <TableCell sx={{ fontWeight: 600, width: '40%' }}>Actividades</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '10%', textAlign: 'center' }}>Hecho (X)</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '25%' }}>Ubicación de anomalías detectadas</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '25%' }}>Anomalías detectadas</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '25%' }}>Observaciones</TableCell>
             </TableRow>
           </TableHead>
@@ -200,10 +256,11 @@ const Maintenance = () => {
               <TableRow key={item.id}>
                 <TableCell>{item.label}</TableCell>
                 <TableCell align="center">
-                  <Checkbox 
+                  <input 
+                    type="checkbox"
                     checked={item.done} 
                     onChange={() => toggleChecklistItem(sectionKey, item.id, 'done')}
-                    size="small"
+                    style={{ width: 20, height: 20, cursor: 'pointer' }}
                   />
                 </TableCell>
                 <TableCell>
@@ -211,7 +268,7 @@ const Maintenance = () => {
                     fullWidth
                     size="small"
                     variant="standard"
-                    placeholder="Escribir anomalía..."
+                    placeholder="..."
                     value={item.anomaly}
                     onChange={(e) => updateChecklistText(sectionKey, item.id, 'anomaly', e.target.value)}
                     disabled={!item.done}
@@ -222,9 +279,49 @@ const Maintenance = () => {
                     fullWidth
                     size="small"
                     variant="standard"
-                    placeholder="Observaciones..."
+                    placeholder="..."
                     value={item.observations}
                     onChange={(e) => updateChecklistText(sectionKey, item.id, 'observations', e.target.value)}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+
+  // 🆕 Renderizador de las tablas de pruebas estáticas
+  const renderStaticTestTable = (title, testKey, items) => (
+    <Box mt={3}>
+      <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#1976d2', color: 'white', p: 1, borderRadius: 1 }}>
+        {title}
+      </Typography>
+      <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#e3f2fd' }}>
+              <TableCell sx={{ fontWeight: 700, width: '25%' }}>Meter +</TableCell>
+              <TableCell sx={{ fontWeight: 700, width: '25%' }}>Meter –</TableCell>
+              <TableCell sx={{ fontWeight: 700, width: '25%' }}>Lectura esperada</TableCell>
+              <TableCell sx={{ fontWeight: 700, width: '25%' }}>Lectura actual</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {items.map((row, index) => (
+              <TableRow key={index}>
+                <TableCell sx={{ fontWeight: 500 }}>{row.meter_plus}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{row.meter_minus}</TableCell>
+                <TableCell>{row.expected}</TableCell>
+                <TableCell>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="standard"
+                    placeholder="Escribe el valor..."
+                    value={row.actual}
+                    onChange={(e) => updateStaticTestValue(testKey, index, e.target.value)}
                   />
                 </TableCell>
               </TableRow>
@@ -242,11 +339,10 @@ const Maintenance = () => {
           🔧 Mantenimiento Shelter - Skid
         </Typography>
         <Typography variant="body2" color="textSecondary">
-          Busca un VSD para registrar el mantenimiento preventivo y predictivo
+          Busca un VSD para registrar el mantenimiento preventivo, predictivo y pruebas estáticas
         </Typography>
       </Box>
 
-      {/* Buscador */}
       <Paper elevation={3} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={8}>
@@ -294,10 +390,8 @@ const Maintenance = () => {
         </Grid>
       </Paper>
 
-      {/* --- TARJETA ÚNICA --- */}
       {vfdEncontrado && (
         <Card sx={{ borderRadius: 4, mb: 3, overflow: 'hidden' }}>
-          {/* Encabezado del VSD */}
           <Box sx={{ bgcolor: '#f5f7fa', p: 3, borderBottom: '1px solid #e0e0e0' }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={6}>
@@ -329,8 +423,6 @@ const Maintenance = () => {
           </Box>
 
           <CardContent sx={{ p: 3 }}>
-            
-            {/* 1. CABECERA DEL MANTENIMIENTO */}
             <Typography variant="h6" fontWeight="700" gutterBottom>📋 Datos Generales del Mantenimiento</Typography>
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12} sm={6} md={3}>
@@ -378,7 +470,6 @@ const Maintenance = () => {
                 />
               </Grid>
               
-              {/* AMBOS CAMPOS OCUPAN EL 100% DEL ANCHO (xs={12}) */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -406,11 +497,19 @@ const Maintenance = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            {/* 2. CHECKLIST COMPLETO (2 Secciones) */}
+            {/* CHECKLIST DE MANTENIMIENTO */}
             {renderChecklistSection('Mantenimiento Preventivo Shelter – Skid', 'shelter_skid', checklist.shelter_skid)}
             {renderChecklistSection('Mantenimiento CBM en VSD', 'cbm_vsd', checklist.cbm_vsd)}
 
-            {/* 3. BOTÓN DE GUARDAR */}
+            <Divider sx={{ my: 3 }} />
+
+            {/* 🆕 PRUEBAS ESTÁTICAS DEL VSD */}
+            <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>⚡ Pruebas Estáticas del VSD</Typography>
+            {renderStaticTestTable('Prueba Estática Conversor I', 'converter_1', checklist.static_tests.converter_1)}
+            {renderStaticTestTable('Prueba Estática Inversora II', 'inverter_2', checklist.static_tests.inverter_2)}
+            {renderStaticTestTable('Prueba Estática Conversor', 'converter_3', checklist.static_tests.converter_3)}
+
+            {/* BOTÓN DE GUARDAR */}
             <Box mt={4} display="flex" justifyContent="flex-end">
               <Button
                 variant="contained"

@@ -22,7 +22,13 @@ const VFDs = () => {
     manufacturer: '',
     model: '',
     status: 'online',
-    health_score: 100
+    health_score: 100,
+    serial_number: '',
+    voltage_rating: '',
+    kva: '',
+    site: '',
+    plant: '',
+    department: ''
   });
 
   useEffect(() => {
@@ -59,7 +65,13 @@ const VFDs = () => {
         manufacturer: vfd.manufacturer || '',
         model: vfd.model || '',
         status: vfd.status || 'online',
-        health_score: vfd.health_score || 100
+        health_score: vfd.health_score || 100,
+        serial_number: vfd.serial_number || '',
+        voltage_rating: vfd.voltage_rating || '',
+        kva: vfd.kva || '',
+        site: vfd.site || '',
+        plant: vfd.plant || '',
+        department: vfd.department || ''
       });
     } else {
       setEditing(null);
@@ -68,7 +80,13 @@ const VFDs = () => {
         manufacturer: '',
         model: '',
         status: 'online',
-        health_score: 100
+        health_score: 100,
+        serial_number: '',
+        voltage_rating: '',
+        kva: '',
+        site: '',
+        plant: '',
+        department: ''
       });
     }
     setOpenDialog(true);
@@ -86,7 +104,13 @@ const VFDs = () => {
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',
           status: formData.status || 'online',
-          health_score: parseInt(formData.health_score) || 100
+          health_score: parseInt(formData.health_score) || 100,
+          serial_number: formData.serial_number || '',
+          voltage_rating: formData.voltage_rating || '',
+          kva: formData.kva || '',
+          site: formData.site || '',
+          plant: formData.plant || '',
+          department: formData.department || ''
         };
 
         const { error } = await supabase
@@ -113,7 +137,13 @@ const VFDs = () => {
             manufacturer: formData.manufacturer || '',
             model: formData.model || '',
             status: formData.status || 'online',
-            health_score: parseInt(formData.health_score) || 100
+            health_score: parseInt(formData.health_score) || 100,
+            serial_number: formData.serial_number || '',
+            voltage_rating: formData.voltage_rating || '',
+            kva: formData.kva || '',
+            site: formData.site || '',
+            plant: formData.plant || '',
+            department: formData.department || ''
           });
 
         if (error) throw error;
@@ -247,19 +277,42 @@ const VFDs = () => {
         )}
       </Grid>
 
-      <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle><Typography variant="h6" fontWeight="700">{editing ? '✏️ Editar VSD' : '➕ Nuevo VSD'}</Typography></DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField fullWidth label="🔑 Código del VSD" value={formData.codigo_vsd} disabled InputProps={{ readOnly: true, sx: { backgroundColor: '#f5f5f5' } }} />
             </Grid>
+            
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Fabricante" value={formData.manufacturer} onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Modelo" value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} />
             </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Serial Number" value={formData.serial_number} onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Voltage Rating (V)" value={formData.voltage_rating} onChange={(e) => setFormData({ ...formData, voltage_rating: e.target.value })} />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="KVA" value={formData.kva} onChange={(e) => setFormData({ ...formData, kva: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Sitio / Site" value={formData.site} onChange={(e) => setFormData({ ...formData, site: e.target.value })} />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Planta / Plant" value={formData.plant} onChange={(e) => setFormData({ ...formData, plant: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Departamento" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} />
+            </Grid>
+
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Estado</InputLabel>

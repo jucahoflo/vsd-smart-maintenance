@@ -11,6 +11,23 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { generateMaintenancePDF } from '../components/GenerateMaintenancePDF';
 
+// 🟢 Función auxiliar: Convertir URL a Base64
+const urlToBase64 = async (url) => {
+  if (!url) return null;
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.warn('Error al convertir imagen a Base64:', error);
+    return null;
+  }
+};
+
 const Reports = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,13 +35,12 @@ const Reports = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
-  // Estados para eliminar con contraseña
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
 
-  const MASTER_PASSWORD = 'VSD2026'; // 🔐 Contraseña para eliminar reportes
+  const MASTER_PASSWORD = 'VSD2026';
 
   useEffect(() => {
     loadReports();
@@ -37,7 +53,7 @@ const Reports = () => {
         .from('maintenance_logs')
         .select(`
           *,
-          vsd:vsd_id ( codigo_vsd, manufacturer, model, site, plant, serial_number )
+          vsd:vsd_id ( codigo_vsd, manufacturer, model, site, plant, serial_number, image_url_1, image_url_2, image_url_3, voltage_rating, kva, department, health_score, observations )
         `)
         .order('created_at', { ascending: false });
 
@@ -61,7 +77,27 @@ const Reports = () => {
         showSnackbar('No se encontró información del VSD para este reporte.', 'error');
         return;
       }
-      await generateMaintenancePDF(report.vsd, report);
+
+      // 1. Convertir imágenes del VSD a Base64
+      const vsdImagesBase64 = await Promise.all([
+        urlToBase64(report.vsd.image_url_1),
+        urlToBase64(report.vsd.image_url_2),
+        urlToBase64(report.vsd.image_url_3)
+      ]);
+
+      // 2. Convertir imágenes del mantenimiento a Base64
+      const mtoPhotos = report.checklist?.photos || {};
+      const allMtoPhotos = [...(mtoPhotos.before || []), ...(mtoPhotos.after || [])];
+      const mtoImagesBase64 = await Promise.all(allMtoPhotos.map(url => urlToBase64(url)));
+
+      // 3. Generar el PDF pasando las imágenes ya convertidas
+      await generateMaintenancePDF(
+        report.vsd, 
+        report, 
+        vsdImagesBase64.filter(img => img !== null), 
+        mtoImagesBase64.filter(img => img !== null)
+      );
+      
       showSnackbar('✅ PDF generado y descargado correctamente', 'success');
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -69,7 +105,10 @@ const Reports = () => {
     }
   };
 
-  // Lógica para eliminar con contraseña
+  const handleEditClick = (report) => {
+    navigate(`/maintenance?reportId=${report.id}`);
+  };
+
   const handleDeleteClick = (report) => {
     setReportToDelete(report);
     setDeletePassword('');
@@ -97,10 +136,6 @@ const Reports = () => {
     } catch (error) {
       showSnackbar('Error al eliminar el reporte', 'error');
     }
-  };
-
-  const handleEditClick = (report) => {
-    navigate(`/maintenance?reportId=${report.id}`);
   };
 
   const getStatusLabel = (status) => {
@@ -265,7 +300,6 @@ const Reports = () => {
         </Stack>
       )}
 
-      {/* Diálogo de Confirmación de Eliminación con Contraseña */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle><Typography variant="h6" fontWeight="700" color="error">⚠️ Confirmar Eliminación</Typography></DialogTitle>
         <DialogContent>

@@ -1,23 +1,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-// Función para convertir imagen a Base64
-const imageToBase64 = async (url) => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.warn('Error al convertir imagen a Base64:', error);
-    return null;
-  }
-};
-
-export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
+export const generateMaintenancePDF = async (vsdData, maintenanceData, vsdImagesBase64 = [], mtoImagesBase64 = []) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -33,18 +17,16 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.rect(0, 0, pageWidth, 45, 'F');
 
   // --- 2. LOGO ---
-  let logoAdded = false;
   try {
-    const logoBase64 = await imageToBase64('/images/inemec-logo.png');
-    if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', 10, 5, 30, 30);
-      logoAdded = true;
-    }
+    const response = await fetch('/images/inemec-logo.png');
+    const blob = await response.blob();
+    const logoBase64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+    doc.addImage(logoBase64, 'PNG', 10, 5, 30, 30);
   } catch (error) {
-    console.warn('Logo no cargado, usando texto alternativo');
-  }
-
-  if (!logoAdded) {
     doc.setFillColor(255, 255, 255);
     doc.rect(10, 5, 30, 30, 'F');
     doc.setTextColor(redInemec[0], redInemec[1], redInemec[2]);
@@ -180,10 +162,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   // ==========================================
   // 3. IMÁGENES DEL VSD (Inmediatamente después de la tabla técnica)
   // ==========================================
-  const vsdImages = [vsdData.image_url_1, vsdData.image_url_2, vsdData.image_url_3].filter(url => url);
-
-  if (vsdImages.length > 0) {
-    // Verificar si hay espacio suficiente en la misma página
+  if (vsdImagesBase64.length > 0) {
     if (yPos > 220) {
       doc.addPage();
       yPos = 15;
@@ -196,17 +175,10 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     yPos += 8;
 
     let imgY = yPos;
-    for (let i = 0; i < vsdImages.length; i++) {
-      const base64 = await imageToBase64(vsdImages[i]);
-      if (base64) {
-        const imgWidth = 55;
-        const xPos = 15 + (i * (imgWidth + 8));
-        doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
-      } else {
-        doc.setFontSize(8);
-        doc.setTextColor(redInemec[0], redInemec[1], redInemec[2]);
-        doc.text('Sin imagen', 15 + (i * 60), imgY + 20);
-      }
+    for (let i = 0; i < vsdImagesBase64.length; i++) {
+      const imgWidth = 55;
+      const xPos = 15 + (i * (imgWidth + 8));
+      doc.addImage(vsdImagesBase64[i], 'JPEG', xPos, imgY, imgWidth, 40);
     }
     yPos += 45;
   }
@@ -393,12 +365,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   // ==========================================
   // 10. IMÁGENES DEL MANTENIMIENTO (Antes y Después)
   // ==========================================
-  const mtoPhotos = maintenanceData.checklist?.photos || {};
-  const beforePhotos = mtoPhotos.before || [];
-  const afterPhotos = mtoPhotos.after || [];
-  const allMtoPhotos = [...beforePhotos, ...afterPhotos];
-
-  if (allMtoPhotos.length > 0) {
+  if (mtoImagesBase64.length > 0) {
     doc.addPage();
     yPos = 15;
     doc.setFontSize(12);
@@ -411,25 +378,17 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     doc.setTextColor(black[0], black[1], black[2]);
 
     let imgY = yPos;
-    for (let i = 0; i < allMtoPhotos.length; i++) {
-      const base64 = await imageToBase64(allMtoPhotos[i]);
-      if (base64) {
-        const imgWidth = 55;
-        const xPos = 15 + (i % 3) * (imgWidth + 8);
-        doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
+    for (let i = 0; i < mtoImagesBase64.length; i++) {
+      const imgWidth = 55;
+      const xPos = 15 + (i % 3) * (imgWidth + 8);
+      doc.addImage(mtoImagesBase64[i], 'JPEG', xPos, imgY, imgWidth, 40);
 
-        // Salto de página si se llenan 3 imágenes
-        if ((i + 1) % 3 === 0) {
-          imgY += 45;
-          if (imgY > 250) {
-            doc.addPage();
-            imgY = 15;
-          }
+      if ((i + 1) % 3 === 0) {
+        imgY += 45;
+        if (imgY > 250) {
+          doc.addPage();
+          imgY = 15;
         }
-      } else {
-        doc.setFontSize(8);
-        doc.setTextColor(redInemec[0], redInemec[1], redInemec[2]);
-        doc.text('Sin imagen', 15 + (i % 3) * 60, imgY + 20);
       }
     }
     yPos = imgY + 45;

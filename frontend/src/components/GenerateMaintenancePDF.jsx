@@ -1,6 +1,22 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+// Función auxiliar para convertir una URL de imagen a Base64
+const imageToBase64 = async (url) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.warn('Error al convertir imagen a Base64:', error);
+    return null;
+  }
+};
+
 export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -20,15 +36,9 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   // --- 2. LOGO ---
   let logoAdded = false;
   try {
-    const response = await fetch('/images/inemec-logo.png');
-    if (response.ok) {
-      const blob = await response.blob();
-      const base64 = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(blob);
-      });
-      doc.addImage(base64, 'PNG', 10, 5, 30, 30);
+    const logoBase64 = await imageToBase64('/images/inemec-logo.png');
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', 10, 5, 30, 30);
       logoAdded = true;
     }
   } catch (error) {
@@ -181,21 +191,15 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
 
     let imgY = yPos;
     for (let i = 0; i < vsdImages.length; i++) {
-      try {
-        const response = await fetch(vsdImages[i]);
-        if (response.ok) {
-          const blob = await response.blob();
-          const base64 = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.readAsDataURL(blob);
-          });
-          const imgWidth = 55;
-          const xPos = 15 + (i * (imgWidth + 5));
-          doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
-        }
-      } catch (error) {
-        console.warn('Error cargando imagen VSD:', error);
+      const base64 = await imageToBase64(vsdImages[i]);
+      if (base64) {
+        const imgWidth = 55;
+        const xPos = 15 + (i * (imgWidth + 5));
+        doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
+      } else {
+        doc.setFontSize(8);
+        doc.setTextColor(redInemec[0], redInemec[1], redInemec[2]);
+        doc.text('Sin imagen', 15 + (i * 60), imgY + 20);
       }
     }
     yPos += 45;
@@ -402,30 +406,24 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
 
     let imgY = yPos;
     for (let i = 0; i < allMtoPhotos.length; i++) {
-      try {
-        const response = await fetch(allMtoPhotos[i]);
-        if (response.ok) {
-          const blob = await response.blob();
-          const base64 = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.readAsDataURL(blob);
-          });
-          const imgWidth = 55;
-          const xPos = 15 + (i % 3) * (imgWidth + 5);
-          doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
+      const base64 = await imageToBase64(allMtoPhotos[i]);
+      if (base64) {
+        const imgWidth = 55;
+        const xPos = 15 + (i % 3) * (imgWidth + 5);
+        doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
 
-          // Salto de página si se llenan 3 imágenes
-          if ((i + 1) % 3 === 0) {
-            imgY += 45;
-            if (imgY > 250) {
-              doc.addPage();
-              imgY = 15;
-            }
+        // Salto de página si se llenan 3 imágenes
+        if ((i + 1) % 3 === 0) {
+          imgY += 45;
+          if (imgY > 250) {
+            doc.addPage();
+            imgY = 15;
           }
         }
-      } catch (error) {
-        console.warn('Error cargando imagen Mto:', error);
+      } else {
+        doc.setFontSize(8);
+        doc.setTextColor(redInemec[0], redInemec[1], redInemec[2]);
+        doc.text('Sin imagen', 15 + (i % 3) * 60, imgY + 20);
       }
     }
     yPos = imgY + 45;

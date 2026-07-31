@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-// Función auxiliar para convertir una URL de imagen a Base64
+// Función para convertir imagen a Base64
 const imageToBase64 = async (url) => {
   try {
     const response = await fetch(url);
@@ -20,7 +20,6 @@ const imageToBase64 = async (url) => {
 export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
 
   // COLORES CORPORATIVOS
   const darkGray = [51, 51, 51];
@@ -179,22 +178,29 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   yPos = doc.lastAutoTable.finalY + 12;
 
   // ==========================================
-  // 3. IMÁGENES DEL VSD
+  // 3. IMÁGENES DEL VSD (Inmediatamente después de la tabla técnica)
   // ==========================================
   const vsdImages = [vsdData.image_url_1, vsdData.image_url_2, vsdData.image_url_3].filter(url => url);
+
   if (vsdImages.length > 0) {
+    // Verificar si hay espacio suficiente en la misma página
+    if (yPos > 220) {
+      doc.addPage();
+      yPos = 15;
+    }
+
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
     doc.text('3. REGISTRO FOTOGRÁFICO DEL VSD', 15, yPos);
-    yPos += 7;
+    yPos += 8;
 
     let imgY = yPos;
     for (let i = 0; i < vsdImages.length; i++) {
       const base64 = await imageToBase64(vsdImages[i]);
       if (base64) {
         const imgWidth = 55;
-        const xPos = 15 + (i * (imgWidth + 5));
+        const xPos = 15 + (i * (imgWidth + 8));
         doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
       } else {
         doc.setFontSize(8);
@@ -409,7 +415,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
       const base64 = await imageToBase64(allMtoPhotos[i]);
       if (base64) {
         const imgWidth = 55;
-        const xPos = 15 + (i % 3) * (imgWidth + 5);
+        const xPos = 15 + (i % 3) * (imgWidth + 8);
         doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
 
         // Salto de página si se llenan 3 imágenes

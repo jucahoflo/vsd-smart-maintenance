@@ -76,11 +76,12 @@ const VFDs = () => {
     }
   };
 
+  // 2. ESCUCHAR CAMBIOS DE CONEXIÓN (Esto es lo que faltaba)
   useEffect(() => {
     loadData();
   }, [isOnline]);
 
-  // 2. SINCRONIZACIÓN AUTOMÁTICA AL RECUPERAR CONEXIÓN
+  // 3. SINCRONIZACIÓN AUTOMÁTICA AL RECUPERAR CONEXIÓN
   useEffect(() => {
     const syncOfflineChanges = async () => {
       if (isOnline && offlineQueue.length > 0) {

@@ -3,24 +3,34 @@ import {
   Box, Typography, TextField, Button, Card, CardContent, Grid,
   Snackbar, Alert, CircularProgress, Chip, Paper, Divider,
   InputAdornment, FormControl, InputLabel, Select, MenuItem,
-  FormGroup, FormControlLabel, Checkbox, Stack
+  FormGroup, FormControlLabel, Checkbox, Stack, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow
 } from '@mui/material';
-import { Search, Refresh, Build, Event, CheckCircle, Cancel, Warning, Check } from '@mui/icons-material';
+import { Search, Refresh, Build, Event, Check, FilePresent } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
-// Items predefinidos para el checklist
-const DEFAULT_CHECKLIST = [
-  { id: 'c1', label: 'Verificar conexiones eléctricas', checked: false },
-  { id: 'c2', label: 'Medir voltaje de entrada (V)', checked: false },
-  { id: 'c3', label: 'Medir corriente de salida (A)', checked: false },
-  { id: 'c4', label: 'Revisar estado de fusibles', checked: false },
-  { id: 'c5', label: 'Verificar ventilación / Refrigeración', checked: false },
-  { id: 'c6', label: 'Inspeccionar panel de control visual', checked: false },
-  { id: 'c7', label: 'Revisar alarmas activas en HMI', checked: false },
-  { id: 'c8', label: 'Comprobar comunicación con SCADA', checked: false },
-  { id: 'c9', label: 'Resetear contadores de fallos', checked: false },
-  { id: 'c10', label: 'Realizar prueba de arranque suave', checked: false }
-];
+// 1. DEFINICIÓN DEL CHECKLIST BASADO EN LA IMAGEN
+const getDefaultChecklist = () => {
+  return {
+    shelter_skid: [
+      { id: 'ss1', label: 'Limpieza interior y exterior (Piso, puertas, gabinetes)', done: false, anomaly: '', observations: '' },
+      { id: 'ss2', label: 'Aspirado y soplado de polvo', done: false, anomaly: '', observations: '' },
+      { id: 'ss3', label: 'Ajuste de conexiones de Gabinetes de potencia y VSD (Filtro armónico, Sinusoidal, Cables VSD, Fusibles, reactancias, etc.)', done: false, anomaly: '', observations: '' },
+      { id: 'ss4', label: 'Revisión y ajuste de conexiones', done: false, anomaly: '', observations: '' },
+      { id: 'ss5', label: 'Verificación de iluminación interna y externa', done: false, anomaly: '', observations: '' },
+      { id: 'ss6', label: 'Verificación de subsistema de refrigeración', done: false, anomaly: '', observations: '' },
+      { id: 'ss7', label: 'Verificación y ajuste de Bandejas porta cables', done: false, anomaly: '', observations: '' },
+      { id: 'ss8', label: 'Verificación estado de ventiladores', done: false, anomaly: '', observations: '' },
+      { id: 'ss9', label: 'Revisión de protecciones (PIP, Tem Motor, Temp Intake, Over load, Under Load, etc)', done: false, anomaly: '', observations: '' },
+      { id: 'ss10', label: 'Comprobación de la correcta operación de los equipos', done: false, anomaly: '', observations: '' },
+    ],
+    cbm_vsd: [
+      { id: 'cbm1', label: 'Predictivo de Termografía en SCP, ESD, SCA, CSA, VSD, SCP, GFC y CDP.', done: false, anomaly: '', observations: '' },
+      { id: 'cbm2', label: 'Predictivo de Calidad de Energía en cada Pozo', done: false, anomaly: '', observations: '' },
+      { id: 'cbm3', label: 'Predictivo de Mediciones Eléctricas', done: false, anomaly: '', observations: '' },
+    ]
+  };
+};
 
 const Maintenance = () => {
   const [searchCode, setSearchCode] = useState('');
@@ -37,8 +47,8 @@ const Maintenance = () => {
     observations: ''
   });
 
-  // Estado para el checklist
-  const [checklist, setChecklist] = useState(DEFAULT_CHECKLIST);
+  // Estado del checklist completo
+  const [checklist, setChecklist] = useState(getDefaultChecklist());
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -53,7 +63,7 @@ const Maintenance = () => {
     setLoading(true);
     setVfdEncontrado(null);
     setMaintenanceForm({ tipo: 'Preventivo', descripcion: '', tecnico: '', costo: '', observations: '' });
-    setChecklist(DEFAULT_CHECKLIST);
+    setChecklist(getDefaultChecklist());
     
     try {
       const codigo = searchCode.trim().toUpperCase();
@@ -83,13 +93,26 @@ const Maintenance = () => {
     setSearchCode('');
     setVfdEncontrado(null);
     setMaintenanceForm({ tipo: 'Preventivo', descripcion: '', tecnico: '', costo: '', observations: '' });
-    setChecklist(DEFAULT_CHECKLIST);
+    setChecklist(getDefaultChecklist());
   };
 
-  const toggleChecklistItem = (id) => {
-    setChecklist(prev => prev.map(item => 
-      item.id === id ? { ...item, checked: !item.checked } : item
-    ));
+  // Funciones para manejar el checklist complejo
+  const toggleChecklistItem = (sectionKey, id, field) => {
+    setChecklist(prev => ({
+      ...prev,
+      [sectionKey]: prev[sectionKey].map(item => 
+        item.id === id ? { ...item, [field]: !item[field] } : item
+      )
+    }));
+  };
+
+  const updateChecklistText = (sectionKey, id, field, value) => {
+    setChecklist(prev => ({
+      ...prev,
+      [sectionKey]: prev[sectionKey].map(item => 
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    }));
   };
 
   const guardarMantenimiento = async () => {
@@ -101,10 +124,6 @@ const Maintenance = () => {
 
     setSaving(true);
     try {
-      // Calcular cuántos items del checklist fueron marcados
-      const itemsChecked = checklist.filter(item => item.checked).length;
-      const totalItems = checklist.length;
-
       const { error } = await supabase
         .from('maintenance_logs')
         .insert({
@@ -115,20 +134,23 @@ const Maintenance = () => {
           tecnico: maintenanceForm.tecnico || 'No especificado',
           costo: parseFloat(maintenanceForm.costo) || 0,
           observations: maintenanceForm.observations || '',
-          // Guardamos el checklist completo como JSON
+          // Guardamos el checklist completo y complejo como JSON
           checklist: checklist
         });
 
       if (error) throw error;
       
+      const totalItems = checklist.shelter_skid.length + checklist.cbm_vsd.length;
+      const doneItems = [...checklist.shelter_skid, ...checklist.cbm_vsd].filter(i => i.done).length;
+
       showSnackbar(
-        `✅ Mantenimiento registrado para ${vfdEncontrado.codigo_vsd} (${itemsChecked}/${totalItems} pruebas realizadas)`, 
+        `✅ Mantenimiento registrado para ${vfdEncontrado.codigo_vsd} (${doneItems}/${totalItems} tareas realizadas)`, 
         'success'
       );
       
-      // Limpiar formulario después de guardar
+      // Limpiar formulario
       setMaintenanceForm({ tipo: 'Preventivo', descripcion: '', tecnico: '', costo: '', observations: '' });
-      setChecklist(DEFAULT_CHECKLIST);
+      setChecklist(getDefaultChecklist());
     } catch (error) {
       console.error('Error guardando mantenimiento:', error);
       showSnackbar('Error al guardar el mantenimiento', 'error');
@@ -157,14 +179,70 @@ const Maintenance = () => {
     }
   };
 
+  // Renderizador de la tabla de checklist
+  const renderChecklistSection = (title, sectionKey, items) => (
+    <Box mt={2}>
+      <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#f0f0f0', p: 1, borderRadius: 1 }}>
+        {title}
+      </Typography>
+      <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#fafafa' }}>
+              <TableCell sx={{ fontWeight: 600, width: '40%' }}>Actividades</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '10%', textAlign: 'center' }}>Hecho (X)</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '25%' }}>Ubicación de anomalías detectadas</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '25%' }}>Observaciones</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>{item.label}</TableCell>
+                <TableCell align="center">
+                  <Checkbox 
+                    checked={item.done} 
+                    onChange={() => toggleChecklistItem(sectionKey, item.id, 'done')}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="standard"
+                    placeholder="Escribir anomalía..."
+                    value={item.anomaly}
+                    onChange={(e) => updateChecklistText(sectionKey, item.id, 'anomaly', e.target.value)}
+                    disabled={!item.done}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="standard"
+                    placeholder="Observaciones..."
+                    value={item.observations}
+                    onChange={(e) => updateChecklistText(sectionKey, item.id, 'observations', e.target.value)}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+
   return (
     <Box>
       <Box mb={4}>
         <Typography variant="h4" fontWeight="800" color="primary">
-          🔧 Gestión de Mantenimiento
+          🔧 Mantenimiento Shelter - Skid
         </Typography>
         <Typography variant="body2" color="textSecondary">
-          Busca un VSD por su código y registra un mantenimiento completo
+          Busca un VSD para registrar el mantenimiento preventivo y predictivo
         </Typography>
       </Box>
 
@@ -216,10 +294,10 @@ const Maintenance = () => {
         </Grid>
       </Paper>
 
-      {/* --- TARJETA ÚNICA UNIFICADA --- */}
+      {/* --- TARJETA ÚNICA --- */}
       {vfdEncontrado && (
         <Card sx={{ borderRadius: 4, mb: 3, overflow: 'hidden' }}>
-          {/* Encabezado con datos del VSD */}
+          {/* Encabezado del VSD */}
           <Box sx={{ bgcolor: '#f5f7fa', p: 3, borderBottom: '1px solid #e0e0e0' }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={6}>
@@ -251,113 +329,85 @@ const Maintenance = () => {
           </Box>
 
           <CardContent sx={{ p: 3 }}>
-            <Grid container spacing={4}>
-              {/* COLUMNA IZQUIERDA: Formulario */}
-              <Grid item xs={12} md={6}>
-                <Typography variant="h6" fontWeight="700" gutterBottom>📋 Datos del Mantenimiento</Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Tipo de Mantenimiento</InputLabel>
-                      <Select
-                        value={maintenanceForm.tipo}
-                        onChange={(e) => setMaintenanceForm({ ...maintenanceForm, tipo: e.target.value })}
-                        label="Tipo de Mantenimiento"
-                      >
-                        <MenuItem value="Preventivo">🛡️ Preventivo</MenuItem>
-                        <MenuItem value="Correctivo">🔧 Correctivo</MenuItem>
-                        <MenuItem value="Predictivo">📊 Predictivo</MenuItem>
-                        <MenuItem value="Emergencia">🚨 Emergencia</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Técnico Responsable"
-                      value={maintenanceForm.tecnico}
-                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, tecnico: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="📝 Descripción de la tarea"
-                      value={maintenanceForm.descripcion}
-                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, descripcion: e.target.value })}
-                      multiline
-                      rows={2}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="💲 Costo estimado ($)"
-                      type="number"
-                      value={maintenanceForm.costo}
-                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, costo: e.target.value })}
-                      inputProps={{ min: 0, step: 0.01 }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="📌 Observaciones adicionales"
-                      value={maintenanceForm.observations}
-                      onChange={(e) => setMaintenanceForm({ ...maintenanceForm, observations: e.target.value })}
-                    />
-                  </Grid>
-                </Grid>
+            
+            {/* 1. CABECERA DEL MANTENIMIENTO */}
+            <Typography variant="h6" fontWeight="700" gutterBottom>📋 Datos Generales del Mantenimiento</Typography>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Tipo de Mantenimiento</InputLabel>
+                  <Select
+                    value={maintenanceForm.tipo}
+                    onChange={(e) => setMaintenanceForm({ ...maintenanceForm, tipo: e.target.value })}
+                    label="Tipo de Mantenimiento"
+                  >
+                    <MenuItem value="Preventivo">🛡️ Preventivo</MenuItem>
+                    <MenuItem value="Correctivo">🔧 Correctivo</MenuItem>
+                    <MenuItem value="Predictivo">📊 Predictivo</MenuItem>
+                    <MenuItem value="Emergencia">🚨 Emergencia</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
-
-              {/* COLUMNA DERECHA: Checklist */}
-              <Grid item xs={12} md={6}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Typography variant="h6" fontWeight="700">✅ Checklist de Pruebas</Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {checklist.filter(i => i.checked).length}/{checklist.length}
-                  </Typography>
-                </Box>
-                <Paper variant="outlined" sx={{ p: 2, maxHeight: 300, overflowY: 'auto', bgcolor: '#fafafa' }}>
-                  <FormGroup>
-                    {checklist.map((item) => (
-                      <FormControlLabel
-                        key={item.id}
-                        control={
-                          <Checkbox 
-                            checked={item.checked} 
-                            onChange={() => toggleChecklistItem(item.id)}
-                            size="small"
-                          />
-                        }
-                        label={
-                          <Typography variant="body2" sx={{ textDecoration: item.checked ? 'line-through' : 'none', color: item.checked ? 'text.secondary' : 'text.primary' }}>
-                            {item.label}
-                          </Typography>
-                        }
-                      />
-                    ))}
-                  </FormGroup>
-                </Paper>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Técnico Responsable"
+                  value={maintenanceForm.tecnico}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, tecnico: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Costo estimado ($)"
+                  type="number"
+                  value={maintenanceForm.costo}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, costo: e.target.value })}
+                  inputProps={{ min: 0, step: 0.01 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Observaciones Generales"
+                  value={maintenanceForm.observations}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, observations: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="📝 Descripción de la tarea principal"
+                  value={maintenanceForm.descripcion}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, descripcion: e.target.value })}
+                  multiline
+                  rows={2}
+                  required
+                />
               </Grid>
             </Grid>
 
-            {/* Botón de guardar al final */}
-            <Box mt={3} display="flex" justifyContent="flex-end">
+            <Divider sx={{ my: 3 }} />
+
+            {/* 2. CHECKLIST COMPLETO (2 Secciones) */}
+            {renderChecklistSection('Mantenimiento Preventivo Shelter – Skid', 'shelter_skid', checklist.shelter_skid)}
+            {renderChecklistSection('Mantenimiento CBM en VSD', 'cbm_vsd', checklist.cbm_vsd)}
+
+            {/* 3. BOTÓN DE GUARDAR */}
+            <Box mt={4} display="flex" justifyContent="flex-end">
               <Button
                 variant="contained"
                 size="large"
-                startIcon={<Check />}
+                startIcon={<FilePresent />}
                 onClick={guardarMantenimiento}
                 disabled={saving || !maintenanceForm.descripcion.trim()}
                 sx={{ px: 4, py: 1.5, borderRadius: 3 }}
               >
-                {saving ? 'Guardando...' : 'Finalizar y Registrar Mantenimiento'}
+                {saving ? 'Guardando...' : 'Finalizar y Generar Reporte'}
               </Button>
             </Box>
           </CardContent>

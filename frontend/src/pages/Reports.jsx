@@ -3,9 +3,10 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Button, Chip,
   CircularProgress, IconButton, Snackbar, Alert, TextField,
-  InputAdornment, Stack, Card, CardContent
+  InputAdornment, Stack, Card, CardContent, Dialog, DialogTitle,
+  DialogContent, DialogActions
 } from '@mui/material';
-import { PictureAsPdf, Search, Refresh } from '@mui/icons-material';
+import { PictureAsPdf, Search, Refresh, Delete } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 import { generateMaintenancePDF } from '../components/GenerateMaintenancePDF';
 
@@ -14,6 +15,14 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // 🆕 Estados para eliminar con contraseña
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
+  const MASTER_PASSWORD = 'VSD2026'; // 🔐 Contraseña para eliminar reportes
 
   useEffect(() => {
     loadReports();
@@ -55,6 +64,36 @@ const Reports = () => {
     } catch (error) {
       console.error('Error generating PDF:', error);
       showSnackbar('Error al generar el PDF', 'error');
+    }
+  };
+
+  // 🆕 Lógica para eliminar con contraseña
+  const handleDeleteClick = (report) => {
+    setReportToDelete(report);
+    setDeletePassword('');
+    setDeleteError('');
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (deletePassword !== MASTER_PASSWORD) {
+      setDeleteError('❌ Contraseña incorrecta. Intenta de nuevo.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('maintenance_logs')
+        .delete()
+        .eq('id', reportToDelete.id);
+      if (error) throw error;
+      
+      showSnackbar('✅ Reporte eliminado permanentemente', 'success');
+      setDeleteDialogOpen(false);
+      setReportToDelete(null);
+      loadReports();
+    } catch (error) {
+      showSnackbar('Error al eliminar el reporte', 'error');
     }
   };
 
@@ -164,7 +203,6 @@ const Reports = () => {
                       <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Tipo</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Técnico</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Costo</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
                     </TableRow>
                   </TableHead>
@@ -185,17 +223,23 @@ const Reports = () => {
                           />
                         </TableCell>
                         <TableCell>{report.tecnico || 'N/A'}</TableCell>
-                        <TableCell>${report.costo || '0.00'}</TableCell>
                         <TableCell>
                           <Button
                             variant="outlined"
                             size="small"
                             startIcon={<PictureAsPdf />}
                             onClick={() => handleDownloadPDF(report)}
-                            sx={{ textTransform: 'none' }}
+                            sx={{ textTransform: 'none', mr: 1 }}
                           >
                             Descargar PDF
                           </Button>
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleDeleteClick(report)}
+                          >
+                            <Delete />
+                          </IconButton>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -206,6 +250,30 @@ const Reports = () => {
           ))}
         </Stack>
       )}
+
+      {/* 🆕 Diálogo de Confirmación de Eliminación con Contraseña */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle><Typography variant="h6" fontWeight="700" color="error">⚠️ Confirmar Eliminación</Typography></DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Esta acción es **permanente**. Para eliminar este reporte, ingresa la contraseña de seguridad.
+          </Typography>
+          <TextField
+            fullWidth
+            label="🔐 Contraseña de seguridad"
+            type="password"
+            value={deletePassword}
+            onChange={(e) => setDeletePassword(e.target.value)}
+            error={!!deleteError}
+            helperText={deleteError}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={confirmDelete}>Eliminar Permanentemente</Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}

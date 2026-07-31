@@ -1,83 +1,121 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import imageToBase64 from 'image-to-base64';
-import { supabase } from '../config/supabase';
 
 export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // 1. LOGOTIPO (Desde public/images/)
+  // COLORES CORPORATIVOS (Basados en el PDF enviado)
+  const primaryColor = [0, 51, 102]; // Azul oscuro corporativo
+  const secondaryColor = [200, 30, 30]; // Rojo INEMEC
+
+  // 1. LOGOTIPO
   try {
-    const logoPath = `/images/logo-inemec.png`;
-    // Cargar la imagen desde el servidor de desarrollo local o Vercel
-    const base64String = await imageToBase64(logoPath);
-    doc.addImage(base64String, 'PNG', 15, 10, 30, 15);
+    doc.addImage('/images/logo-inemec.png', 'PNG', 15, 10, 30, 15);
   } catch (error) {
-    console.warn('⚠️ No se pudo cargar el logo local. Se usará texto.', error);
     doc.setFontSize(16);
-    doc.setTextColor(200, 30, 30);
+    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     doc.text('INEMEC', 15, 20);
   }
 
   // 2. TÍTULO DEL REPORTE
   doc.setFontSize(14);
   doc.setTextColor(0, 0, 0);
-  doc.text('REPORTE FINAL DE MANTENIMIENTO', pageWidth / 2, 20, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text('REPORTE DE MANTENIMIENTO', pageWidth / 2, 20, { align: 'center' });
 
-  doc.setDrawColor(200, 30, 30);
+  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setLineWidth(0.5);
   doc.line(15, 25, pageWidth - 15, 25);
 
-  // 3. INFORMACIÓN GENERAL
+  // 3. INFORMACIÓN GENERAL (Sección 1)
   let yPos = 35;
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.text('1. INFORMACIÓN GENERAL', 15, yPos);
   yPos += 7;
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
 
   const generalInfo = [
     ['Compañía:', 'INEMEC S.A.S'],
-    ['Cliente:', maintenanceData.cliente || 'CEDCO'],
-    ['Locación:', vsdData.site || 'N/A'],
-    ['Pozo:', vsdData.plant || 'N/A'],
-    ['Código VSD:', vsdData.codigo_vsd],
-    ['Modelo:', vsdData.model || 'N/A'],
-    ['Serial Number:', vsdData.serial_number || 'N/A'],
     ['Tipo Mantenimiento:', maintenanceData.tipo || 'Preventivo'],
+    ['Cliente:', 'CEDCO'],
     ['Fecha Ejecución:', new Date(maintenanceData.created_at).toLocaleDateString()],
-    ['Técnico:', maintenanceData.tecnico || 'Especialistas Inemec']
+    ['Locación:', vsdData.site || 'N/A'],
+    ['Técnico:', maintenanceData.tecnico || 'JUAN CARLOS HOLGUIN'],
+    ['Pozo:', vsdData.plant || 'N/A'],
+    ['Service Ticket:', 'N/A']
   ];
 
   doc.autoTable({
     startY: yPos,
-    head: [['Campo', 'Valor']],
     body: generalInfo,
     theme: 'grid',
-    headStyles: { fillColor: [200, 30, 30], textColor: [255, 255, 255], fontStyle: 'bold' },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
     columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' }, 1: { cellWidth: 130 } },
-    margin: { left: 15, right: 15 }
+    margin: { left: 15, right: 15 },
+    tableWidth: 'auto'
   });
 
   yPos = doc.lastAutoTable.finalY + 10;
 
-  // 4. OBJETIVO GENERAL
+  // 4. OBJETIVO GENERAL (Sección 2)
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.text('2. OBJETIVO GENERAL', 15, yPos);
   yPos += 7;
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  
   const objetivoText = doc.splitTextToSize(
-    "Este documento tiene como propósito orientar las actividades de mantenimiento realizadas por los especialistas de INEMEC en variadores de velocidad (VSD) de baja y media tensión, así como en los transformadores elevadores (SUT) asociados a estos sistemas, con el fin de preservar su confiabilidad, disponibilidad y desempeño operativo. La aplicación de las buenas prácticas aquí descritas contribuye a extender la vida útil de los equipos, disminuir la probabilidad de fallas imprevistas, reducir los tiempos de indisponibilidad y optimizar los costos derivados de reparaciones no planificadas, favoreciendo una operación segura, continua y eficiente.",
+    "AUMENTAR LA CONFIABILIDAD Y VIDA UTIL DE LOS EQUIPOS",
     pageWidth - 30
   );
   doc.text(objetivoText, 15, yPos);
   yPos += (objetivoText.length * 5) + 5;
 
-  // 5. LISTA DE CHEQUEO
+  // 5. EQUIPOS DE SUPERFICIE (Sección 3 - NUEVO)
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('3. LISTA DE CHEQUEO', 15, yPos);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('3. EQUIPOS DE SUPERFICIE', 15, yPos);
   yPos += 7;
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+
+  const equiposData = [
+    ['Equipo', 'Marca', 'Modelo', 'S/N', 'KVA', 'AMPS'],
+    ['VSD', vsdData.manufacturer || 'N/A', vsdData.model || 'N/A', vsdData.serial_number || 'N/A', vsdData.kva || 'N/A', 'N/A'],
+    ['SUT', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+  ];
+
+  doc.autoTable({
+    startY: yPos,
+    head: [equiposData[0]],
+    body: equiposData.slice(1),
+    theme: 'grid',
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+    margin: { left: 15, right: 15 },
+    tableWidth: 'auto'
+  });
+
+  yPos = doc.lastAutoTable.finalY + 10;
+
+  // 6. LISTA DE CHEQUEO (Sección 4)
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('4. LISTA DE CHEQUEO', 15, yPos);
+  yPos += 7;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
 
   const checklistItems = maintenanceData.checklist?.shelter_skid || [];
   const cbmItems = maintenanceData.checklist?.cbm_vsd || [];
@@ -96,7 +134,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
       head: [['Actividad', 'Hecho (X)', 'Anomalías', 'Observaciones']],
       body: tableData,
       theme: 'striped',
-      headStyles: { fillColor: [200, 30, 30], textColor: [255, 255, 255], fontSize: 8 },
+      headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 8 },
       columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 40 }, 3: { cellWidth: 40 } },
       margin: { left: 15, right: 15 }
     });
@@ -106,99 +144,60 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     yPos += 7;
   }
 
-  // 6. ACTIVIDADES REALIZADAS
+  // 7. PRUEBAS ESTÁTICAS (Sección 5)
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('4. ACTIVIDADES REALIZADAS', 15, yPos);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('5. PRUEBAS ESTÁTICAS', 15, yPos);
   yPos += 7;
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const actividadesText = doc.splitTextToSize(
-    maintenanceData.descripcion || 'No se registraron actividades específicas.',
-    pageWidth - 30
-  );
-  doc.text(actividadesText, 15, yPos);
-  yPos += (actividadesText.length * 5) + 5;
+  doc.setTextColor(0, 0, 0);
 
-  // 7. PRUEBAS ESTÁTICAS
   if (maintenanceData.checklist?.static_tests) {
     const staticTests = maintenanceData.checklist.static_tests;
     
-    // Conversor 1
-    doc.setFont('helvetica', 'bold');
-    doc.text('5. PRUEBAS ESTÁTICAS - CONVERSOR I', 15, yPos);
-    yPos += 7;
-    doc.setFont('helvetica', 'normal');
-
+    // 5.1 Conversor
     const testData = staticTests.converter_1?.map(row => [
-      row.meter_plus, row.meter_minus, row.expected, row.actual
+      row.meter_plus + ' / ' + row.meter_minus, 
+      row.expected, 
+      row.actual
     ]) || [];
 
     doc.autoTable({
       startY: yPos,
-      head: [['Meter +', 'Meter -', 'Lectura Esperada', 'Lectura Actual']],
+      head: [['Medición', 'Esperado', 'Actual']],
       body: testData,
-      theme: 'grid',
-      headStyles: { fillColor: [200, 30, 30], textColor: [255, 255, 255] },
-      columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 35 }, 2: { cellWidth: 40 }, 3: { cellWidth: 40 } },
-      margin: { left: 15, right: 15 }
-    });
-    yPos = doc.lastAutoTable.finalY + 10;
-  }
-
-  // 8. ACCESORIOS CAMBIADOS
-  doc.setFont('helvetica', 'bold');
-  doc.text('6. ACCESORIOS CAMBIADOS', 15, yPos);
-  yPos += 7;
-  doc.setFont('helvetica', 'normal');
-
-  const materials = maintenanceData.checklist?.materials || [];
-  if (materials.length > 0) {
-    const materialsData = materials.map(item => [
-      item.quantity || 0,
-      item.sap_code || '-',
-      item.detail || '-',
-      item.reserve || '-'
-    ]);
-
-    doc.autoTable({
-      startY: yPos,
-      head: [['Cant.', 'Código SAP', 'Detalle', 'Reserva']],
-      body: materialsData,
       theme: 'striped',
-      headStyles: { fillColor: [200, 30, 30], textColor: [255, 255, 255], fontSize: 9 },
-      columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 30 }, 2: { cellWidth: 80 }, 3: { cellWidth: 30 } },
+      headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] },
+      columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 40 }, 2: { cellWidth: 40 } },
       margin: { left: 15, right: 15 }
     });
     yPos = doc.lastAutoTable.finalY + 10;
-  } else {
-    doc.text('No se registraron accesorios cambiados.', 15, yPos);
-    yPos += 7;
   }
 
-  // 9. CONCLUSIONES
+  // 8. FIRMA DEL TÉCNICO (Sección Final)
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('7. CONCLUSIONES', 15, yPos);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.text('FIRMA DEL TÉCNICO', 15, yPos);
   yPos += 7;
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  const conclusionesText = doc.splitTextToSize(
-    maintenanceData.conclusiones || 'Sin conclusiones registradas para este mantenimiento.',
-    pageWidth - 30
-  );
-  doc.text(conclusionesText, 15, yPos);
-  yPos += (conclusionesText.length * 5) + 5;
+  doc.setTextColor(0, 0, 0);
 
-  // 10. FIRMA DEL TÉCNICO
-  doc.setFont('helvetica', 'bold');
-  doc.text('8. FIRMA DEL TÉCNICO', 15, yPos);
-  yPos += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Nombre: ${maintenanceData.tecnico || 'Especialistas Inemec'}`, 15, yPos);
+  doc.text(`Nombre: ${maintenanceData.tecnico || 'JUAN CARLOS HOLGUIN'}`, 15, yPos);
   yPos += 5;
-  doc.text('Cargo: Variable Speed Drive Specialist', 15, yPos);
+  doc.text('Cargo: Field Specialist', 15, yPos);
+  yPos += 5;
+  doc.text('Teléfono: N/A', 15, yPos);
+  yPos += 5;
+  doc.text('Correo: N/A', 15, yPos);
   yPos += 15;
   doc.text('__________________________', 15, yPos);
   yPos += 5;
   doc.text('Firma del Técnico', 15, yPos);
 
   // Guardar el PDF
-  doc.save(`Reporte_Mantenimiento_${vsdData.codigo_vsd}.pdf`);
+  doc.save(`Reporte_SLB_${vsdData.codigo_vsd}_${Date.now()}.pdf`);
 };

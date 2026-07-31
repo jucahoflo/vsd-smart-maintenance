@@ -4,9 +4,9 @@ import {
   TextField, Dialog, DialogTitle, DialogContent,
   DialogActions, IconButton, Chip, Snackbar, Alert,
   CircularProgress, FormControl, InputLabel, Select, MenuItem,
-  InputAdornment, Stack, Avatar, CardMedia
+  InputAdornment, Stack, Avatar, CardMedia, Modal, Fade, Backdrop
 } from '@mui/material';
-import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever, PhotoCamera } from '@mui/icons-material';
+import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever, PhotoCamera, Close, ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
 const VFDs = () => {
@@ -18,6 +18,11 @@ const VFDs = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadingImage, setUploadingImage] = useState(false);
   
+  // 🔥 Estados para el visor de imágenes
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerImages, setViewerImages] = useState([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+
   const [formData, setFormData] = useState({
     codigo_vsd: '',
     manufacturer: '',
@@ -60,6 +65,29 @@ const VFDs = () => {
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
+  };
+
+  // 🔥 Función para abrir el visor de imágenes
+  const handleOpenViewer = (vfd) => {
+    const images = [vfd.image_url_1, vfd.image_url_2, vfd.image_url_3].filter(url => url);
+    if (images.length > 0) {
+      setViewerImages(images);
+      setViewerIndex(0);
+      setViewerOpen(true);
+    }
+  };
+
+  const handleCloseViewer = () => {
+    setViewerOpen(false);
+    setViewerImages([]);
+  };
+
+  const handleNextImage = () => {
+    setViewerIndex((prev) => (prev + 1) % viewerImages.length);
+  };
+
+  const handlePrevImage = () => {
+    setViewerIndex((prev) => (prev - 1 + viewerImages.length) % viewerImages.length);
   };
 
   const handleOpen = (vfd = null) => {
@@ -273,6 +301,69 @@ const VFDs = () => {
 
   return (
     <Box>
+      {/* 🔥 MODAL DEL VISOR DE IMÁGENES */}
+      <Modal
+        open={viewerOpen}
+        onClose={handleCloseViewer}
+        closeAfterTransition
+        BackdropComponent={Backdrop}
+        BackdropProps={{ timeout: 500 }}
+      >
+        <Fade in={viewerOpen}>
+          <Box sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '90%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            boxShadow: 24,
+            p: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            outline: 'none'
+          }}>
+            <Box display="flex" justifyContent="flex-end" width="100%">
+              <IconButton onClick={handleCloseViewer}><Close /></IconButton>
+            </Box>
+            
+            <Box sx={{ position: 'relative', width: '100%', height: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              {viewerImages.length > 1 && (
+                <IconButton 
+                  onClick={handlePrevImage} 
+                  sx={{ position: 'absolute', left: 0, zIndex: 2, bgcolor: 'rgba(0,0,0,0.5)', color: 'white', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}
+                >
+                  <ArrowBackIos />
+                </IconButton>
+              )}
+              
+              <img 
+                src={viewerImages[viewerIndex]} 
+                alt="VSD Viewer" 
+                style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }} 
+              />
+
+              {viewerImages.length > 1 && (
+                <IconButton 
+                  onClick={handleNextImage} 
+                  sx={{ position: 'absolute', right: 0, zIndex: 2, bgcolor: 'rgba(0,0,0,0.5)', color: 'white', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}
+                >
+                  <ArrowForwardIos />
+                </IconButton>
+              )}
+            </Box>
+            
+            <Typography variant="caption" sx={{ mt: 2 }}>
+              Imagen {viewerIndex + 1} de {viewerImages.length}
+            </Typography>
+          </Box>
+        </Fade>
+      </Modal>
+
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
           <Typography variant="h4" fontWeight="800" color="primary">⚡ Variadores de Velocidad (VSD)</Typography>
@@ -302,15 +393,20 @@ const VFDs = () => {
         {filteredVfds.map((vfd) => (
           <Grid item xs={12} sm={6} md={4} key={vfd.id}>
             <Card sx={{ borderRadius: 4, transition: 'all 0.3s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' } }}>
-              {/* 🔥 NUEVO: Mostrar la imagen 1 si existe */}
+              {/* 🔥 NUEVO: La imagen ahora es clickeable */}
               {vfd.image_url_1 && (
-                <CardMedia
-                  component="img"
-                  height="200"
-                  image={vfd.image_url_1}
-                  alt={`Imagen de ${vfd.codigo_vsd}`}
-                  sx={{ objectFit: 'cover' }}
-                />
+                <Box sx={{ position: 'relative', cursor: 'pointer' }} onClick={() => handleOpenViewer(vfd)}>
+                  <CardMedia
+                    component="img"
+                    height="200"
+                    image={vfd.image_url_1}
+                    alt={`Imagen de ${vfd.codigo_vsd}`}
+                    sx={{ objectFit: 'cover' }}
+                  />
+                  <Box sx={{ position: 'absolute', bottom: 8, right: 8, bgcolor: 'rgba(0,0,0,0.6)', color: 'white', px: 1, py: 0.5, borderRadius: 1, fontSize: '0.75rem' }}>
+                    👁️ Ver
+                  </Box>
+                </Box>
               )}
               
               <CardContent>

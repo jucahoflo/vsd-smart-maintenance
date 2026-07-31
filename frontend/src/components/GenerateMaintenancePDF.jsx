@@ -4,6 +4,7 @@ import 'jspdf-autotable';
 export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
   // COLORES CORPORATIVOS
   const darkGray = [51, 51, 51];
@@ -16,7 +17,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.setFillColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.rect(0, 0, pageWidth, 45, 'F');
 
-  // --- 2. LOGO (Cargando desde /images/inemec-logo.png) ---
+  // --- 2. LOGO ---
   let logoAdded = false;
   try {
     const response = await fetch('/images/inemec-logo.png');
@@ -69,7 +70,9 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.line(15, yPos, pageWidth - 15, yPos);
   yPos += 8;
 
-  // --- 5. INFORMACIÓN GENERAL ---
+  // ==========================================
+  // 1. INFORMACIÓN GENERAL (VSD + MANTENIMIENTO)
+  // ==========================================
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
@@ -135,11 +138,76 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
 
   yPos = Math.max(leftY, rightY) + 12;
 
-  // --- 6. OBJETIVO GENERAL ---
+  // ==========================================
+  // 2. DATOS TÉCNICOS DEL VSD
+  // ==========================================
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.text('2. OBJETIVO GENERAL', 15, yPos);
+  doc.text('2. DATOS TÉCNICOS DEL VSD', 15, yPos);
+  yPos += 7;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(black[0], black[1], black[2]);
+
+  const tecnicosData = [
+    ['Marca', vsdData.manufacturer || 'N/A', 'Modelo', vsdData.model || 'N/A'],
+    ['Serial Number', vsdData.serial_number || 'N/A', 'KVA', vsdData.kva || 'N/A'],
+    ['Voltaje (V)', vsdData.voltage_rating || 'N/A', 'Departamento', vsdData.department || 'N/A'],
+    ['Health Score', `${vsdData.health_score || 100}%`, 'Observaciones', vsdData.observations || 'N/A']
+  ];
+
+  doc.autoTable({
+    startY: yPos,
+    body: tecnicosData,
+    theme: 'grid',
+    headStyles: { fillColor: darkGray, textColor: white, fontStyle: 'bold' },
+    columnStyles: { 0: { cellWidth: 30, fontStyle: 'bold' }, 1: { cellWidth: 50 }, 2: { cellWidth: 30, fontStyle: 'bold' }, 3: { cellWidth: 50 } },
+    margin: { left: 15, right: 15 },
+    styles: { fontSize: 9 }
+  });
+  yPos = doc.lastAutoTable.finalY + 12;
+
+  // ==========================================
+  // 3. IMÁGENES DEL VSD
+  // ==========================================
+  const vsdImages = [vsdData.image_url_1, vsdData.image_url_2, vsdData.image_url_3].filter(url => url);
+  if (vsdImages.length > 0) {
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    doc.text('3. REGISTRO FOTOGRÁFICO DEL VSD', 15, yPos);
+    yPos += 7;
+
+    let imgY = yPos;
+    for (let i = 0; i < vsdImages.length; i++) {
+      try {
+        const response = await fetch(vsdImages[i]);
+        if (response.ok) {
+          const blob = await response.blob();
+          const base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+          const imgWidth = 55;
+          const xPos = 15 + (i * (imgWidth + 5));
+          doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
+        }
+      } catch (error) {
+        console.warn('Error cargando imagen VSD:', error);
+      }
+    }
+    yPos += 45;
+  }
+
+  // ==========================================
+  // 4. OBJETIVO GENERAL
+  // ==========================================
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+  doc.text('4. OBJETIVO GENERAL', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -151,11 +219,13 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.text(objetivoLines, 15, yPos);
   yPos += (objetivoLines.length * 5) + 5;
 
-  // --- 7. EQUIPOS DE SUPERFICIE ---
+  // ==========================================
+  // 5. EQUIPOS DE SUPERFICIE
+  // ==========================================
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.text('3. EQUIPOS DE SUPERFICIE', 15, yPos);
+  doc.text('5. EQUIPOS DE SUPERFICIE', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -179,11 +249,13 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   });
   yPos = doc.lastAutoTable.finalY + 12;
 
-  // --- 8. LISTA DE CHEQUEO ---
+  // ==========================================
+  // 6. LISTA DE CHEQUEO
+  // ==========================================
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.text('4. LISTA DE CHEQUEO', 15, yPos);
+  doc.text('6. LISTA DE CHEQUEO', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -218,11 +290,13 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     yPos += 7;
   }
 
-  // --- 9. ACTIVIDADES REALIZADAS ---
+  // ==========================================
+  // 7. ACTIVIDADES REALIZADAS
+  // ==========================================
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.text('5. ACTIVIDADES REALIZADAS', 15, yPos);
+  doc.text('7. ACTIVIDADES REALIZADAS', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -233,11 +307,13 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.text(actividadLines, 15, yPos);
   yPos += (actividadLines.length * 5) + 5;
 
-  // --- 10. PRUEBAS ESTÁTICAS ---
+  // ==========================================
+  // 8. PRUEBAS ESTÁTICAS
+  // ==========================================
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.text('6. PRUEBAS ESTÁTICAS', 15, yPos);
+  doc.text('8. PRUEBAS ESTÁTICAS', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -266,11 +342,13 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     yPos = doc.lastAutoTable.finalY + 12;
   }
 
-  // --- 11. ACCESORIOS CAMBIADOS ---
+  // ==========================================
+  // 9. ACCESORIOS CAMBIADOS
+  // ==========================================
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.text('7. ACCESORIOS CAMBIADOS', 15, yPos);
+  doc.text('9. ACCESORIOS CAMBIADOS', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -302,11 +380,69 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     yPos += 7;
   }
 
-  // --- 12. CONCLUSIONES ---
+  // ==========================================
+  // 10. IMÁGENES DEL MANTENIMIENTO (Antes y Después)
+  // ==========================================
+  const mtoPhotos = maintenanceData.checklist?.photos || {};
+  const beforePhotos = mtoPhotos.before || [];
+  const afterPhotos = mtoPhotos.after || [];
+  const allMtoPhotos = [...beforePhotos, ...afterPhotos];
+
+  if (allMtoPhotos.length > 0) {
+    doc.addPage();
+    yPos = 15;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    doc.text('10. EVIDENCIA FOTOGRÁFICA DEL MANTENIMIENTO', 15, yPos);
+    yPos += 10;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(black[0], black[1], black[2]);
+
+    let imgY = yPos;
+    for (let i = 0; i < allMtoPhotos.length; i++) {
+      try {
+        const response = await fetch(allMtoPhotos[i]);
+        if (response.ok) {
+          const blob = await response.blob();
+          const base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+          const imgWidth = 55;
+          const xPos = 15 + (i % 3) * (imgWidth + 5);
+          doc.addImage(base64, 'JPEG', xPos, imgY, imgWidth, 40);
+
+          // Salto de página si se llenan 3 imágenes
+          if ((i + 1) % 3 === 0) {
+            imgY += 45;
+            if (imgY > 250) {
+              doc.addPage();
+              imgY = 15;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Error cargando imagen Mto:', error);
+      }
+    }
+    yPos = imgY + 45;
+  } else {
+    yPos += 10;
+    doc.text('No se registraron imágenes para este mantenimiento.', 15, yPos);
+    yPos += 7;
+  }
+
+  // ==========================================
+  // 11. CONCLUSIONES
+  // ==========================================
+  if (yPos > 250) doc.addPage();
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.text('8. CONCLUSIONES', 15, yPos);
+  doc.text('11. CONCLUSIONES', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -317,11 +453,13 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.text(conclusionLines, 15, yPos);
   yPos += (conclusionLines.length * 5) + 5;
 
-  // --- 13. FIRMA DEL TÉCNICO ---
+  // ==========================================
+  // 12. FIRMA DEL TÉCNICO
+  // ==========================================
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-  doc.text('9. FIRMA DEL TÉCNICO', 15, yPos);
+  doc.text('12. FIRMA DEL TÉCNICO', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -341,7 +479,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   yPos += 5;
   doc.text('Firma del Técnico', 15, yPos);
 
-  // --- 14. GUARDAR EL PDF ---
+  // --- GUARDAR EL PDF ---
   try {
     doc.save(`Reporte_${vsdData.codigo_vsd}_${Date.now()}.pdf`);
   } catch (error) {

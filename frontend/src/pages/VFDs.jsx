@@ -4,25 +4,23 @@ import {
   TextField, Dialog, DialogTitle, DialogContent,
   DialogActions, IconButton, Chip, Snackbar, Alert,
   CircularProgress, FormControl, InputLabel, Select, MenuItem,
-  InputAdornment, Stack, Avatar, CardMedia, Modal, Fade, Backdrop
+  InputAdornment, Stack, Avatar, CardMedia
 } from '@mui/material';
-import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever, PhotoCamera, Close, ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
+import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
+import { useSync } from '../context/SyncContext';
 
 const VFDs = () => {
+  const { isOnline, saveLocally, loadLocally, addToOfflineQueue } = useSync();
+  
   const [vfds, setVfds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
-  // 🔥 Estados para el visor de imágenes
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerImages, setViewerImages] = useState([]);
-  const [viewerIndex, setViewerIndex] = useState(0);
-
   const [formData, setFormData] = useState({
     codigo_vsd: '',
     manufacturer: '',
@@ -41,20 +39,40 @@ const VFDs = () => {
     image_url_3: ''
   });
 
+  // 🆕 Estados para el diálogo de confirmación por contraseña
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [vfdToDelete, setVfdToDelete] = useState(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
+  const MASTER_PASSWORD = 'admin123'; // 🔐 Cambia esta contraseña aquí si quieres
+
   useEffect(() => {
     loadData();
   }, []);
 
+  // 🆕 loadData modificado para soportar Offline
   const loadData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('vsd')
-        .select('*')
-        .order('codigo_vsd', { ascending: true });
+      let data = [];
+      
+      if (isOnline) {
+        // Si hay internet, traer de Supabase y guardar en local
+        const { data: supabaseData, error } = await supabase
+          .from('vsd')
+          .select('*')
+          .order('codigo_vsd', { ascending: true });
 
-      if (error) throw error;
-      setVfds(data || []);
+        if (error) throw error;
+        data = supabaseData || [];
+        await saveLocally('offline_vsds', data);
+      } else {
+        // Si no hay internet, traer del caché local
+        data = await loadLocally('offline_vsds') || [];
+      }
+
+      setVfds(data);
     } catch (error) {
       console.error('❌ Error loading VSDs:', error);
       showSnackbar('Error al cargar VSDs', 'error');
@@ -65,29 +83,6 @@ const VFDs = () => {
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
-  };
-
-  // 🔥 Función para abrir el visor de imágenes
-  const handleOpenViewer = (vfd) => {
-    const images = [vfd.image_url_1, vfd.image_url_2, vfd.image_url_3].filter(url => url);
-    if (images.length > 0) {
-      setViewerImages(images);
-      setViewerIndex(0);
-      setViewerOpen(true);
-    }
-  };
-
-  const handleCloseViewer = () => {
-    setViewerOpen(false);
-    setViewerImages([]);
-  };
-
-  const handleNextImage = () => {
-    setViewerIndex((prev) => (prev + 1) % viewerImages.length);
-  };
-
-  const handlePrevImage = () => {
-    setViewerIndex((prev) => (prev - 1 + viewerImages.length) % viewerImages.length);
   };
 
   const handleOpen = (vfd = null) => {
@@ -179,6 +174,7 @@ const VFDs = () => {
     }));
   };
 
+  // 🆕 handleSave modificado para soportar Offline Queue
   const handleSave = async () => {
     try {
       if (editing) {
@@ -199,12 +195,23 @@ const VFDs = () => {
           image_url_3: formData.image_url_3 || ''
         };
 
-        const { error } = await supabase
-          .from('vsd')
-          .update(dataToSend)
-          .eq('id', editing.id);
-
-        if (error) throw error;
+        if (isOnline) {
+          const { error } = await supabase
+            .from('vsd')
+            .update(dataToSend)
+            .eq('id', editing.id);
+          if (error) throw error;
+        } else {
+          // Guardar en cola offline
+          addToOfflineQueue({
+            type: 'UPDATE',
+            table: 'vsd',
+            id: editing.id,
+            data: dataToSend
+          });
+          // Actualizar la vista local inmediatamente
+          setVfds(prev => prev.map(v => v.id === editing.id ? { ...v, ...dataToSend } : v));
+        }
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
         const { count, error: countError } = await supabase
@@ -216,51 +223,88 @@ const VFDs = () => {
         const siguienteNumero = (count || 0) + 1;
         const nuevoCodigo = `V${siguienteNumero.toString().padStart(3, '0')}`;
 
-        const { error } = await supabase
-          .from('vsd')
-          .insert({
-            codigo_vsd: nuevoCodigo,
-            manufacturer: formData.manufacturer || '',
-            model: formData.model || '',
-            status: formData.status || 'online',
-            health_score: parseInt(formData.health_score) || 100,
-            serial_number: formData.serial_number || '',
-            voltage_rating: formData.voltage_rating || '',
-            kva: formData.kva || '',
-            site: formData.site || '',
-            plant: formData.plant || '',
-            department: formData.department || '',
-            observations: formData.observations || '',
-            image_url_1: formData.image_url_1 || '',
-            image_url_2: formData.image_url_2 || '',
-            image_url_3: formData.image_url_3 || ''
-          });
+        const newData = {
+          codigo_vsd: nuevoCodigo,
+          manufacturer: formData.manufacturer || '',
+          model: formData.model || '',
+          status: formData.status || 'online',
+          health_score: parseInt(formData.health_score) || 100,
+          serial_number: formData.serial_number || '',
+          voltage_rating: formData.voltage_rating || '',
+          kva: formData.kva || '',
+          site: formData.site || '',
+          plant: formData.plant || '',
+          department: formData.department || '',
+          observations: formData.observations || '',
+          image_url_1: formData.image_url_1 || '',
+          image_url_2: formData.image_url_2 || '',
+          image_url_3: formData.image_url_3 || ''
+        };
 
-        if (error) throw error;
+        if (isOnline) {
+          const { error } = await supabase
+            .from('vsd')
+            .insert(newData);
+          if (error) throw error;
+        } else {
+          // Guardar en cola offline
+          addToOfflineQueue({
+            type: 'INSERT',
+            table: 'vsd',
+            data: newData
+          });
+          // Agregar a la vista local con un ID temporal
+          setVfds(prev => [{ ...newData, id: 'local_' + Date.now() }, ...prev]);
+        }
         showSnackbar('✅ VSD creado correctamente');
       }
       
       handleClose();
-      loadData();
+      // Si estamos online, recargamos los datos de la nube. Si no, la vista ya se actualizó.
+      if (isOnline) loadData();
     } catch (error) {
       console.error('❌ Error al guardar:', error);
       showSnackbar(error.message || 'Error al guardar', 'error');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('¿Eliminar este VSD?')) {
-      try {
+  // 🆕 handleDelete modificado para soportar Offline
+  const handleDeleteClick = (id) => {
+    setVfdToDelete(id);
+    setDeletePassword('');
+    setDeleteError('');
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (deletePassword !== MASTER_PASSWORD) {
+      setDeleteError('❌ Contraseña incorrecta. Intenta de nuevo.');
+      return;
+    }
+
+    try {
+      if (isOnline) {
         const { error } = await supabase
           .from('vsd')
           .delete()
-          .eq('id', id);
+          .eq('id', vfdToDelete);
         if (error) throw error;
-        showSnackbar('✅ VSD eliminado');
-        loadData();
-      } catch (error) {
-        showSnackbar('Error al eliminar', 'error');
+      } else {
+        addToOfflineQueue({
+          type: 'DELETE',
+          table: 'vsd',
+          id: vfdToDelete
+        });
+        // Eliminar de la vista local
+        setVfds(prev => prev.filter(v => v.id !== vfdToDelete));
       }
+      
+      showSnackbar('✅ VSD eliminado permanentemente');
+      setDeleteDialogOpen(false);
+      setVfdToDelete(null);
+      if (isOnline) loadData();
+    } catch (error) {
+      showSnackbar('Error al eliminar', 'error');
     }
   };
 
@@ -301,69 +345,6 @@ const VFDs = () => {
 
   return (
     <Box>
-      {/* 🔥 MODAL DEL VISOR DE IMÁGENES */}
-      <Modal
-        open={viewerOpen}
-        onClose={handleCloseViewer}
-        closeAfterTransition
-        BackdropComponent={Backdrop}
-        BackdropProps={{ timeout: 500 }}
-      >
-        <Fade in={viewerOpen}>
-          <Box sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '90%',
-            maxWidth: '800px',
-            maxHeight: '90vh',
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            boxShadow: 24,
-            p: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            outline: 'none'
-          }}>
-            <Box display="flex" justifyContent="flex-end" width="100%">
-              <IconButton onClick={handleCloseViewer}><Close /></IconButton>
-            </Box>
-            
-            <Box sx={{ position: 'relative', width: '100%', height: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              {viewerImages.length > 1 && (
-                <IconButton 
-                  onClick={handlePrevImage} 
-                  sx={{ position: 'absolute', left: 0, zIndex: 2, bgcolor: 'rgba(0,0,0,0.5)', color: 'white', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}
-                >
-                  <ArrowBackIos />
-                </IconButton>
-              )}
-              
-              <img 
-                src={viewerImages[viewerIndex]} 
-                alt="VSD Viewer" 
-                style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }} 
-              />
-
-              {viewerImages.length > 1 && (
-                <IconButton 
-                  onClick={handleNextImage} 
-                  sx={{ position: 'absolute', right: 0, zIndex: 2, bgcolor: 'rgba(0,0,0,0.5)', color: 'white', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}
-                >
-                  <ArrowForwardIos />
-                </IconButton>
-              )}
-            </Box>
-            
-            <Typography variant="caption" sx={{ mt: 2 }}>
-              Imagen {viewerIndex + 1} de {viewerImages.length}
-            </Typography>
-          </Box>
-        </Fade>
-      </Modal>
-
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
           <Typography variant="h4" fontWeight="800" color="primary">⚡ Variadores de Velocidad (VSD)</Typography>
@@ -393,9 +374,8 @@ const VFDs = () => {
         {filteredVfds.map((vfd) => (
           <Grid item xs={12} sm={6} md={4} key={vfd.id}>
             <Card sx={{ borderRadius: 4, transition: 'all 0.3s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' } }}>
-              {/* 🔥 NUEVO: La imagen ahora es clickeable */}
               {vfd.image_url_1 && (
-                <Box sx={{ position: 'relative', cursor: 'pointer' }} onClick={() => handleOpenViewer(vfd)}>
+                <Box sx={{ position: 'relative', cursor: 'pointer' }}>
                   <CardMedia
                     component="img"
                     height="200"
@@ -426,7 +406,7 @@ const VFDs = () => {
                 </Box>
                 <Box mt={2} display="flex" justifyContent="flex-end" gap={1}>
                   <Button size="small" onClick={() => handleOpen(vfd)}><Edit fontSize="small" sx={{ mr: 0.5 }} /> Editar</Button>
-                  <Button size="small" color="error" onClick={() => handleDelete(vfd.id)}><Delete fontSize="small" sx={{ mr: 0.5 }} /> Eliminar</Button>
+                  <Button size="small" color="error" onClick={() => handleDeleteClick(vfd.id)}><Delete fontSize="small" sx={{ mr: 0.5 }} /> Eliminar</Button>
                 </Box>
               </CardContent>
             </Card>
@@ -446,46 +426,40 @@ const VFDs = () => {
         )}
       </Grid>
 
-      <Dialog open={openDialog} onClose={handleClose} maxWidth="md" fullWidth>
+      <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle><Typography variant="h6" fontWeight="700">{editing ? '✏️ Editar VSD' : '➕ Nuevo VSD'}</Typography></DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField fullWidth label="🔑 Código del VSD" value={formData.codigo_vsd} disabled InputProps={{ readOnly: true, sx: { backgroundColor: '#f5f5f5' } }} />
             </Grid>
-            
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Fabricante" value={formData.manufacturer} onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Modelo" value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} />
             </Grid>
-
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Serial Number" value={formData.serial_number} onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Voltage Rating (V)" value={formData.voltage_rating} onChange={(e) => setFormData({ ...formData, voltage_rating: e.target.value })} />
             </Grid>
-
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="KVA" value={formData.kva} onChange={(e) => setFormData({ ...formData, kva: e.target.value })} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Sitio / Site" value={formData.site} onChange={(e) => setFormData({ ...formData, site: e.target.value })} />
             </Grid>
-
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Planta / Plant" value={formData.plant} onChange={(e) => setFormData({ ...formData, plant: e.target.value })} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Departamento" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} />
             </Grid>
-
             <Grid item xs={12}>
               <TextField fullWidth label="📝 Observaciones" value={formData.observations} onChange={(e) => setFormData({ ...formData, observations: e.target.value })} multiline rows={3} />
             </Grid>
-
             <Grid item xs={12}>
               <Typography variant="subtitle2" gutterBottom>🖼️ Imágenes (Máximo 3)</Typography>
               <Grid container spacing={2}>
@@ -519,7 +493,6 @@ const VFDs = () => {
                 ))}
               </Grid>
             </Grid>
-
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Estado</InputLabel>
@@ -538,7 +511,31 @@ const VFDs = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave} disabled={uploadingImage}>{editing ? 'Actualizar' : 'Crear'}</Button>
+          <Button variant="contained" onClick={handleSave}>{editing ? 'Actualizar' : 'Crear'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo de Confirmación de Eliminación con Contraseña */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle><Typography variant="h6" fontWeight="700" color="error">⚠️ Confirmar Eliminación</Typography></DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Esta acción es **permanente**. Para eliminar este VSD, ingresa la contraseña maestra.
+          </Typography>
+          <TextField
+            fullWidth
+            label="🔐 Contraseña de seguridad"
+            type="password"
+            value={deletePassword}
+            onChange={(e) => setDeletePassword(e.target.value)}
+            error={!!deleteError}
+            helperText={deleteError}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={confirmDelete}>Eliminar Permanentemente</Button>
         </DialogActions>
       </Dialog>
 

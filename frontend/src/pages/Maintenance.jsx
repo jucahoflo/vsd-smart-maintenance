@@ -300,7 +300,7 @@ const Maintenance = () => {
 
     setSaving(true);
     try {
-      // Verificar que el checklist tenga al menos un elemento vacío si no hay datos
+      // 🛡️ CORRECCIÓN DE ERROR 22007: Convertir "" a null
       const dataToSend = {
         vsd_id: vfdEncontrado.id,
         codigo_vsd: vfdEncontrado.codigo_vsd,
@@ -309,8 +309,9 @@ const Maintenance = () => {
         tecnico: maintenanceForm.tecnico || 'No especificado',
         costo: parseFloat(maintenanceForm.costo) || 0,
         observations: maintenanceForm.observations || '',
-        fecha_inicio: maintenanceForm.fecha_inicio || null,
-        fecha_fin: maintenanceForm.fecha_fin || null,
+        // ✅ Si la fecha es "", la convertimos a null
+        fecha_inicio: maintenanceForm.fecha_inicio?.trim() === '' ? null : maintenanceForm.fecha_inicio,
+        fecha_fin: maintenanceForm.fecha_fin?.trim() === '' ? null : maintenanceForm.fecha_fin,
         sitio: maintenanceForm.sitio || '',
         pozo: maintenanceForm.pozo || '',
         modulo_produccion: maintenanceForm.modulo_produccion || '',

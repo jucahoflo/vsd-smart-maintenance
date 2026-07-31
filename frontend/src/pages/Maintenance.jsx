@@ -4,9 +4,9 @@ import {
   Snackbar, Alert, CircularProgress, Chip, Paper, Divider,
   InputAdornment, FormControl, InputLabel, Select, MenuItem,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  IconButton, Avatar, Stack
+  IconButton, Avatar, Stack, Tooltip
 } from '@mui/material';
-import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera } from '@mui/icons-material';
+import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera, Add, Delete } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
 // 1. CHECKLIST DE MANTENIMIENTO
@@ -29,7 +29,6 @@ const getDefaultChecklist = () => {
       { id: 'cbm2', label: 'Predictivo de Calidad de Energía en cada Pozo', done: false, anomaly: '', observations: '' },
       { id: 'cbm3', label: 'Predictivo de Mediciones Eléctricas', done: false, anomaly: '', observations: '' },
     ],
-    // 🆕 Tablas de Pruebas Estáticas
     static_tests: {
       converter_1: [
         { meter_plus: 'DC BUS +', meter_minus: 'Entrada R', expected: 'Cargando', actual: '' },
@@ -74,11 +73,14 @@ const getDefaultChecklist = () => {
         { meter_plus: 'Entrada T', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
       ]
     },
-    // 🆕 Registros fotográficos
     photos: {
       before: [],
       after: []
-    }
+    },
+    // 🆕 Tabla de materiales/repuestos
+    materials: [
+      { item: 1, quantity: 1, sap_code: '', detail: '', reserve: '' }
+    ]
   };
 };
 
@@ -98,7 +100,7 @@ const Maintenance = () => {
     observations: ''
   });
 
-  // Estado del checklist completo (incluye fotos)
+  // Estado del checklist completo
   const [checklist, setChecklist] = useState(getDefaultChecklist());
 
   const showSnackbar = (message, severity = 'success') => {
@@ -178,7 +180,6 @@ const Maintenance = () => {
     }));
   };
 
-  // 🆕 Función para subir fotos (Antes/Después)
   const uploadPhoto = async (file, stage) => {
     if (!file || !vfdEncontrado) return;
     setUploadingImage(true);
@@ -223,6 +224,43 @@ const Maintenance = () => {
         ...prev.photos,
         [stage]: prev.photos[stage].filter((_, i) => i !== index)
       }
+    }));
+  };
+
+  // 🆕 Funciones para la tabla de materiales
+  const addMaterial = () => {
+    setChecklist(prev => ({
+      ...prev,
+      materials: [
+        ...prev.materials,
+        { 
+          item: prev.materials.length + 1, 
+          quantity: 1, 
+          sap_code: '', 
+          detail: '', 
+          reserve: '' 
+        }
+      ]
+    }));
+  };
+
+  const removeMaterial = (index) => {
+    if (checklist.materials.length === 1) return;
+    const updatedMaterials = checklist.materials.filter((_, i) => i !== index);
+    // Recalcular el número de ítem
+    const reindexed = updatedMaterials.map((mat, i) => ({ ...mat, item: i + 1 }));
+    setChecklist(prev => ({
+      ...prev,
+      materials: reindexed
+    }));
+  };
+
+  const updateMaterial = (index, field, value) => {
+    setChecklist(prev => ({
+      ...prev,
+      materials: prev.materials.map((mat, i) => 
+        i === index ? { ...mat, [field]: value } : mat
+      )
     }));
   };
 
@@ -385,7 +423,7 @@ const Maintenance = () => {
     </Box>
   );
 
-  // 🆕 Renderizador de fotos
+  // Renderizador de fotos
   const renderPhotoSection = (title, stage) => {
     const photos = checklist.photos[stage];
     return (
@@ -437,6 +475,97 @@ const Maintenance = () => {
     );
   };
 
+  // 🆕 Renderizador de la tabla de materiales
+  const renderMaterialsTable = () => {
+    return (
+      <Box mt={3}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+          <Typography variant="subtitle1" fontWeight="700" sx={{ color: '#00897b' }}>
+            📦 Descripción Accesorios Cambiados
+          </Typography>
+          <Button 
+            variant="outlined" 
+            size="small" 
+            startIcon={<Add />} 
+            onClick={addMaterial}
+            sx={{ borderRadius: 2 }}
+          >
+            Agregar Material
+          </Button>
+        </Box>
+        
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#fafafa' }}>
+                <TableCell sx={{ fontWeight: 600, width: '8%', textAlign: 'center' }}>Ítem</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '12%', textAlign: 'center' }}>Cantidad</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '20%' }}>CODIGO SAP</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '45%' }}>Detalle</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '15%' }}>Reserva</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '5%', textAlign: 'center' }}>Acción</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {checklist.materials.map((row, index) => (
+                <TableRow key={index}>
+                  <TableCell align="center">{row.item}</TableCell>
+                  <TableCell align="center">
+                    <TextField
+                      size="small"
+                      variant="standard"
+                      type="number"
+                      value={row.quantity}
+                      onChange={(e) => updateMaterial(index, 'quantity', e.target.value)}
+                      inputProps={{ min: 1, style: { textAlign: 'center', width: '50px' } }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="standard"
+                      placeholder="Ejm: 1000266315"
+                      value={row.sap_code}
+                      onChange={(e) => updateMaterial(index, 'sap_code', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="standard"
+                      placeholder="Descripción detallada..."
+                      value={row.detail}
+                      onChange={(e) => updateMaterial(index, 'detail', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="standard"
+                      placeholder="N° Reserva"
+                      value={row.reserve}
+                      onChange={(e) => updateMaterial(index, 'reserve', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="Eliminar material">
+                      <IconButton size="small" color="error" onClick={() => removeMaterial(index)}>
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    );
+  };
+
   return (
     <Box>
       <Box mb={4}>
@@ -444,7 +573,7 @@ const Maintenance = () => {
           🔧 Mantenimiento Shelter - Skid
         </Typography>
         <Typography variant="body2" color="textSecondary">
-          Registro completo con pruebas estáticas y evidencia fotográfica
+          Registro completo con pruebas estáticas, evidencia fotográfica y control de materiales
         </Typography>
       </Box>
 
@@ -614,10 +743,14 @@ const Maintenance = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            {/* 🆕 SECCIÓN DE FOTOS */}
             <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>📷 Registro Fotográfico</Typography>
             {renderPhotoSection('Antes del mantenimiento', 'before')}
             {renderPhotoSection('Después del mantenimiento', 'after')}
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* 🆕 TABLA DE MATERIALES */}
+            {renderMaterialsTable()}
 
             <Box mt={4} display="flex" justifyContent="flex-end">
               <Button

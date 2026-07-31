@@ -12,27 +12,30 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   const black = [0, 0, 0];
   const redInemec = [200, 30, 30];
 
-  // --- 1. CARGAR LOGO DESDE LA WEB ---
-  let logoBase64 = null;
-  try {
-    const response = await fetch('/images/logo-inemec.png');
-    const blob = await response.blob();
-    logoBase64 = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.warn('No se pudo cargar el logo:', error);
-  }
-
-  // --- 2. ENCABEZADO OSCURO ---
+  // --- 1. ENCABEZADO OSCURO ---
   doc.setFillColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.rect(0, 0, pageWidth, 45, 'F');
 
-  if (logoBase64) {
-    doc.addImage(logoBase64, 'PNG', 10, 5, 30, 30);
-  } else {
+  // --- 2. LOGO (Con try/catch para que nunca falle la descarga) ---
+  let logoAdded = false;
+  try {
+    // Intento 1: Cargar desde URL pública
+    const response = await fetch('/images/logo-inemec.png');
+    if (response.ok) {
+      const blob = await response.blob();
+      const base64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+      doc.addImage(base64, 'PNG', 10, 5, 30, 30);
+      logoAdded = true;
+    }
+  } catch (error) {
+    console.warn('Logo no cargado, usando texto alternativo');
+  }
+
+  if (!logoAdded) {
     doc.setFillColor(255, 255, 255);
     doc.rect(10, 5, 30, 30, 'F');
     doc.setTextColor(redInemec[0], redInemec[1], redInemec[2]);
@@ -339,5 +342,11 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   yPos += 5;
   doc.text('Firma del Técnico', 15, yPos);
 
-  doc.save(`Reporte_${vsdData.codigo_vsd}_${Date.now()}.pdf`);
+  // --- 14. GUARDAR EL PDF ---
+  try {
+    doc.save(`Reporte_${vsdData.codigo_vsd}_${Date.now()}.pdf`);
+  } catch (error) {
+    console.error('Error al guardar el PDF:', error);
+    alert('Hubo un error al generar el PDF. Por favor, intenta de nuevo.');
+  }
 };

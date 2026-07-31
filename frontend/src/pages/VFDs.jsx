@@ -4,7 +4,7 @@ import {
   TextField, Dialog, DialogTitle, DialogContent,
   DialogActions, IconButton, Chip, Snackbar, Alert,
   CircularProgress, FormControl, InputLabel, Select, MenuItem,
-  InputAdornment, Stack, Avatar
+  InputAdornment, Stack, Avatar, CardMedia
 } from '@mui/material';
 import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever, PhotoCamera } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
@@ -302,6 +302,17 @@ const VFDs = () => {
         {filteredVfds.map((vfd) => (
           <Grid item xs={12} sm={6} md={4} key={vfd.id}>
             <Card sx={{ borderRadius: 4, transition: 'all 0.3s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' } }}>
+              {/* 🔥 NUEVO: Mostrar la imagen 1 si existe */}
+              {vfd.image_url_1 && (
+                <CardMedia
+                  component="img"
+                  height="200"
+                  image={vfd.image_url_1}
+                  alt={`Imagen de ${vfd.codigo_vsd}`}
+                  sx={{ objectFit: 'cover' }}
+                />
+              )}
+              
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="start">
                   <Box>

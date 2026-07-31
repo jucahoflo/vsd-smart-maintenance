@@ -6,7 +6,10 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      external: [] // No externalizamos nada
+      // Esto obliga a Vite a usar el empaquetador clásico y evita el bug de Rolldown
+      output: {
+        manualChunks: undefined
+      }
     }
   }
 })

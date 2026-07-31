@@ -97,14 +97,12 @@ const Maintenance = () => {
     tecnico: '',
     costo: '',
     observations: '',
-    // 🆕 Campos de cabecera
     fecha_inicio: '',
     fecha_fin: '',
     sitio: '',
     pozo: '',
     modulo_produccion: '',
     taller: '',
-    // 🆕 Campo de conclusiones
     conclusiones: ''
   });
 
@@ -183,7 +181,6 @@ const Maintenance = () => {
     setChecklist(getDefaultChecklist());
   };
 
-  // Funciones del checklist
   const toggleChecklistItem = (sectionKey, id, field) => {
     setChecklist(prev => ({
       ...prev,
@@ -315,7 +312,6 @@ const Maintenance = () => {
           tecnico: maintenanceForm.tecnico || 'No especificado',
           costo: parseFloat(maintenanceForm.costo) || 0,
           observations: maintenanceForm.observations || '',
-          // 🆕 Campos nuevos guardados
           fecha_inicio: maintenanceForm.fecha_inicio,
           fecha_fin: maintenanceForm.fecha_fin,
           sitio: maintenanceForm.sitio,
@@ -379,7 +375,6 @@ const Maintenance = () => {
     }
   };
 
-  // Renderizador del checklist
   const renderChecklistSection = (title, sectionKey, items) => (
     <Box mt={2}>
       <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#f0f0f0', p: 1, borderRadius: 1 }}>
@@ -436,7 +431,6 @@ const Maintenance = () => {
     </Box>
   );
 
-  // Renderizador de pruebas estáticas
   const renderStaticTestTable = (title, testKey, items) => (
     <Box mt={3}>
       <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#1976d2', color: 'white', p: 1, borderRadius: 1 }}>
@@ -476,7 +470,6 @@ const Maintenance = () => {
     </Box>
   );
 
-  // Renderizador de fotos
   const renderPhotoSection = (title, stage) => {
     const photos = checklist.photos[stage];
     return (
@@ -528,7 +521,6 @@ const Maintenance = () => {
     );
   };
 
-  // Renderizador de la tabla de materiales
   const renderMaterialsTable = () => {
     return (
       <Box mt={3}>
@@ -710,10 +702,8 @@ const Maintenance = () => {
           </Box>
 
           <CardContent sx={{ p: 3 }}>
-            {/* 🆕 CABECERA AMPLIADA */}
             <Typography variant="h6" fontWeight="700" gutterBottom>📋 Datos Generales del Mantenimiento</Typography>
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              {/* Fila 1: Fechas y Sitio */}
               <Grid item xs={12} sm={6} md={3}>
                 <TextField
                   fullWidth
@@ -757,7 +747,6 @@ const Maintenance = () => {
                 />
               </Grid>
 
-              {/* Fila 2: Módulo, Taller, Tipo y Técnico */}
               <Grid item xs={12} sm={6} md={3}>
                 <TextField
                   fullWidth
@@ -803,7 +792,6 @@ const Maintenance = () => {
                 />
               </Grid>
 
-              {/* Fila 3: Costo y Ubicación intervención */}
               <Grid item xs={12} sm={6} md={3}>
                 <TextField
                   fullWidth
@@ -840,13 +828,11 @@ const Maintenance = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            {/* CHECKLIST */}
             {renderChecklistSection('Mantenimiento Preventivo Shelter – Skid', 'shelter_skid', checklist.shelter_skid)}
             {renderChecklistSection('Mantenimiento CBM en VSD', 'cbm_vsd', checklist.cbm_vsd)}
 
             <Divider sx={{ my: 3 }} />
 
-            {/* PRUEBAS ESTÁTICAS */}
             <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>⚡ Pruebas Estáticas del VSD</Typography>
             {renderStaticTestTable('Prueba Estática Conversor I', 'converter_1', checklist.static_tests.converter_1)}
             {renderStaticTestTable('Prueba Estática Inversora II', 'inverter_2', checklist.static_tests.inverter_2)}
@@ -854,19 +840,16 @@ const Maintenance = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            {/* FOTOS */}
             <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>📷 Registro Fotográfico</Typography>
             {renderPhotoSection('Antes del mantenimiento', 'before')}
             {renderPhotoSection('Después del mantenimiento', 'after')}
 
             <Divider sx={{ my: 3 }} />
 
-            {/* MATERIALES */}
             {renderMaterialsTable()}
 
             <Divider sx={{ my: 3 }} />
 
-            {/* 🆕 CONCLUSIONES (Ocupa todo el ancho al final) */}
             <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>📝 Conclusiones del Mantenimiento</Typography>
             <TextField
               fullWidth
@@ -879,7 +862,6 @@ const Maintenance = () => {
               sx={{ mb: 2 }}
             />
 
-            {/* BOTÓN DE GUARDAR */}
             <Box mt={2} display="flex" justifyContent="flex-end">
               <Button
                 variant="contained"

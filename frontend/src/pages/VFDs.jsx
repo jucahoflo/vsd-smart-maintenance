@@ -39,36 +39,31 @@ const VFDs = () => {
     image_url_3: ''
   });
 
-  // 🆕 Estados para el diálogo de confirmación por contraseña
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vfdToDelete, setVfdToDelete] = useState(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
 
-  const MASTER_PASSWORD = 'admin123'; // 🔐 Cambia esta contraseña aquí si quieres
+  const MASTER_PASSWORD = 'admin123';
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // 🆕 loadData modificado para soportar Offline
   const loadData = async () => {
     try {
       setLoading(true);
       let data = [];
       
       if (isOnline) {
-        // Si hay internet, traer de Supabase y guardar en local
         const { data: supabaseData, error } = await supabase
           .from('vsd')
           .select('*')
           .order('codigo_vsd', { ascending: true });
-
         if (error) throw error;
         data = supabaseData || [];
         await saveLocally('offline_vsds', data);
       } else {
-        // Si no hay internet, traer del caché local
         data = await loadLocally('offline_vsds') || [];
       }
 
@@ -174,7 +169,6 @@ const VFDs = () => {
     }));
   };
 
-  // 🆕 handleSave modificado para soportar Offline Queue
   const handleSave = async () => {
     try {
       if (editing) {
@@ -202,14 +196,12 @@ const VFDs = () => {
             .eq('id', editing.id);
           if (error) throw error;
         } else {
-          // Guardar en cola offline
           addToOfflineQueue({
             type: 'UPDATE',
             table: 'vsd',
             id: editing.id,
             data: dataToSend
           });
-          // Actualizar la vista local inmediatamente
           setVfds(prev => prev.map(v => v.id === editing.id ? { ...v, ...dataToSend } : v));
         }
         showSnackbar('✅ VSD actualizado correctamente');
@@ -247,20 +239,17 @@ const VFDs = () => {
             .insert(newData);
           if (error) throw error;
         } else {
-          // Guardar en cola offline
           addToOfflineQueue({
             type: 'INSERT',
             table: 'vsd',
             data: newData
           });
-          // Agregar a la vista local con un ID temporal
           setVfds(prev => [{ ...newData, id: 'local_' + Date.now() }, ...prev]);
         }
         showSnackbar('✅ VSD creado correctamente');
       }
       
       handleClose();
-      // Si estamos online, recargamos los datos de la nube. Si no, la vista ya se actualizó.
       if (isOnline) loadData();
     } catch (error) {
       console.error('❌ Error al guardar:', error);
@@ -268,7 +257,6 @@ const VFDs = () => {
     }
   };
 
-  // 🆕 handleDelete modificado para soportar Offline
   const handleDeleteClick = (id) => {
     setVfdToDelete(id);
     setDeletePassword('');
@@ -295,7 +283,6 @@ const VFDs = () => {
           table: 'vsd',
           id: vfdToDelete
         });
-        // Eliminar de la vista local
         setVfds(prev => prev.filter(v => v.id !== vfdToDelete));
       }
       
@@ -515,7 +502,6 @@ const VFDs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Diálogo de Confirmación de Eliminación con Contraseña */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle><Typography variant="h6" fontWeight="700" color="error">⚠️ Confirmar Eliminación</Typography></DialogTitle>
         <DialogContent>

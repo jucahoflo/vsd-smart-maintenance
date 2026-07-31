@@ -3,5 +3,10 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "devCommand": "npm run dev",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "nodeVersion": "20.x",
+  "env": {
+    "VITE_SUPABASE_URL": "https://qztpmddggqdmaykelcpz.supabase.co",
+    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dHBtZGRnZ3FkbWF5a2VsY3B6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxMDE1OTQsImV4cCI6MjEwMDY3NzU5NH0.JNVlg-01ljmloM0_NW0l98GaRNwVfRe-Z_AFSp9mLjE"
+  }
 }

@@ -1,19 +1,15 @@
 import React from 'react';
 import { Box, CssBaseline, Toolbar, AppBar, Typography, IconButton } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import Sidebar from './Sidebar'; // Asumimos que tienes el Sidebar en la misma carpeta
-import { useSync } from '../context/SyncContext';
+import Sidebar from './Sidebar';
 
 const drawerWidth = 240;
 
 const Layout = ({ children }) => {
-  const { isOnline } = useSync();
-
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
       
-      {/* Barra superior */}
       <AppBar
         position="fixed"
         sx={{
@@ -34,13 +30,12 @@ const Layout = ({ children }) => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             VSD Smart System
           </Typography>
-          <Typography variant="caption" sx={{ color: isOnline ? '#4caf50' : '#f44336' }}>
-            {isOnline ? '🟢 Online' : '🔴 Offline'}
+          <Typography variant="caption">
+            🟢 Sistema Operativo
           </Typography>
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar */}
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
@@ -48,7 +43,6 @@ const Layout = ({ children }) => {
         <Sidebar />
       </Box>
 
-      {/* Contenido principal */}
       <Box
         component="main"
         sx={{

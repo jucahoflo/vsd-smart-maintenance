@@ -3,8 +3,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SyncProvider } from './context/SyncContext';
-import { SocketProvider } from './context/SocketContext'; // ✅ IMPORTADO
-
 import theme from './theme.js';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -19,7 +17,6 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <SyncProvider>
-        <SocketProvider> {/* ✅ ENVUELTO AQUÍ */}
           <Router>
             <Layout>
               <Routes>
@@ -32,7 +29,6 @@ function App() {
               </Routes>
             </Layout>
           </Router>
-        </SocketProvider>
       </SyncProvider>
     </ThemeProvider>
   );

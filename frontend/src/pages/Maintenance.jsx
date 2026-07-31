@@ -300,9 +300,27 @@ const Maintenance = () => {
 
     setSaving(true);
     try {
+      // 1. Obtener el último número de mantenimiento para este VSD
+      const { data: lastMaint, error: countError } = await supabase
+        .from('maintenance_logs')
+        .select('maintenance_number')
+        .eq('codigo_vsd', vfdEncontrado.codigo_vsd)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (countError) throw countError;
+
+      let nextNumber = '01';
+      if (lastMaint && lastMaint.maintenance_number) {
+        const currentNum = parseInt(lastMaint.maintenance_number);
+        nextNumber = String(currentNum + 1).padStart(2, '0');
+      }
+
       const dataToSend = {
         vsd_id: vfdEncontrado.id,
         codigo_vsd: vfdEncontrado.codigo_vsd,
+        maintenance_number: nextNumber,
         tipo: maintenanceForm.tipo || 'Preventivo',
         descripcion: maintenanceForm.descripcion,
         tecnico: maintenanceForm.tecnico || 'No especificado',
@@ -333,7 +351,7 @@ const Maintenance = () => {
       const doneItems = [...checklist.shelter_skid, ...checklist.cbm_vsd].filter(i => i.done).length;
 
       showSnackbar(
-        `✅ Mantenimiento registrado para ${vfdEncontrado.codigo_vsd} (${doneItems}/${totalItems} tareas realizadas)`, 
+        `✅ Mantenimiento #${nextNumber} registrado para ${vfdEncontrado.codigo_vsd} (${doneItems}/${totalItems} tareas realizadas)`, 
         'success'
       );
       

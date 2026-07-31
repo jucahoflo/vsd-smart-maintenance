@@ -4,18 +4,20 @@ import 'jspdf-autotable';
 export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  // COLORES
-  const darkGray = [51, 51, 51];
-  const white = [255, 255, 255];
-  const lightGray = [240, 240, 240];
+  // COLORES CORPORATIVOS
+  const darkGray = [51, 51, 51];      // Gris oscuro del encabezado y tablas
+  const white = [255, 255, 255];      // Blanco
+  const lightGray = [240, 240, 240];  // Gris claro para filas alternadas
   const black = [0, 0, 0];
   const redInemec = [200, 30, 30];
 
-  // --- 1. ENCABEZADO OSCURO ---
+  // --- 1. ENCABEZADO OSCURO (Banda superior) ---
   doc.setFillColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.rect(0, 0, pageWidth, 45, 'F');
 
+  // 1.1 Logo INEMEC con fondo blanco
   doc.setFillColor(255, 255, 255);
   doc.rect(10, 5, 30, 30, 'F');
   try {
@@ -27,6 +29,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     doc.text('INEMEC', 15, 20);
   }
 
+  // 1.2 Fecha y hora
   const now = new Date();
   const dateStr = now.toLocaleDateString();
   const timeStr = now.toLocaleTimeString();
@@ -36,22 +39,25 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.text(`Fecha: ${dateStr}`, pageWidth - 35, 12);
   doc.text(`Hora: ${timeStr}`, pageWidth - 35, 18);
 
+  // 1.3 Título principal
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(white[0], white[1], white[2]);
   doc.text('REPORTE DE MANTENIMIENTO', pageWidth / 2, 32, { align: 'center' });
 
+  // 1.4 Subtítulo
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text('VSD SMART MAINTENANCE SYSTEM', pageWidth / 2, 38, { align: 'center' });
 
+  // --- 2. LÍNEA DIVISORIA GRIS (Justo debajo del encabezado) ---
   let yPos = 55;
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.5);
   doc.line(15, yPos, pageWidth - 15, yPos);
-  yPos += 5;
+  yPos += 8;
 
-  // --- 2. INFORMACIÓN GENERAL ---
+  // --- 3. INFORMACIÓN GENERAL (Sección 1) ---
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
@@ -115,9 +121,9 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.text('N/A', rightColX + 50, rightY);
   rightY += lineHeight;
 
-  yPos = Math.max(leftY, rightY) + 10;
+  yPos = Math.max(leftY, rightY) + 12;
 
-  // --- 3. OBJETIVO GENERAL ---
+  // --- 4. OBJETIVO GENERAL ---
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
@@ -133,7 +139,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.text(objetivoLines, 15, yPos);
   yPos += (objetivoLines.length * 5) + 5;
 
-  // --- 4. EQUIPOS DE SUPERFICIE ---
+  // --- 5. EQUIPOS DE SUPERFICIE ---
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
@@ -159,9 +165,9 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 25 }, 2: { cellWidth: 25 }, 3: { cellWidth: 30 }, 4: { cellWidth: 20 }, 5: { cellWidth: 20 } },
     margin: { left: 15, right: 15 }
   });
-  yPos = doc.lastAutoTable.finalY + 10;
+  yPos = doc.lastAutoTable.finalY + 12;
 
-  // --- 5. LISTA DE CHEQUEO ---
+  // --- 6. LISTA DE CHEQUEO ---
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
@@ -194,13 +200,13 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
       alternateRowStyles: { fillColor: lightGray },
       styles: { fontSize: 9 }
     });
-    yPos = doc.lastAutoTable.finalY + 10;
+    yPos = doc.lastAutoTable.finalY + 12;
   } else {
     doc.text('No hay checklist registrado para este mantenimiento.', 15, yPos);
     yPos += 7;
   }
 
-  // --- 6. ACTIVIDADES REALIZADAS (NUEVA SECCIÓN) ---
+  // --- 7. ACTIVIDADES REALIZADAS ---
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
@@ -215,7 +221,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.text(actividadLines, 15, yPos);
   yPos += (actividadLines.length * 5) + 5;
 
-  // --- 7. PRUEBAS ESTÁTICAS ---
+  // --- 8. PRUEBAS ESTÁTICAS ---
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
@@ -245,10 +251,10 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
       alternateRowStyles: { fillColor: lightGray },
       styles: { fontSize: 10 }
     });
-    yPos = doc.lastAutoTable.finalY + 10;
+    yPos = doc.lastAutoTable.finalY + 12;
   }
 
-  // --- 8. ACCESORIOS CAMBIADOS ---
+  // --- 9. ACCESORIOS CAMBIADOS ---
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
@@ -278,13 +284,13 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
       alternateRowStyles: { fillColor: lightGray },
       styles: { fontSize: 9 }
     });
-    yPos = doc.lastAutoTable.finalY + 10;
+    yPos = doc.lastAutoTable.finalY + 12;
   } else {
     doc.text('No se registraron accesorios cambiados.', 15, yPos);
     yPos += 7;
   }
 
-  // --- 9. CONCLUSIONES (NUEVA SECCIÓN) ---
+  // --- 10. CONCLUSIONES ---
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
@@ -299,7 +305,7 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.text(conclusionLines, 15, yPos);
   yPos += (conclusionLines.length * 5) + 5;
 
-  // --- 10. FIRMA DEL TÉCNICO ---
+  // --- 11. FIRMA DEL TÉCNICO ---
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);

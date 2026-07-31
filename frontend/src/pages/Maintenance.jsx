@@ -6,7 +6,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   IconButton, Avatar, Stack, Tooltip
 } from '@mui/material';
-import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera, Add, Delete } from '@mui/icons-material';
+import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera, Add, Delete, CalendarToday, LocationOn, Business, Factory } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
 // 1. CHECKLIST DE MANTENIMIENTO
@@ -77,7 +77,6 @@ const getDefaultChecklist = () => {
       before: [],
       after: []
     },
-    // 🆕 Tabla de materiales/repuestos
     materials: [
       { item: 1, quantity: 1, sap_code: '', detail: '', reserve: '' }
     ]
@@ -97,7 +96,16 @@ const Maintenance = () => {
     descripcion: '',
     tecnico: '',
     costo: '',
-    observations: ''
+    observations: '',
+    // 🆕 Campos de cabecera
+    fecha_inicio: '',
+    fecha_fin: '',
+    sitio: '',
+    pozo: '',
+    modulo_produccion: '',
+    taller: '',
+    // 🆕 Campo de conclusiones
+    conclusiones: ''
   });
 
   // Estado del checklist completo
@@ -115,7 +123,20 @@ const Maintenance = () => {
 
     setLoading(true);
     setVfdEncontrado(null);
-    setMaintenanceForm({ tipo: 'Preventivo', descripcion: '', tecnico: '', costo: '', observations: '' });
+    setMaintenanceForm({
+      tipo: 'Preventivo',
+      descripcion: '',
+      tecnico: '',
+      costo: '',
+      observations: '',
+      fecha_inicio: '',
+      fecha_fin: '',
+      sitio: '',
+      pozo: '',
+      modulo_produccion: '',
+      taller: '',
+      conclusiones: ''
+    });
     setChecklist(getDefaultChecklist());
     
     try {
@@ -145,7 +166,20 @@ const Maintenance = () => {
   const limpiarBusqueda = () => {
     setSearchCode('');
     setVfdEncontrado(null);
-    setMaintenanceForm({ tipo: 'Preventivo', descripcion: '', tecnico: '', costo: '', observations: '' });
+    setMaintenanceForm({
+      tipo: 'Preventivo',
+      descripcion: '',
+      tecnico: '',
+      costo: '',
+      observations: '',
+      fecha_inicio: '',
+      fecha_fin: '',
+      sitio: '',
+      pozo: '',
+      modulo_produccion: '',
+      taller: '',
+      conclusiones: ''
+    });
     setChecklist(getDefaultChecklist());
   };
 
@@ -227,7 +261,6 @@ const Maintenance = () => {
     }));
   };
 
-  // 🆕 Funciones para la tabla de materiales
   const addMaterial = () => {
     setChecklist(prev => ({
       ...prev,
@@ -247,7 +280,6 @@ const Maintenance = () => {
   const removeMaterial = (index) => {
     if (checklist.materials.length === 1) return;
     const updatedMaterials = checklist.materials.filter((_, i) => i !== index);
-    // Recalcular el número de ítem
     const reindexed = updatedMaterials.map((mat, i) => ({ ...mat, item: i + 1 }));
     setChecklist(prev => ({
       ...prev,
@@ -283,6 +315,14 @@ const Maintenance = () => {
           tecnico: maintenanceForm.tecnico || 'No especificado',
           costo: parseFloat(maintenanceForm.costo) || 0,
           observations: maintenanceForm.observations || '',
+          // 🆕 Campos nuevos guardados
+          fecha_inicio: maintenanceForm.fecha_inicio,
+          fecha_fin: maintenanceForm.fecha_fin,
+          sitio: maintenanceForm.sitio,
+          pozo: maintenanceForm.pozo,
+          modulo_produccion: maintenanceForm.modulo_produccion,
+          taller: maintenanceForm.taller,
+          conclusiones: maintenanceForm.conclusiones,
           checklist: checklist
         });
 
@@ -296,7 +336,20 @@ const Maintenance = () => {
         'success'
       );
       
-      setMaintenanceForm({ tipo: 'Preventivo', descripcion: '', tecnico: '', costo: '', observations: '' });
+      setMaintenanceForm({
+        tipo: 'Preventivo',
+        descripcion: '',
+        tecnico: '',
+        costo: '',
+        observations: '',
+        fecha_inicio: '',
+        fecha_fin: '',
+        sitio: '',
+        pozo: '',
+        modulo_produccion: '',
+        taller: '',
+        conclusiones: ''
+      });
       setChecklist(getDefaultChecklist());
     } catch (error) {
       console.error('Error guardando mantenimiento:', error);
@@ -475,7 +528,7 @@ const Maintenance = () => {
     );
   };
 
-  // 🆕 Renderizador de la tabla de materiales
+  // Renderizador de la tabla de materiales
   const renderMaterialsTable = () => {
     return (
       <Box mt={3}>
@@ -657,8 +710,74 @@ const Maintenance = () => {
           </Box>
 
           <CardContent sx={{ p: 3 }}>
+            {/* 🆕 CABECERA AMPLIADA */}
             <Typography variant="h6" fontWeight="700" gutterBottom>📋 Datos Generales del Mantenimiento</Typography>
             <Grid container spacing={2} sx={{ mb: 3 }}>
+              {/* Fila 1: Fechas y Sitio */}
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="📅 Fecha de Inicio"
+                  type="datetime-local"
+                  value={maintenanceForm.fecha_inicio}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, fecha_inicio: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="📅 Fecha de Finalización"
+                  type="datetime-local"
+                  value={maintenanceForm.fecha_fin}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, fecha_fin: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="📍 Sitio del Mantenimiento"
+                  value={maintenanceForm.sitio}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, sitio: e.target.value })}
+                  placeholder="Ej: Planta Norte"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="🛢️ Pozo"
+                  value={maintenanceForm.pozo}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, pozo: e.target.value })}
+                  placeholder="Ej: Pozo-001"
+                />
+              </Grid>
+
+              {/* Fila 2: Módulo, Taller, Tipo y Técnico */}
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="⚙️ Módulo de Producción"
+                  value={maintenanceForm.modulo_produccion}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, modulo_produccion: e.target.value })}
+                  placeholder="Ej: Módulo A"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="🔧 Taller / Área"
+                  value={maintenanceForm.taller}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, taller: e.target.value })}
+                  placeholder="Ej: Taller Eléctrico"
+                />
+              </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Tipo de Mantenimiento</InputLabel>
@@ -683,11 +802,13 @@ const Maintenance = () => {
                   onChange={(e) => setMaintenanceForm({ ...maintenanceForm, tecnico: e.target.value })}
                 />
               </Grid>
+
+              {/* Fila 3: Costo y Ubicación intervención */}
               <Grid item xs={12} sm={6} md={3}>
                 <TextField
                   fullWidth
                   size="small"
-                  label="Costo estimado ($)"
+                  label="💲 Costo estimado ($)"
                   type="number"
                   value={maintenanceForm.costo}
                   onChange={(e) => setMaintenanceForm({ ...maintenanceForm, costo: e.target.value })}
@@ -698,13 +819,12 @@ const Maintenance = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Ubicación de la intervención"
+                  label="📍 Ubicación de la intervención"
                   value={maintenanceForm.observations}
                   onChange={(e) => setMaintenanceForm({ ...maintenanceForm, observations: e.target.value })}
                 />
               </Grid>
-              
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={12} md={6}>
                 <TextField
                   fullWidth
                   size="small"
@@ -712,30 +832,21 @@ const Maintenance = () => {
                   value={maintenanceForm.descripcion}
                   onChange={(e) => setMaintenanceForm({ ...maintenanceForm, descripcion: e.target.value })}
                   multiline
-                  rows={3}
+                  rows={2}
                   required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="📌 Observaciones Generales"
-                  value={maintenanceForm.observations}
-                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, observations: e.target.value })}
-                  multiline
-                  rows={3}
                 />
               </Grid>
             </Grid>
 
             <Divider sx={{ my: 3 }} />
 
+            {/* CHECKLIST */}
             {renderChecklistSection('Mantenimiento Preventivo Shelter – Skid', 'shelter_skid', checklist.shelter_skid)}
             {renderChecklistSection('Mantenimiento CBM en VSD', 'cbm_vsd', checklist.cbm_vsd)}
 
             <Divider sx={{ my: 3 }} />
 
+            {/* PRUEBAS ESTÁTICAS */}
             <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>⚡ Pruebas Estáticas del VSD</Typography>
             {renderStaticTestTable('Prueba Estática Conversor I', 'converter_1', checklist.static_tests.converter_1)}
             {renderStaticTestTable('Prueba Estática Inversora II', 'inverter_2', checklist.static_tests.inverter_2)}
@@ -743,16 +854,33 @@ const Maintenance = () => {
 
             <Divider sx={{ my: 3 }} />
 
+            {/* FOTOS */}
             <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>📷 Registro Fotográfico</Typography>
             {renderPhotoSection('Antes del mantenimiento', 'before')}
             {renderPhotoSection('Después del mantenimiento', 'after')}
 
             <Divider sx={{ my: 3 }} />
 
-            {/* 🆕 TABLA DE MATERIALES */}
+            {/* MATERIALES */}
             {renderMaterialsTable()}
 
-            <Box mt={4} display="flex" justifyContent="flex-end">
+            <Divider sx={{ my: 3 }} />
+
+            {/* 🆕 CONCLUSIONES (Ocupa todo el ancho al final) */}
+            <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>📝 Conclusiones del Mantenimiento</Typography>
+            <TextField
+              fullWidth
+              size="small"
+              label="Escribe aquí las conclusiones técnicas, resultados y observaciones finales..."
+              value={maintenanceForm.conclusiones}
+              onChange={(e) => setMaintenanceForm({ ...maintenanceForm, conclusiones: e.target.value })}
+              multiline
+              rows={4}
+              sx={{ mb: 2 }}
+            />
+
+            {/* BOTÓN DE GUARDAR */}
+            <Box mt={2} display="flex" justifyContent="flex-end">
               <Button
                 variant="contained"
                 size="large"

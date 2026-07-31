@@ -1,11 +1,27 @@
-import React from 'react';
-import { Box, CssBaseline, Toolbar, AppBar, Typography, IconButton } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, CssBaseline, Toolbar, AppBar, Typography, IconButton, Chip } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import Sidebar from './Sidebar';
 
 const drawerWidth = 240;
 
 const Layout = ({ children }) => {
+  // Estado para saber si hay internet
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -30,9 +46,14 @@ const Layout = ({ children }) => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             VSD Smart System
           </Typography>
-          <Typography variant="caption">
-            🟢 Sistema Operativo
-          </Typography>
+          
+          {/* ✅ INDICADOR VISUAL DE CONEXIÓN */}
+          <Chip 
+            label={isOnline ? '🟢 Online' : '🔴 Offline'} 
+            color={isOnline ? 'success' : 'error'} 
+            size="small"
+            sx={{ fontWeight: 'bold' }}
+          />
         </Toolbar>
       </AppBar>
 

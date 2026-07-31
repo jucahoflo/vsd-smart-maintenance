@@ -8,8 +8,11 @@ import {
 } from '@mui/material';
 import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
+import { useSync } from '../context/SyncContext';
 
 const VFDs = () => {
+  const { isOnline, offlineQueue, addToQueue, clearQueue } = useSync();
+  
   const [vfds, setVfds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,20 +46,28 @@ const VFDs = () => {
 
   const MASTER_PASSWORD = 'admin123';
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
+  // 1. CARGA DE DATOS (Online -> Supabase, Offline -> localStorage)
   const loadData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('vsd')
-        .select('*')
-        .order('codigo_vsd', { ascending: true });
+      let data = [];
+      
+      if (isOnline) {
+        const { data: supabaseData, error } = await supabase
+          .from('vsd')
+          .select('*')
+          .order('codigo_vsd', { ascending: true });
+        if (error) throw error;
+        data = supabaseData || [];
+        localStorage.setItem('vsd_cache', JSON.stringify(data));
+      } else {
+        const cached = localStorage.getItem('vsd_cache');
+        if (cached) {
+          data = JSON.parse(cached);
+        }
+      }
 
-      if (error) throw error;
-      setVfds(data || []);
+      setVfds(data);
     } catch (error) {
       console.error('❌ Error loading VSDs:', error);
       showSnackbar('Error al cargar VSDs', 'error');
@@ -64,6 +75,44 @@ const VFDs = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadData();
+  }, [isOnline]);
+
+  // 2. SINCRONIZACIÓN AUTOMÁTICA AL RECUPERAR CONEXIÓN
+  useEffect(() => {
+    const syncOfflineChanges = async () => {
+      if (isOnline && offlineQueue.length > 0) {
+        console.log(`🔄 Procesando ${offlineQueue.length} acciones pendientes...`);
+        let hasError = false;
+        
+        for (const action of offlineQueue) {
+          try {
+            if (action.type === 'INSERT') {
+              await supabase.from(action.table).insert(action.data);
+            } else if (action.type === 'UPDATE') {
+              await supabase.from(action.table).update(action.data).eq('id', action.id);
+            } else if (action.type === 'DELETE') {
+              await supabase.from(action.table).delete().eq('id', action.id);
+            }
+          } catch (error) {
+            console.error('❌ Error al sincronizar acción:', action, error);
+            hasError = true;
+          }
+        }
+        
+        if (!hasError) {
+          clearQueue();
+          showSnackbar('✅ Cambios sincronizados correctamente con la nube!', 'success');
+        } else {
+          showSnackbar('⚠️ Algunos cambios no se pudieron sincronizar.', 'warning');
+        }
+      }
+    };
+
+    syncOfflineChanges();
+  }, [isOnline, offlineQueue]);
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -178,12 +227,25 @@ const VFDs = () => {
           image_url_3: formData.image_url_3 || ''
         };
 
-        const { error } = await supabase
-          .from('vsd')
-          .update(dataToSend)
-          .eq('id', editing.id);
-
-        if (error) throw error;
+        if (isOnline) {
+          const { error } = await supabase
+            .from('vsd')
+            .update(dataToSend)
+            .eq('id', editing.id);
+          if (error) throw error;
+        } else {
+          addToQueue({
+            type: 'UPDATE',
+            table: 'vsd',
+            id: editing.id,
+            data: dataToSend
+          });
+          // Actualizar caché local inmediatamente
+          const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
+          const updated = cached.map(v => v.id === editing.id ? { ...v, ...dataToSend } : v);
+          localStorage.setItem('vsd_cache', JSON.stringify(updated));
+          setVfds(updated);
+        }
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
         const { count, error: countError } = await supabase
@@ -213,16 +275,27 @@ const VFDs = () => {
           image_url_3: formData.image_url_3 || ''
         };
 
-        const { error } = await supabase
-          .from('vsd')
-          .insert(newData);
-
-        if (error) throw error;
+        if (isOnline) {
+          const { error } = await supabase
+            .from('vsd')
+            .insert(newData);
+          if (error) throw error;
+        } else {
+          addToQueue({
+            type: 'INSERT',
+            table: 'vsd',
+            data: newData
+          });
+          // Actualizar caché local inmediatamente
+          const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
+          cached.unshift(newData);
+          localStorage.setItem('vsd_cache', JSON.stringify(cached));
+          setVfds(cached);
+        }
         showSnackbar('✅ VSD creado correctamente');
       }
       
       handleClose();
-      loadData();
     } catch (error) {
       console.error('❌ Error al guardar:', error);
       showSnackbar(error.message || 'Error al guardar', 'error');
@@ -243,16 +316,28 @@ const VFDs = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('vsd')
-        .delete()
-        .eq('id', vfdToDelete);
-      if (error) throw error;
+      if (isOnline) {
+        const { error } = await supabase
+          .from('vsd')
+          .delete()
+          .eq('id', vfdToDelete);
+        if (error) throw error;
+      } else {
+        addToQueue({
+          type: 'DELETE',
+          table: 'vsd',
+          id: vfdToDelete
+        });
+        // Actualizar caché local inmediatamente
+        const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
+        const updated = cached.filter(v => v.id !== vfdToDelete);
+        localStorage.setItem('vsd_cache', JSON.stringify(updated));
+        setVfds(updated);
+      }
       
       showSnackbar('✅ VSD eliminado permanentemente');
       setDeleteDialogOpen(false);
       setVfdToDelete(null);
-      loadData();
     } catch (error) {
       showSnackbar('Error al eliminar', 'error');
     }

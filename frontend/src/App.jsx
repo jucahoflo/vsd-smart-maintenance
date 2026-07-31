@@ -4,7 +4,8 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SyncProvider } from './context/SyncContext';
 
-import theme from './theme';
+import theme from './theme.js'; // ✅ CORREGIDO CON EXTENSIÓN .js
+
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import VFDs from './pages/VFDs';

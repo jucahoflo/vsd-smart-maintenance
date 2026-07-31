@@ -6,7 +6,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   IconButton, Avatar, Stack, Tooltip
 } from '@mui/material';
-import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera, Add, Delete, CalendarToday, LocationOn, Business, Factory } from '@mui/icons-material';
+import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera, Add, Delete } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
 const getDefaultChecklist = () => {
@@ -300,7 +300,6 @@ const Maintenance = () => {
 
     setSaving(true);
     try {
-      // 🛡️ CORRECCIÓN DE ERROR 22007: Convertir "" a null
       const dataToSend = {
         vsd_id: vfdEncontrado.id,
         codigo_vsd: vfdEncontrado.codigo_vsd,
@@ -309,7 +308,6 @@ const Maintenance = () => {
         tecnico: maintenanceForm.tecnico || 'No especificado',
         costo: parseFloat(maintenanceForm.costo) || 0,
         observations: maintenanceForm.observations || '',
-        // ✅ Si la fecha es "", la convertimos a null
         fecha_inicio: maintenanceForm.fecha_inicio?.trim() === '' ? null : maintenanceForm.fecha_inicio,
         fecha_fin: maintenanceForm.fecha_fin?.trim() === '' ? null : maintenanceForm.fecha_fin,
         sitio: maintenanceForm.sitio || '',
@@ -319,8 +317,6 @@ const Maintenance = () => {
         conclusiones: maintenanceForm.conclusiones || '',
         checklist: checklist
       };
-
-      console.log('📤 Enviando datos a Supabase:', dataToSend);
 
       const { error } = await supabase
         .from('maintenance_logs')

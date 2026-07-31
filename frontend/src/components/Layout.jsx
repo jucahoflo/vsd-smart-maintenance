@@ -6,7 +6,6 @@ import Sidebar from './Sidebar';
 const drawerWidth = 240;
 
 const Layout = ({ children }) => {
-  // Estado para saber si hay internet
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -47,7 +46,6 @@ const Layout = ({ children }) => {
             VSD Smart System
           </Typography>
           
-          {/* ✅ INDICADOR VISUAL DE CONEXIÓN */}
           <Chip 
             label={isOnline ? '🟢 Online' : '🔴 Offline'} 
             color={isOnline ? 'success' : 'error'} 

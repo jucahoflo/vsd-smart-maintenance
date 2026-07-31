@@ -4,97 +4,158 @@ import 'jspdf-autotable';
 export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  // COLORES CORPORATIVOS EXACTOS
-  const primaryColor = [0, 51, 102];     // Azul oscuro INEMEC
-  const secondaryColor = [200, 30, 30];  // Rojo INEMEC
+  // COLORES DEL DISEÑO OBJETIVO
+  const darkGray = [51, 51, 51];      // Gris oscuro del encabezado y tablas
+  const white = [255, 255, 255];      // Blanco
+  const lightGray = [240, 240, 240];  // Gris claro para alternar filas
+  const black = [0, 0, 0];
+  const redInemec = [200, 30, 30];
 
-  // --- CABECERA ---
-  let yPos = 10;
+  // 1. ENCABEZADO OSCURO (Banda superior completa)
+  doc.setFillColor(darkGray[0], darkGray[1], darkGray[2]);
+  doc.rect(0, 0, pageWidth, 45, 'F');
 
-  // LOGO
+  // 1.1 LOGO (Dentro del encabezado, fondo blanco para que resalte)
+  doc.setFillColor(255, 255, 255);
+  doc.rect(10, 5, 30, 30, 'F');
   try {
-    doc.addImage('/images/logo-inemec.png', 'PNG', 15, yPos, 30, 15);
+    doc.addImage('/images/logo-inemec.png', 'PNG', 12, 7, 26, 26);
   } catch (error) {
-    doc.setFontSize(18);
+    doc.setTextColor(redInemec[0], redInemec[1], redInemec[2]);
+    doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-    doc.text('INEMEC', 15, yPos + 10);
+    doc.text('INEMEC', 15, 20);
   }
 
-  // TÍTULO PRINCIPAL
-  doc.setFontSize(14);
+  // 1.2 FECHA Y HORA (Esquina superior derecha)
+  const now = new Date();
+  const dateStr = now.toLocaleDateString();
+  const timeStr = now.toLocaleTimeString();
+  doc.setTextColor(white[0], white[1], white[2]);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Fecha: ${dateStr}`, pageWidth - 35, 12);
+  doc.text(`Hora: ${timeStr}`, pageWidth - 35, 18);
+
+  // 1.3 TÍTULO PRINCIPAL (Centrado en el encabezado)
+  doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text('REPORTE FINAL DE MANTENIMIENTO', pageWidth / 2, yPos + 5, { align: 'center' });
+  doc.setTextColor(white[0], white[1], white[2]);
+  doc.text('REPORTE DE MANTENIMIENTO', pageWidth / 2, 32, { align: 'center' });
 
-  // LÍNEA SEPARADORA (Roja)
-  doc.setDrawColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.setLineWidth(0.5);
-  doc.line(15, yPos + 10, pageWidth - 15, yPos + 10);
+  // 1.4 SUBTÍTULO (Sistema)
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('VSD SMART MAINTENANCE SYSTEM', pageWidth / 2, 38, { align: 'center' });
 
-  yPos = 35;
+  // 2. INICIO DEL CUERPO DEL DOCUMENTO
+  let yPos = 55;
 
-  // --- 1. INFORMACIÓN GENERAL ---
+  // Línea separadora sutil debajo del encabezado
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.line(15, yPos, pageWidth - 15, yPos);
+  yPos += 5;
+
+  // 2.1 INFORMACIÓN GENERAL (Sección 1 - Estilo 2 Columnas)
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.text('1. INFORMACIÓN GENERAL', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(black[0], black[1], black[2]);
 
-  const generalInfo = [
-    ['Compañía:', 'INEMEC S.A.S'],
-    ['Tipo Mantenimiento:', maintenanceData.tipo || 'Preventivo'],
-    ['Cliente:', 'CEDCO'],
-    ['Fecha Ejecución:', new Date(maintenanceData.created_at).toLocaleDateString()],
-    ['Locación:', vsdData.site || 'N/A'],
-    ['Técnico:', maintenanceData.tecnico || 'JUAN CARLOS HOLGUIN'],
-    ['Pozo:', vsdData.plant || 'N/A'],
-    ['Service Ticket:', 'N/A']
-  ];
+  // Columna Izquierda
+  const leftColX = 15;
+  const rightColX = pageWidth / 2 + 10;
+  const lineHeight = 7;
 
-  doc.autoTable({
-    startY: yPos,
-    body: generalInfo,
-    theme: 'grid',
-    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
-    columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' }, 1: { cellWidth: 130 } },
-    margin: { left: 15, right: 15 },
-    tableWidth: 'auto',
-    styles: { fontSize: 10 }
-  });
+  // Datos Columna Izquierda
+  doc.setFont('helvetica', 'bold');
+  doc.text('Compañía:', leftColX, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text('INEMEC S.A.S', leftColX + 35, yPos);
+  yPos += lineHeight;
 
-  yPos = doc.lastAutoTable.finalY + 10;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Cliente:', leftColX, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text('CEDCO', leftColX + 35, yPos);
+  yPos += lineHeight;
 
-  // --- 2. OBJETIVO GENERAL ---
+  doc.setFont('helvetica', 'bold');
+  doc.text('Locación:', leftColX, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(vsdData.site || 'N/A', leftColX + 35, yPos);
+  yPos += lineHeight;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Pozo:', leftColX, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(vsdData.plant || 'N/A', leftColX + 35, yPos);
+  yPos += lineHeight;
+
+  // Reset yPos para la columna derecha (partiendo desde la misma altura inicial)
+  let rightY = yPos - (lineHeight * 4);
+
+  // Datos Columna Derecha
+  doc.setFont('helvetica', 'bold');
+  doc.text('Tipo Mantenimiento:', rightColX, rightY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(maintenanceData.tipo || 'Preventivo', rightColX + 50, rightY);
+  rightY += lineHeight;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Fecha Ejecución:', rightColX, rightY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(new Date(maintenanceData.created_at).toLocaleDateString(), rightColX + 50, rightY);
+  rightY += lineHeight;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Técnico:', rightColX, rightY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(maintenanceData.tecnico || 'Especialistas Inemec', rightColX + 50, rightY);
+  rightY += lineHeight;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Service Ticket:', rightColX, rightY);
+  doc.setFont('helvetica', 'normal');
+  doc.text('N/A', rightColX + 50, rightY);
+  rightY += lineHeight;
+
+  // Establecer yPos final para la siguiente sección (el más bajo de las dos columnas)
+  yPos = Math.max(yPos, rightY) + 10;
+
+  // 2.2 OBJETIVO GENERAL (Sección 2)
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.text('2. OBJETIVO GENERAL', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(black[0], black[1], black[2]);
   
   const objetivoText = doc.splitTextToSize(
-    "AUMENTAR LA CONFIABILIDAD Y VIDA ÚTIL DE LOS EQUIPOS A TRAVÉS DE LA DETECCIÓN TEMPRANA DE ANOMALÍAS Y LA EJECUCIÓN DE ACCIONES CORRECTIVAS Y PREVENTIVAS.",
+    "Este documento tiene como propósito orientar las actividades de mantenimiento realizadas por los especialistas de INEMEC en variadores de velocidad (VSD) de baja y media tensión, así como en los transformadores elevadores (SUT) asociados a estos sistemas, con el fin de preservar su confiabilidad, disponibilidad y desempeño operativo. La aplicación de las buenas prácticas aquí descritas contribuye a extender la vida útil de los equipos, disminuir la probabilidad de fallas imprevistas, reducir los tiempos de indisponibilidad y optimizar los costos derivados de reparaciones no planificadas, favoreciendo una operación segura, continua y eficiente.",
     pageWidth - 30
   );
   doc.text(objetivoText, 15, yPos);
   yPos += (objetivoText.length * 5) + 5;
 
-  // --- 3. EQUIPOS DE SUPERFICIE ---
+  // 2.3 EQUIPOS DE SUPERFICIE (Sección 3 - Tabla con estilo gris oscuro)
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.text('3. EQUIPOS DE SUPERFICIE', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(black[0], black[1], black[2]);
 
   const equiposData = [
     ['Equipo', 'Marca', 'Modelo', 'S/N', 'KVA', 'AMPS'],
@@ -107,23 +168,22 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     head: [equiposData[0]],
     body: equiposData.slice(1),
     theme: 'grid',
-    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
-    margin: { left: 15, right: 15 },
-    tableWidth: 'auto',
-    styles: { fontSize: 10 }
+    headStyles: { fillColor: darkGray, textColor: white, fontStyle: 'bold', halign: 'center' },
+    styles: { fontSize: 9, halign: 'center' },
+    columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 25 }, 2: { cellWidth: 25 }, 3: { cellWidth: 30 }, 4: { cellWidth: 20 }, 5: { cellWidth: 20 } },
+    margin: { left: 15, right: 15 }
   });
-
   yPos = doc.lastAutoTable.finalY + 10;
 
-  // --- 4. LISTA DE CHEQUEO ---
+  // 2.4 LISTA DE CHEQUEO (Sección 4)
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.text('4. LISTA DE CHEQUEO', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(black[0], black[1], black[2]);
 
   const checklistItems = maintenanceData.checklist?.shelter_skid || [];
   const cbmItems = maintenanceData.checklist?.cbm_vsd || [];
@@ -142,9 +202,10 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
       head: [['Actividad', 'Hecho (X)', 'Anomalías', 'Observaciones']],
       body: tableData,
       theme: 'striped',
-      headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 9 },
+      headStyles: { fillColor: darkGray, textColor: white, fontSize: 9 },
       columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 40 }, 3: { cellWidth: 40 } },
       margin: { left: 15, right: 15 },
+      alternateRowStyles: { fillColor: lightGray },
       styles: { fontSize: 9 }
     });
     yPos = doc.lastAutoTable.finalY + 10;
@@ -153,15 +214,15 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     yPos += 7;
   }
 
-  // --- 5. PRUEBAS ESTÁTICAS ---
+  // 2.5 PRUEBAS ESTÁTICAS (Sección 5)
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.text('5. PRUEBAS ESTÁTICAS', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(black[0], black[1], black[2]);
 
   if (maintenanceData.checklist?.static_tests) {
     const staticTests = maintenanceData.checklist.static_tests;
@@ -178,23 +239,24 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
       head: [['Medición', 'Esperado', 'Actual']],
       body: testData,
       theme: 'striped',
-      headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] },
+      headStyles: { fillColor: darkGray, textColor: white },
       columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 40 }, 2: { cellWidth: 40 } },
       margin: { left: 15, right: 15 },
+      alternateRowStyles: { fillColor: lightGray },
       styles: { fontSize: 10 }
     });
     yPos = doc.lastAutoTable.finalY + 10;
   }
 
-  // --- 6. ACCESORIOS CAMBIADOS ---
+  // 2.6 ACCESORIOS CAMBIADOS (Sección 6)
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.text('6. ACCESORIOS CAMBIADOS', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(black[0], black[1], black[2]);
 
   const materials = maintenanceData.checklist?.materials || [];
   if (materials.length > 0) {
@@ -210,9 +272,10 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
       head: [['Cant.', 'Código SAP', 'Detalle', 'Reserva']],
       body: materialsData,
       theme: 'striped',
-      headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 9 },
+      headStyles: { fillColor: darkGray, textColor: white, fontSize: 9 },
       columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 30 }, 2: { cellWidth: 80 }, 3: { cellWidth: 30 } },
       margin: { left: 15, right: 15 },
+      alternateRowStyles: { fillColor: lightGray },
       styles: { fontSize: 9 }
     });
     yPos = doc.lastAutoTable.finalY + 10;
@@ -221,15 +284,15 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
     yPos += 7;
   }
 
-  // --- 7. FIRMA DEL TÉCNICO ---
+  // 2.7 FIRMA DEL TÉCNICO (Sección 7)
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.text('7. FIRMA DEL TÉCNICO', 15, yPos);
   yPos += 7;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(black[0], black[1], black[2]);
 
   doc.text(`Nombre: ${maintenanceData.tecnico || 'JUAN CARLOS HOLGUIN'}`, 15, yPos);
   yPos += 5;

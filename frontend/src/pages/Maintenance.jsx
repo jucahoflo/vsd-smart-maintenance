@@ -9,7 +9,6 @@ import {
 import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera, Add, Delete, CalendarToday, LocationOn, Business, Factory } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
-// 1. CHECKLIST DE MANTENIMIENTO
 const getDefaultChecklist = () => {
   return {
     shelter_skid: [
@@ -106,7 +105,6 @@ const Maintenance = () => {
     conclusiones: ''
   });
 
-  // Estado del checklist completo
   const [checklist, setChecklist] = useState(getDefaultChecklist());
 
   const showSnackbar = (message, severity = 'success') => {
@@ -302,27 +300,35 @@ const Maintenance = () => {
 
     setSaving(true);
     try {
+      // Verificar que el checklist tenga al menos un elemento vacío si no hay datos
+      const dataToSend = {
+        vsd_id: vfdEncontrado.id,
+        codigo_vsd: vfdEncontrado.codigo_vsd,
+        tipo: maintenanceForm.tipo || 'Preventivo',
+        descripcion: maintenanceForm.descripcion,
+        tecnico: maintenanceForm.tecnico || 'No especificado',
+        costo: parseFloat(maintenanceForm.costo) || 0,
+        observations: maintenanceForm.observations || '',
+        fecha_inicio: maintenanceForm.fecha_inicio || null,
+        fecha_fin: maintenanceForm.fecha_fin || null,
+        sitio: maintenanceForm.sitio || '',
+        pozo: maintenanceForm.pozo || '',
+        modulo_produccion: maintenanceForm.modulo_produccion || '',
+        taller: maintenanceForm.taller || '',
+        conclusiones: maintenanceForm.conclusiones || '',
+        checklist: checklist
+      };
+
+      console.log('📤 Enviando datos a Supabase:', dataToSend);
+
       const { error } = await supabase
         .from('maintenance_logs')
-        .insert({
-          vsd_id: vfdEncontrado.id,
-          codigo_vsd: vfdEncontrado.codigo_vsd,
-          tipo: maintenanceForm.tipo,
-          descripcion: maintenanceForm.descripcion,
-          tecnico: maintenanceForm.tecnico || 'No especificado',
-          costo: parseFloat(maintenanceForm.costo) || 0,
-          observations: maintenanceForm.observations || '',
-          fecha_inicio: maintenanceForm.fecha_inicio,
-          fecha_fin: maintenanceForm.fecha_fin,
-          sitio: maintenanceForm.sitio,
-          pozo: maintenanceForm.pozo,
-          modulo_produccion: maintenanceForm.modulo_produccion,
-          taller: maintenanceForm.taller,
-          conclusiones: maintenanceForm.conclusiones,
-          checklist: checklist
-        });
+        .insert(dataToSend);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error detallado de Supabase:', error);
+        throw error;
+      }
       
       const totalItems = checklist.shelter_skid.length + checklist.cbm_vsd.length;
       const doneItems = [...checklist.shelter_skid, ...checklist.cbm_vsd].filter(i => i.done).length;
@@ -348,8 +354,8 @@ const Maintenance = () => {
       });
       setChecklist(getDefaultChecklist());
     } catch (error) {
-      console.error('Error guardando mantenimiento:', error);
-      showSnackbar('Error al guardar el mantenimiento', 'error');
+      console.error('❌ Error guardando mantenimiento:', error);
+      showSnackbar('Error al guardar el mantenimiento: ' + (error.message || error.error_description || 'Error desconocido'), 'error');
     } finally {
       setSaving(false);
     }

@@ -16,11 +16,10 @@ export const generateMaintenancePDF = async (vsdData, maintenanceData) => {
   doc.setFillColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.rect(0, 0, pageWidth, 45, 'F');
 
-  // --- 2. LOGO (Con try/catch para que nunca falle la descarga) ---
+  // --- 2. LOGO (Cargando desde /images/inemec-logo.png) ---
   let logoAdded = false;
   try {
-    // Intento 1: Cargar desde URL pública
-    const response = await fetch('/images/logo-inemec.png');
+    const response = await fetch('/images/inemec-logo.png');
     if (response.ok) {
       const blob = await response.blob();
       const base64 = await new Promise((resolve) => {

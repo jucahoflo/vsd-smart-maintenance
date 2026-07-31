@@ -4,9 +4,9 @@ import {
   TextField, Dialog, DialogTitle, DialogContent,
   DialogActions, IconButton, Chip, Snackbar, Alert,
   CircularProgress, FormControl, InputLabel, Select, MenuItem,
-  InputAdornment
+  InputAdornment, Stack, Avatar
 } from '@mui/material';
-import { Add, Refresh, Edit, Delete, Speed, Search } from '@mui/icons-material';
+import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever, PhotoCamera } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
 const VFDs = () => {
@@ -16,6 +16,7 @@ const VFDs = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editing, setEditing] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [uploadingImage, setUploadingImage] = useState(false);
   
   const [formData, setFormData] = useState({
     codigo_vsd: '',
@@ -28,7 +29,11 @@ const VFDs = () => {
     kva: '',
     site: '',
     plant: '',
-    department: ''
+    department: '',
+    observations: '',
+    image_url_1: '',
+    image_url_2: '',
+    image_url_3: ''
   });
 
   useEffect(() => {
@@ -71,7 +76,11 @@ const VFDs = () => {
         kva: vfd.kva || '',
         site: vfd.site || '',
         plant: vfd.plant || '',
-        department: vfd.department || ''
+        department: vfd.department || '',
+        observations: vfd.observations || '',
+        image_url_1: vfd.image_url_1 || '',
+        image_url_2: vfd.image_url_2 || '',
+        image_url_3: vfd.image_url_3 || ''
       });
     } else {
       setEditing(null);
@@ -86,7 +95,11 @@ const VFDs = () => {
         kva: '',
         site: '',
         plant: '',
-        department: ''
+        department: '',
+        observations: '',
+        image_url_1: '',
+        image_url_2: '',
+        image_url_3: ''
       });
     }
     setOpenDialog(true);
@@ -95,6 +108,47 @@ const VFDs = () => {
   const handleClose = () => {
     setOpenDialog(false);
     setEditing(null);
+  };
+
+  const uploadImage = async (file, index) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('vsd_images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('vsd_images')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+      
+      setFormData(prev => ({
+        ...prev,
+        [`image_url_${index}`]: publicUrl
+      }));
+
+      showSnackbar(`✅ Imagen ${index} subida correctamente`, 'success');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      showSnackbar('❌ Error al subir la imagen', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      [`image_url_${index}`]: ''
+    }));
   };
 
   const handleSave = async () => {
@@ -110,7 +164,11 @@ const VFDs = () => {
           kva: formData.kva || '',
           site: formData.site || '',
           plant: formData.plant || '',
-          department: formData.department || ''
+          department: formData.department || '',
+          observations: formData.observations || '',
+          image_url_1: formData.image_url_1 || '',
+          image_url_2: formData.image_url_2 || '',
+          image_url_3: formData.image_url_3 || ''
         };
 
         const { error } = await supabase
@@ -143,7 +201,11 @@ const VFDs = () => {
             kva: formData.kva || '',
             site: formData.site || '',
             plant: formData.plant || '',
-            department: formData.department || ''
+            department: formData.department || '',
+            observations: formData.observations || '',
+            image_url_1: formData.image_url_1 || '',
+            image_url_2: formData.image_url_2 || '',
+            image_url_3: formData.image_url_3 || ''
           });
 
         if (error) throw error;
@@ -313,6 +375,44 @@ const VFDs = () => {
               <TextField fullWidth label="Departamento" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} />
             </Grid>
 
+            <Grid item xs={12}>
+              <TextField fullWidth label="📝 Observaciones" value={formData.observations} onChange={(e) => setFormData({ ...formData, observations: e.target.value })} multiline rows={3} />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>🖼️ Imágenes (Máximo 3)</Typography>
+              <Grid container spacing={2}>
+                {[1, 2, 3].map((num) => (
+                  <Grid item xs={12} sm={4} key={num}>
+                    <Box sx={{ border: '1px dashed #ccc', borderRadius: 2, p: 1, textAlign: 'center', minHeight: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                      {formData[`image_url_${num}`] ? (
+                        <Box>
+                          <Avatar variant="rounded" src={formData[`image_url_${num}`]} sx={{ width: 80, height: 80, mx: 'auto', mb: 1 }} />
+                          <Button size="small" color="error" startIcon={<DeleteForever />} onClick={() => removeImage(num)}>Eliminar</Button>
+                        </Box>
+                      ) : (
+                        <Box>
+                          <input
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            id={`icon-button-file-${num}`}
+                            type="file"
+                            onChange={(e) => uploadImage(e.target.files[0], num)}
+                          />
+                          <label htmlFor={`icon-button-file-${num}`}>
+                            <IconButton color="primary" component="span" disabled={uploadingImage}>
+                              <CloudUpload />
+                            </IconButton>
+                          </label>
+                          <Typography variant="caption" display="block">Subir Imagen {num}</Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Grid>
+
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Estado</InputLabel>
@@ -331,7 +431,7 @@ const VFDs = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave}>{editing ? 'Actualizar' : 'Crear'}</Button>
+          <Button variant="contained" onClick={handleSave} disabled={uploadingImage}>{editing ? 'Actualizar' : 'Crear'}</Button>
         </DialogActions>
       </Dialog>
 

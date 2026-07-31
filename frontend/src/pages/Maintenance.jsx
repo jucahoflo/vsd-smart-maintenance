@@ -378,8 +378,8 @@ const Maintenance = () => {
                 />
               </Grid>
               
-              {/* Observaciones Generales (Ahora es multiline igual que Descripción) */}
-              <Grid item xs={12} sm={6}>
+              {/* AMBOS CAMPOS OCUPAN EL 100% DEL ANCHO (xs={12}) */}
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   size="small"
@@ -391,7 +391,7 @@ const Maintenance = () => {
                   required
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   size="small"
@@ -399,7 +399,7 @@ const Maintenance = () => {
                   value={maintenanceForm.observations}
                   onChange={(e) => setMaintenanceForm({ ...maintenanceForm, observations: e.target.value })}
                   multiline
-                  rows={3} // Igualado al tamaño de descripción
+                  rows={3}
                 />
               </Grid>
             </Grid>

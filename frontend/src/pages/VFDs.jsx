@@ -4,11 +4,21 @@ import {
   TextField, Dialog, DialogTitle, DialogContent,
   DialogActions, IconButton, Chip, Snackbar, Alert,
   CircularProgress, FormControl, InputLabel, Select, MenuItem,
-  InputAdornment, Stack, Avatar, CardMedia, Tooltip
+  InputAdornment, Stack, Avatar, CardMedia
 } from '@mui/material';
-import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever, WifiOff } from '@mui/icons-material';
+import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 import { useSync } from '../context/SyncContext';
+
+// 🟢 Función para convertir archivo a Base64 (para guardar offline)
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
 
 const VFDs = () => {
   const { isOnline, offlineQueue, addToQueue, clearQueue } = useSync();
@@ -36,7 +46,11 @@ const VFDs = () => {
     observations: '',
     image_url_1: '',
     image_url_2: '',
-    image_url_3: ''
+    image_url_3: '',
+    // 🟢 Campos temporales para guardar imágenes offline
+    image_base64_1: '',
+    image_base64_2: '',
+    image_base64_3: ''
   });
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -46,7 +60,6 @@ const VFDs = () => {
 
   const MASTER_PASSWORD = 'admin123';
 
-  // 1. CARGA DE DATOS (Online -> Supabase, Offline -> localStorage)
   const loadData = async () => {
     try {
       setLoading(true);
@@ -80,7 +93,6 @@ const VFDs = () => {
     loadData();
   }, [isOnline]);
 
-  // 2. SINCRONIZACIÓN AUTOMÁTICA AL RECUPERAR CONEXIÓN
   useEffect(() => {
     const syncOfflineChanges = async () => {
       if (isOnline && offlineQueue.length > 0) {
@@ -90,7 +102,21 @@ const VFDs = () => {
         for (const action of offlineQueue) {
           try {
             if (action.type === 'INSERT') {
-              await supabase.from(action.table).insert(action.data);
+              // 🟢 Si hay imágenes Base64, súbelas a Supabase y reemplaza la URL
+              const dataToInsert = { ...action.data };
+              if (dataToInsert.image_base64_1) {
+                const fileExt = 'png';
+                const fileName = `vsd_${Date.now()}_1.${fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                  .from('vsd_images')
+                  .upload(fileName, dataToInsert.image_base64_1);
+                if (!uploadError) {
+                  const { data: urlData } = supabase.storage.from('vsd_images').getPublicUrl(fileName);
+                  dataToInsert.image_url_1 = urlData.publicUrl;
+                }
+                delete dataToInsert.image_base64_1;
+              }
+              await supabase.from(action.table).insert(dataToInsert);
             } else if (action.type === 'UPDATE') {
               await supabase.from(action.table).update(action.data).eq('id', action.id);
             } else if (action.type === 'DELETE') {
@@ -136,7 +162,10 @@ const VFDs = () => {
         observations: vfd.observations || '',
         image_url_1: vfd.image_url_1 || '',
         image_url_2: vfd.image_url_2 || '',
-        image_url_3: vfd.image_url_3 || ''
+        image_url_3: vfd.image_url_3 || '',
+        image_base64_1: '',
+        image_base64_2: '',
+        image_base64_3: ''
       });
     } else {
       setEditing(null);
@@ -155,7 +184,10 @@ const VFDs = () => {
         observations: '',
         image_url_1: '',
         image_url_2: '',
-        image_url_3: ''
+        image_url_3: '',
+        image_base64_1: '',
+        image_base64_2: '',
+        image_base64_3: ''
       });
     }
     setOpenDialog(true);
@@ -166,32 +198,44 @@ const VFDs = () => {
     setEditing(null);
   };
 
+  // 🟢 Lógica de subida de imágenes (Online: Sube, Offline: Guarda Base64)
   const uploadImage = async (file, index) => {
     if (!file) return;
     setUploadingImage(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
-      const filePath = `${fileName}`;
+      if (isOnline) {
+        // Si hay internet: subir a Supabase y obtener URL pública
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
+        const filePath = `${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('vsd_images')
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from('vsd_images')
+          .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from('vsd_images')
-        .getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage
+          .from('vsd_images')
+          .getPublicUrl(filePath);
 
-      const publicUrl = urlData.publicUrl;
-      
-      setFormData(prev => ({
-        ...prev,
-        [`image_url_${index}`]: publicUrl
-      }));
+        const publicUrl = urlData.publicUrl;
+        setFormData(prev => ({
+          ...prev,
+          [`image_url_${index}`]: publicUrl,
+          [`image_base64_${index}`]: ''
+        }));
+      } else {
+        // 🟢 Si NO hay internet: convertir a Base64 y guardar temporalmente
+        const base64 = await fileToBase64(file);
+        setFormData(prev => ({
+          ...prev,
+          [`image_base64_${index}`]: base64,
+          [`image_url_${index}`]: base64 // Mostramos la imagen en el preview
+        }));
+      }
 
-      showSnackbar(`✅ Imagen ${index} subida correctamente`, 'success');
+      showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'guardada offline'} correctamente`, 'success');
     } catch (error) {
       console.error('Error uploading image:', error);
       showSnackbar('❌ Error al subir la imagen', 'error');
@@ -203,7 +247,8 @@ const VFDs = () => {
   const removeImage = (index) => {
     setFormData(prev => ({
       ...prev,
-      [`image_url_${index}`]: ''
+      [`image_url_${index}`]: '',
+      [`image_base64_${index}`]: ''
     }));
   };
 
@@ -224,7 +269,11 @@ const VFDs = () => {
           observations: formData.observations || '',
           image_url_1: formData.image_url_1 || '',
           image_url_2: formData.image_url_2 || '',
-          image_url_3: formData.image_url_3 || ''
+          image_url_3: formData.image_url_3 || '',
+          // 🟢 Incluimos los Base64 solo si estamos offline
+          image_base64_1: !isOnline ? formData.image_base64_1 : '',
+          image_base64_2: !isOnline ? formData.image_base64_2 : '',
+          image_base64_3: !isOnline ? formData.image_base64_3 : ''
         };
 
         if (isOnline) {
@@ -240,7 +289,6 @@ const VFDs = () => {
             id: editing.id,
             data: dataToSend
           });
-          // Actualizar caché local inmediatamente
           const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
           const updated = cached.map(v => v.id === editing.id ? { ...v, ...dataToSend } : v);
           localStorage.setItem('vsd_cache', JSON.stringify(updated));
@@ -278,7 +326,10 @@ const VFDs = () => {
           observations: formData.observations || '',
           image_url_1: formData.image_url_1 || '',
           image_url_2: formData.image_url_2 || '',
-          image_url_3: formData.image_url_3 || ''
+          image_url_3: formData.image_url_3 || '',
+          image_base64_1: !isOnline ? formData.image_base64_1 : '',
+          image_base64_2: !isOnline ? formData.image_base64_2 : '',
+          image_base64_3: !isOnline ? formData.image_base64_3 : ''
         };
 
         if (isOnline) {

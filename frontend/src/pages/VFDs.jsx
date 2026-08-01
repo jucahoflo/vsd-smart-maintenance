@@ -226,11 +226,13 @@ const VFDs = () => {
             id: editing.id,
             data: dataToSend
           });
-          const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
-          const updated = cached.map(v => v.id === editing.id ? { ...v, ...dataToSend } : v);
-          localStorage.setItem('vsd_cache', JSON.stringify(updated));
-          setVfds(updated);
         }
+
+        // 🟢 ACTUALIZAR LA VISTA INMEDIATAMENTE (Sin recargar)
+        setVfds(prev => prev.map(vfd => 
+          vfd.id === editing.id ? { ...vfd, ...dataToSend } : vfd
+        ));
+
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
         let nextNumber = 1;
@@ -274,11 +276,11 @@ const VFDs = () => {
             table: 'vsd',
             data: newData
           });
-          const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
-          cached.unshift(newData);
-          localStorage.setItem('vsd_cache', JSON.stringify(cached));
-          setVfds(cached);
         }
+
+        // 🟢 ACTUALIZAR LA VISTA INMEDIATAMENTE (Sin recargar)
+        setVfds(prev => [newData, ...prev]);
+
         showSnackbar('✅ VSD creado correctamente');
       }
       
@@ -315,12 +317,11 @@ const VFDs = () => {
           table: 'vsd',
           id: vfdToDelete
         });
-        const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
-        const updated = cached.filter(v => v.id !== vfdToDelete);
-        localStorage.setItem('vsd_cache', JSON.stringify(updated));
-        setVfds(updated);
       }
-      
+
+      // 🟢 ELIMINAR DE LA VISTA INMEDIATAMENTE (Sin recargar)
+      setVfds(prev => prev.filter(vfd => vfd.id !== vfdToDelete));
+
       showSnackbar('✅ VSD eliminado permanentemente');
       setDeleteDialogOpen(false);
       setVfdToDelete(null);

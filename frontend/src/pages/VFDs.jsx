@@ -43,6 +43,7 @@ const VFDs = () => {
 
   const MASTER_PASSWORD = 'admin123';
 
+  // 1. CARGA DE DATOS
   const loadData = async () => {
     try {
       setLoading(true);
@@ -76,6 +77,7 @@ const VFDs = () => {
     loadData();
   }, [isOnline]);
 
+  // 2. SINCRONIZACIÓN AUTOMÁTICA (Sin dañar la lógica existente)
   useEffect(() => {
     const syncOfflineChanges = async () => {
       if (isOnline && offlineQueue.length > 0) {
@@ -155,6 +157,47 @@ const VFDs = () => {
     setEditing(null);
   };
 
+  const uploadImage = async (file, index) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('vsd_images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('vsd_images')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+      
+      setFormData(prev => ({
+        ...prev,
+        [`image_url_${index}`]: publicUrl
+      }));
+
+      showSnackbar(`✅ Imagen ${index} subida correctamente`, 'success');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      showSnackbar('❌ Error al subir la imagen', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      [`image_url_${index}`]: ''
+    }));
+  };
+
   const handleSave = async () => {
     try {
       if (editing) {
@@ -179,13 +222,13 @@ const VFDs = () => {
             .eq('id', editing.id);
           if (error) throw error;
         } else {
+          // Guardar en cola offline y actualizar la vista inmediatamente
           addToQueue({
             type: 'UPDATE',
             table: 'vsd',
             id: editing.id,
             data: dataToSend
           });
-          // Actualizar caché local inmediatamente
           const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
           const updated = cached.map(v => v.id === editing.id ? { ...v, ...dataToSend } : v);
           localStorage.setItem('vsd_cache', JSON.stringify(updated));
@@ -229,12 +272,12 @@ const VFDs = () => {
             .insert(newData);
           if (error) throw error;
         } else {
+          // Guardar en cola offline y actualizar la vista inmediatamente
           addToQueue({
             type: 'INSERT',
             table: 'vsd',
             data: newData
           });
-          // Actualizar caché local
           const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
           cached.unshift(newData);
           localStorage.setItem('vsd_cache', JSON.stringify(cached));

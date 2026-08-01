@@ -10,31 +10,6 @@ import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever }
 import { supabase } from '../config/supabase';
 import { useSync } from '../context/SyncContext';
 
-// 🟢 Función para comprimir imágenes en iPhone (Reduce el peso y evita errores de memoria)
-const compressImage = (file, maxWidth = 800, quality = 0.7) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const scale = Math.min(maxWidth / img.width, 1);
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => {
-          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-        }, 'image/jpeg', quality);
-      };
-      img.onerror = reject;
-    };
-    reader.onerror = reject;
-  });
-};
-
 const VFDs = () => {
   const { isOnline, offlineQueue, addToQueue, clearQueue } = useSync();
   
@@ -58,10 +33,7 @@ const VFDs = () => {
     site: '',
     plant: '',
     department: '',
-    observations: '',
-    image_url_1: '',
-    image_url_2: '',
-    image_url_3: ''
+    observations: ''
   });
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -156,10 +128,7 @@ const VFDs = () => {
         site: vfd.site || '',
         plant: vfd.plant || '',
         department: vfd.department || '',
-        observations: vfd.observations || '',
-        image_url_1: vfd.image_url_1 || '',
-        image_url_2: vfd.image_url_2 || '',
-        image_url_3: vfd.image_url_3 || ''
+        observations: vfd.observations || ''
       });
     } else {
       setEditing(null);
@@ -175,10 +144,7 @@ const VFDs = () => {
         site: '',
         plant: '',
         department: '',
-        observations: '',
-        image_url_1: '',
-        image_url_2: '',
-        image_url_3: ''
+        observations: ''
       });
     }
     setOpenDialog(true);
@@ -187,59 +153,6 @@ const VFDs = () => {
   const handleClose = () => {
     setOpenDialog(false);
     setEditing(null);
-  };
-
-  // 🟢 Subida con compresión de imagen (Crucial para iPhone)
-  const uploadImage = async (file, index) => {
-    if (!file) return;
-    setUploadingImage(true);
-    try {
-      // Comprimir la imagen siempre (incluso online, para ahorrar datos)
-      const compressedFile = await compressImage(file);
-      
-      if (isOnline) {
-        const fileExt = 'jpeg';
-        const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
-        const filePath = `${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('vsd_images')
-          .upload(filePath, compressedFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from('vsd_images')
-          .getPublicUrl(filePath);
-
-        const publicUrl = urlData.publicUrl;
-        setFormData(prev => ({
-          ...prev,
-          [`image_url_${index}`]: publicUrl
-        }));
-      } else {
-        // Offline: Crear URL de previsualización con el archivo comprimido
-        const previewUrl = URL.createObjectURL(compressedFile);
-        setFormData(prev => ({
-          ...prev,
-          [`image_url_${index}`]: previewUrl
-        }));
-      }
-
-      showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'previsualizada'}`, 'success');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      showSnackbar('❌ Error al subir la imagen', 'error');
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const removeImage = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      [`image_url_${index}`]: ''
-    }));
   };
 
   const handleSave = async () => {
@@ -256,10 +169,7 @@ const VFDs = () => {
           site: formData.site || '',
           plant: formData.plant || '',
           department: formData.department || '',
-          observations: formData.observations || '',
-          image_url_1: formData.image_url_1 || '',
-          image_url_2: formData.image_url_2 || '',
-          image_url_3: formData.image_url_3 || ''
+          observations: formData.observations || ''
         };
 
         if (isOnline) {
@@ -275,6 +185,7 @@ const VFDs = () => {
             id: editing.id,
             data: dataToSend
           });
+          // Actualizar caché local inmediatamente
           const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
           const updated = cached.map(v => v.id === editing.id ? { ...v, ...dataToSend } : v);
           localStorage.setItem('vsd_cache', JSON.stringify(updated));
@@ -309,10 +220,7 @@ const VFDs = () => {
           site: formData.site || '',
           plant: formData.plant || '',
           department: formData.department || '',
-          observations: formData.observations || '',
-          image_url_1: formData.image_url_1 || '',
-          image_url_2: formData.image_url_2 || '',
-          image_url_3: formData.image_url_3 || ''
+          observations: formData.observations || ''
         };
 
         if (isOnline) {
@@ -326,6 +234,8 @@ const VFDs = () => {
             table: 'vsd',
             data: newData
           });
+          // Actualizar caché local
+          const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
           cached.unshift(newData);
           localStorage.setItem('vsd_cache', JSON.stringify(cached));
           setVfds(cached);
@@ -531,39 +441,6 @@ const VFDs = () => {
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth label="📝 Observaciones" value={formData.observations} onChange={(e) => setFormData({ ...formData, observations: e.target.value })} multiline rows={3} />
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="subtitle2" gutterBottom>🖼️ Imágenes (Máximo 3)</Typography>
-              <Grid container spacing={2}>
-                {[1, 2, 3].map((num) => (
-                  <Grid item xs={12} sm={4} key={num}>
-                    <Box sx={{ border: '1px dashed #ccc', borderRadius: 2, p: 1, textAlign: 'center', minHeight: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                      {formData[`image_url_${num}`] ? (
-                        <Box>
-                          <Avatar variant="rounded" src={formData[`image_url_${num}`]} sx={{ width: 80, height: 80, mx: 'auto', mb: 1 }} />
-                          <Button size="small" color="error" startIcon={<DeleteForever />} onClick={() => removeImage(num)}>Eliminar</Button>
-                        </Box>
-                      ) : (
-                        <Box>
-                          <input
-                            accept="image/*"
-                            style={{ display: 'none' }}
-                            id={`icon-button-file-${num}`}
-                            type="file"
-                            onChange={(e) => uploadImage(e.target.files[0], num)}
-                          />
-                          <label htmlFor={`icon-button-file-${num}`}>
-                            <IconButton color="primary" component="span" disabled={uploadingImage}>
-                              <CloudUpload />
-                            </IconButton>
-                          </label>
-                          <Typography variant="caption" display="block">Subir Imagen {num}</Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>

@@ -9,16 +9,7 @@ import {
 import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 import { useSync } from '../context/SyncContext';
-
-// Función para convertir archivo a Base64
-const fileToBase64 = (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = (error) => reject(error);
-  });
-};
+import { saveImageOffline, getImageOffline, deleteImageOffline } from '../utils/offlineStorage';
 
 const VFDs = () => {
   const { isOnline, offlineQueue, addToQueue, clearQueue } = useSync();
@@ -47,9 +38,9 @@ const VFDs = () => {
     image_url_1: '',
     image_url_2: '',
     image_url_3: '',
-    image_base64_1: '',
-    image_base64_2: '',
-    image_base64_3: ''
+    image_id_1: '',
+    image_id_2: '',
+    image_id_3: ''
   });
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -92,7 +83,6 @@ const VFDs = () => {
     loadData();
   }, [isOnline]);
 
-  // 🟢 Sincronización de imágenes offline (CORREGIDA)
   useEffect(() => {
     const syncOfflineChanges = async () => {
       if (isOnline && offlineQueue.length > 0) {
@@ -102,33 +92,11 @@ const VFDs = () => {
         for (const action of offlineQueue) {
           try {
             if (action.type === 'INSERT') {
+              // Limpiar campos temporales de imágenes antes de insertar
               const dataToInsert = { ...action.data };
-              
-              // Procesar imágenes Base64
-              for (let i = 1; i <= 3; i++) {
-                const base64Key = `image_base64_${i}`;
-                const urlKey = `image_url_${i}`;
-                if (dataToInsert[base64Key]) {
-                  const base64Data = dataToInsert[base64Key];
-                  const fileExt = 'png';
-                  const fileName = `vsd_${Date.now()}_${i}.${fileExt}`;
-                  
-                  // Convertir Base64 a Blob para subirlo
-                  const fetchResponse = await fetch(base64Data);
-                  const blob = await fetchResponse.blob();
-                  
-                  const { error: uploadError } = await supabase.storage
-                    .from('vsd_images')
-                    .upload(fileName, blob);
-                    
-                  if (!uploadError) {
-                    const { data: urlData } = supabase.storage.from('vsd_images').getPublicUrl(fileName);
-                    dataToInsert[urlKey] = urlData.publicUrl;
-                  }
-                  delete dataToInsert[base64Key];
-                }
-              }
-
+              delete dataToInsert.image_id_1;
+              delete dataToInsert.image_id_2;
+              delete dataToInsert.image_id_3;
               await supabase.from(action.table).insert(dataToInsert);
             } else if (action.type === 'UPDATE') {
               await supabase.from(action.table).update(action.data).eq('id', action.id);
@@ -176,9 +144,9 @@ const VFDs = () => {
         image_url_1: vfd.image_url_1 || '',
         image_url_2: vfd.image_url_2 || '',
         image_url_3: vfd.image_url_3 || '',
-        image_base64_1: '',
-        image_base64_2: '',
-        image_base64_3: ''
+        image_id_1: '',
+        image_id_2: '',
+        image_id_3: ''
       });
     } else {
       setEditing(null);
@@ -198,9 +166,9 @@ const VFDs = () => {
         image_url_1: '',
         image_url_2: '',
         image_url_3: '',
-        image_base64_1: '',
-        image_base64_2: '',
-        image_base64_3: ''
+        image_id_1: '',
+        image_id_2: '',
+        image_id_3: ''
       });
     }
     setOpenDialog(true);
@@ -211,6 +179,7 @@ const VFDs = () => {
     setEditing(null);
   };
 
+  // 🟢 Lógica de subida de imágenes (Online: Supabase, Offline: IndexedDB)
   const uploadImage = async (file, index) => {
     if (!file) return;
     setUploadingImage(true);
@@ -234,14 +203,17 @@ const VFDs = () => {
         setFormData(prev => ({
           ...prev,
           [`image_url_${index}`]: publicUrl,
-          [`image_base64_${index}`]: ''
+          [`image_id_${index}`]: ''
         }));
       } else {
-        const base64 = await fileToBase64(file);
+        // Guardar en IndexedDB del celular
+        const imageId = `vsd_${Date.now()}_${index}`;
+        await saveImageOffline(imageId, file);
+        const url = URL.createObjectURL(file);
         setFormData(prev => ({
           ...prev,
-          [`image_base64_${index}`]: base64,
-          [`image_url_${index}`]: base64
+          [`image_url_${index}`]: url,
+          [`image_id_${index}`]: imageId
         }));
       }
 
@@ -255,10 +227,14 @@ const VFDs = () => {
   };
 
   const removeImage = (index) => {
+    const imageId = formData[`image_id_${index}`];
+    if (imageId && !isOnline) {
+      deleteImageOffline(imageId);
+    }
     setFormData(prev => ({
       ...prev,
       [`image_url_${index}`]: '',
-      [`image_base64_${index}`]: ''
+      [`image_id_${index}`]: ''
     }));
   };
 
@@ -280,9 +256,9 @@ const VFDs = () => {
           image_url_1: formData.image_url_1 || '',
           image_url_2: formData.image_url_2 || '',
           image_url_3: formData.image_url_3 || '',
-          image_base64_1: !isOnline ? formData.image_base64_1 : '',
-          image_base64_2: !isOnline ? formData.image_base64_2 : '',
-          image_base64_3: !isOnline ? formData.image_base64_3 : ''
+          image_id_1: !isOnline ? formData.image_id_1 : '',
+          image_id_2: !isOnline ? formData.image_id_2 : '',
+          image_id_3: !isOnline ? formData.image_id_3 : ''
         };
 
         if (isOnline) {
@@ -336,9 +312,9 @@ const VFDs = () => {
           image_url_1: formData.image_url_1 || '',
           image_url_2: formData.image_url_2 || '',
           image_url_3: formData.image_url_3 || '',
-          image_base64_1: !isOnline ? formData.image_base64_1 : '',
-          image_base64_2: !isOnline ? formData.image_base64_2 : '',
-          image_base64_3: !isOnline ? formData.image_base64_3 : ''
+          image_id_1: !isOnline ? formData.image_id_1 : '',
+          image_id_2: !isOnline ? formData.image_id_2 : '',
+          image_id_3: !isOnline ? formData.image_id_3 : ''
         };
 
         if (isOnline) {

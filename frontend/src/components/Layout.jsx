@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Box, CssBaseline, Toolbar, AppBar, Typography, IconButton, Chip, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, CssBaseline, Toolbar, AppBar, Typography, IconButton, Chip, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, useMediaQuery, useTheme } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -15,10 +15,15 @@ const drawerWidth = 240;
 
 const Layout = ({ children }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  React.useEffect(() => {
+  // Detectar cambio de conexión
+  useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
@@ -28,6 +33,10 @@ const Layout = ({ children }) => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
@@ -53,7 +62,7 @@ const Layout = ({ children }) => {
           return (
             <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
-                onClick={() => navigate(item.path)}
+                onClick={() => { navigate(item.path); if (isMobile) setMobileOpen(false); }}
                 sx={{
                   borderRadius: 2,
                   bgcolor: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',
@@ -89,7 +98,18 @@ const Layout = ({ children }) => {
         }}
       >
         <Toolbar>
-          {/* El botón de menú ya no es necesario, pero lo dejamos visible para escritorio */}
+          {/* Botón de menú SOLO visible en celulares */}
+          {isMobile && (
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             VSD Smart System
           </Typography>
@@ -102,17 +122,22 @@ const Layout = ({ children }) => {
         </Toolbar>
       </AppBar>
 
-      {/* Menú fijo tanto en celular como en escritorio */}
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-      >
+      {/* Menú para móviles (desplegable) */}
+      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{ display: { xs: 'block', sm: 'none' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
+        >
+          {drawer}
+        </Drawer>
+
+        {/* Menú para PC (fijo) */}
         <Drawer
           variant="permanent"
-          sx={{
-            display: 'block',
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }
-          }}
+          sx={{ display: { xs: 'none', sm: 'block' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
           open
         >
           {drawer}

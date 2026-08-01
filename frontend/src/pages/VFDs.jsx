@@ -46,7 +46,7 @@ const VFDs = () => {
 
   const MASTER_PASSWORD = 'admin123';
 
-  // 1. CARGA DE DATOS
+  // 1. CARGA DE DATOS (Online -> Supabase, Offline -> localStorage)
   const loadData = async () => {
     try {
       setLoading(true);
@@ -80,7 +80,7 @@ const VFDs = () => {
     loadData();
   }, [isOnline]);
 
-  // 2. SINCRONIZACIÓN AUTOMÁTICA
+  // 2. SINCRONIZACIÓN AUTOMÁTICA AL RECUPERAR CONEXIÓN
   useEffect(() => {
     const syncOfflineChanges = async () => {
       if (isOnline && offlineQueue.length > 0) {
@@ -248,15 +248,20 @@ const VFDs = () => {
         }
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
-        // Generar código secuencial
-        const { count, error: countError } = await supabase
-          .from('vsd')
-          .select('*', { count: 'exact', head: true });
+        let nextNumber = 1;
+        const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
+        
+        if (isOnline) {
+          const { count, error: countError } = await supabase
+            .from('vsd')
+            .select('*', { count: 'exact', head: true });
+          if (countError) throw countError;
+          nextNumber = (count || 0) + 1;
+        } else {
+          nextNumber = cached.length + 1;
+        }
 
-        if (countError) throw countError;
-
-        const siguienteNumero = (count || 0) + 1;
-        const nuevoCodigo = `V${siguienteNumero.toString().padStart(3, '0')}`;
+        const nuevoCodigo = `V${nextNumber.toString().padStart(3, '0')}`;
 
         const newData = {
           codigo_vsd: nuevoCodigo,
@@ -287,7 +292,6 @@ const VFDs = () => {
             table: 'vsd',
             data: newData
           });
-          const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
           cached.unshift(newData);
           localStorage.setItem('vsd_cache', JSON.stringify(cached));
           setVfds(cached);

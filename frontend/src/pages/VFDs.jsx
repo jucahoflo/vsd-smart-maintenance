@@ -228,10 +228,18 @@ const VFDs = () => {
           });
         }
 
-        // 🟢 ACTUALIZAR LA VISTA INMEDIATAMENTE (Sin recargar)
+        // 🟢 Actualizar la lista de VSDs (Tarjetas)
         setVfds(prev => prev.map(vfd => 
           vfd.id === editing.id ? { ...vfd, ...dataToSend } : vfd
         ));
+
+        // 🟢 ACTUALIZAR EL FORMULARIO CON LOS NUEVOS DATOS (Para que al editar de nuevo veas los cambios)
+        setFormData(prev => ({
+          ...prev,
+          ...dataToSend
+        }));
+        // Mantener el código y el ID
+        setFormData(prev => ({ ...prev, codigo_vsd: editing.codigo_vsd }));
 
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
@@ -278,7 +286,7 @@ const VFDs = () => {
           });
         }
 
-        // 🟢 ACTUALIZAR LA VISTA INMEDIATAMENTE (Sin recargar)
+        // 🟢 Actualizar la lista de VSDs (Tarjetas)
         setVfds(prev => [newData, ...prev]);
 
         showSnackbar('✅ VSD creado correctamente');
@@ -319,7 +327,7 @@ const VFDs = () => {
         });
       }
 
-      // 🟢 ELIMINAR DE LA VISTA INMEDIATAMENTE (Sin recargar)
+      // 🟢 Eliminar de la lista de VSDs
       setVfds(prev => prev.filter(vfd => vfd.id !== vfdToDelete));
 
       showSnackbar('✅ VSD eliminado permanentemente');

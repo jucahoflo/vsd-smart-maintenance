@@ -4,11 +4,21 @@ import {
   TextField, Dialog, DialogTitle, DialogContent,
   DialogActions, IconButton, Chip, Snackbar, Alert,
   CircularProgress, FormControl, InputLabel, Select, MenuItem,
-  InputAdornment, Stack, Avatar, CardMedia
+  InputAdornment, Stack, Avatar, CardMedia, Tooltip
 } from '@mui/material';
-import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever } from '@mui/icons-material';
+import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever, WifiOff } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 import { useSync } from '../context/SyncContext';
+
+// 🟢 Función para convertir archivo a Base64
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
 
 const VFDs = () => {
   const { isOnline, offlineQueue, addToQueue, clearQueue } = useSync();
@@ -46,7 +56,7 @@ const VFDs = () => {
 
   const MASTER_PASSWORD = 'admin123';
 
-  // 1. CARGA DE DATOS (Online -> Supabase, Offline -> localStorage)
+  // 1. CARGA DE DATOS
   const loadData = async () => {
     try {
       setLoading(true);
@@ -76,12 +86,11 @@ const VFDs = () => {
     }
   };
 
-  // 2. ESCUCHAR CAMBIOS DE CONEXIÓN (Esto es lo que faltaba)
   useEffect(() => {
     loadData();
   }, [isOnline]);
 
-  // 3. SINCRONIZACIÓN AUTOMÁTICA AL RECUPERAR CONEXIÓN
+  // 2. SINCRONIZACIÓN AUTOMÁTICA
   useEffect(() => {
     const syncOfflineChanges = async () => {
       if (isOnline && offlineQueue.length > 0) {
@@ -91,7 +100,22 @@ const VFDs = () => {
         for (const action of offlineQueue) {
           try {
             if (action.type === 'INSERT') {
-              await supabase.from(action.table).insert(action.data);
+              // Si hay imágenes en Base64, primero súbelas a Supabase
+              const dataToInsert = { ...action.data };
+              if (dataToInsert.image_base64_1) {
+                const file = dataToInsert.image_base64_1;
+                const fileExt = 'png';
+                const fileName = `vsd_${Date.now()}_1.${fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                  .from('vsd_images')
+                  .upload(fileName, file);
+                if (!uploadError) {
+                  const { data: urlData } = supabase.storage.from('vsd_images').getPublicUrl(fileName);
+                  dataToInsert.image_url_1 = urlData.publicUrl;
+                }
+                delete dataToInsert.image_base64_1;
+              }
+              await supabase.from(action.table).insert(dataToInsert);
             } else if (action.type === 'UPDATE') {
               await supabase.from(action.table).update(action.data).eq('id', action.id);
             } else if (action.type === 'DELETE') {
@@ -171,28 +195,38 @@ const VFDs = () => {
     if (!file) return;
     setUploadingImage(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
-      const filePath = `${fileName}`;
+      if (isOnline) {
+        // Si hay internet: subir a Supabase y obtener URL pública
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
+        const filePath = `${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('vsd_images')
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from('vsd_images')
+          .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from('vsd_images')
-        .getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage
+          .from('vsd_images')
+          .getPublicUrl(filePath);
 
-      const publicUrl = urlData.publicUrl;
-      
-      setFormData(prev => ({
-        ...prev,
-        [`image_url_${index}`]: publicUrl
-      }));
+        const publicUrl = urlData.publicUrl;
+        setFormData(prev => ({
+          ...prev,
+          [`image_url_${index}`]: publicUrl
+        }));
+      } else {
+        // Si NO hay internet: convertir a Base64 y guardar temporalmente
+        const base64 = await fileToBase64(file);
+        setFormData(prev => ({
+          ...prev,
+          [`image_url_${index}`]: base64,
+          [`image_base64_${index}`]: base64 // Guardamos el Base64 para sincronizar después
+        }));
+      }
 
-      showSnackbar(`✅ Imagen ${index} subida correctamente`, 'success');
+      showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'guardada offline'} correctamente`, 'success');
     } catch (error) {
       console.error('Error uploading image:', error);
       showSnackbar('❌ Error al subir la imagen', 'error');
@@ -204,7 +238,8 @@ const VFDs = () => {
   const removeImage = (index) => {
     setFormData(prev => ({
       ...prev,
-      [`image_url_${index}`]: ''
+      [`image_url_${index}`]: '',
+      [`image_base64_${index}`]: ''
     }));
   };
 
@@ -241,7 +276,6 @@ const VFDs = () => {
             id: editing.id,
             data: dataToSend
           });
-          // Actualizar caché local inmediatamente
           const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
           const updated = cached.map(v => v.id === editing.id ? { ...v, ...dataToSend } : v);
           localStorage.setItem('vsd_cache', JSON.stringify(updated));
@@ -249,13 +283,9 @@ const VFDs = () => {
         }
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
-        const { count, error: countError } = await supabase
-          .from('vsd')
-          .select('*', { count: 'exact', head: true });
-
-        if (countError) throw countError;
-
-        const siguienteNumero = (count || 0) + 1;
+        const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
+        const count = cached.length;
+        const siguienteNumero = count + 1;
         const nuevoCodigo = `V${siguienteNumero.toString().padStart(3, '0')}`;
 
         const newData = {
@@ -273,7 +303,10 @@ const VFDs = () => {
           observations: formData.observations || '',
           image_url_1: formData.image_url_1 || '',
           image_url_2: formData.image_url_2 || '',
-          image_url_3: formData.image_url_3 || ''
+          image_url_3: formData.image_url_3 || '',
+          image_base64_1: formData.image_base64_1 || '',
+          image_base64_2: formData.image_base64_2 || '',
+          image_base64_3: formData.image_base64_3 || ''
         };
 
         if (isOnline) {
@@ -287,8 +320,6 @@ const VFDs = () => {
             table: 'vsd',
             data: newData
           });
-          // Actualizar caché local inmediatamente
-          const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
           cached.unshift(newData);
           localStorage.setItem('vsd_cache', JSON.stringify(cached));
           setVfds(cached);
@@ -329,7 +360,6 @@ const VFDs = () => {
           table: 'vsd',
           id: vfdToDelete
         });
-        // Actualizar caché local inmediatamente
         const cached = JSON.parse(localStorage.getItem('vsd_cache') || '[]');
         const updated = cached.filter(v => v.id !== vfdToDelete);
         localStorage.setItem('vsd_cache', JSON.stringify(updated));

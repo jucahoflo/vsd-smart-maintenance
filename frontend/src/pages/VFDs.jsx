@@ -9,7 +9,6 @@ import {
 import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 import { useSync } from '../context/SyncContext';
-import { saveImageOffline, getImageOffline, deleteImageOffline } from '../utils/offlineStorage';
 
 const VFDs = () => {
   const { isOnline, offlineQueue, addToQueue, clearQueue } = useSync();
@@ -37,10 +36,14 @@ const VFDs = () => {
     observations: '',
     image_url_1: '',
     image_url_2: '',
-    image_url_3: '',
-    image_id_1: '',
-    image_id_2: '',
-    image_id_3: ''
+    image_url_3: ''
+  });
+
+  // 🟢 Estado para guardar los archivos de imágenes offline
+  const [offlineFiles, setOfflineFiles] = useState({
+    file_1: null,
+    file_2: null,
+    file_3: null
   });
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -92,12 +95,7 @@ const VFDs = () => {
         for (const action of offlineQueue) {
           try {
             if (action.type === 'INSERT') {
-              // Limpiar campos temporales de imágenes antes de insertar
-              const dataToInsert = { ...action.data };
-              delete dataToInsert.image_id_1;
-              delete dataToInsert.image_id_2;
-              delete dataToInsert.image_id_3;
-              await supabase.from(action.table).insert(dataToInsert);
+              await supabase.from(action.table).insert(action.data);
             } else if (action.type === 'UPDATE') {
               await supabase.from(action.table).update(action.data).eq('id', action.id);
             } else if (action.type === 'DELETE') {
@@ -143,11 +141,9 @@ const VFDs = () => {
         observations: vfd.observations || '',
         image_url_1: vfd.image_url_1 || '',
         image_url_2: vfd.image_url_2 || '',
-        image_url_3: vfd.image_url_3 || '',
-        image_id_1: '',
-        image_id_2: '',
-        image_id_3: ''
+        image_url_3: vfd.image_url_3 || ''
       });
+      setOfflineFiles({ file_1: null, file_2: null, file_3: null });
     } else {
       setEditing(null);
       setFormData({
@@ -165,11 +161,9 @@ const VFDs = () => {
         observations: '',
         image_url_1: '',
         image_url_2: '',
-        image_url_3: '',
-        image_id_1: '',
-        image_id_2: '',
-        image_id_3: ''
+        image_url_3: ''
       });
+      setOfflineFiles({ file_1: null, file_2: null, file_3: null });
     }
     setOpenDialog(true);
   };
@@ -177,9 +171,10 @@ const VFDs = () => {
   const handleClose = () => {
     setOpenDialog(false);
     setEditing(null);
+    setOfflineFiles({ file_1: null, file_2: null, file_3: null });
   };
 
-  // 🟢 Lógica de subida de imágenes (Online: Supabase, Offline: IndexedDB)
+  // 🟢 Subida de imágenes compatible con iPhone (Online y Offline)
   const uploadImage = async (file, index) => {
     if (!file) return;
     setUploadingImage(true);
@@ -202,22 +197,22 @@ const VFDs = () => {
         const publicUrl = urlData.publicUrl;
         setFormData(prev => ({
           ...prev,
-          [`image_url_${index}`]: publicUrl,
-          [`image_id_${index}`]: ''
+          [`image_url_${index}`]: publicUrl
         }));
       } else {
-        // Guardar en IndexedDB del celular
-        const imageId = `vsd_${Date.now()}_${index}`;
-        await saveImageOffline(imageId, file);
-        const url = URL.createObjectURL(file);
+        // Offline: Crear URL de previsualización y guardar el archivo en memoria
+        const previewUrl = URL.createObjectURL(file);
         setFormData(prev => ({
           ...prev,
-          [`image_url_${index}`]: url,
-          [`image_id_${index}`]: imageId
+          [`image_url_${index}`]: previewUrl
+        }));
+        setOfflineFiles(prev => ({
+          ...prev,
+          [`file_${index}`]: file
         }));
       }
 
-      showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'guardada offline'}`, 'success');
+      showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'previsualizada'}`, 'success');
     } catch (error) {
       console.error('Error uploading image:', error);
       showSnackbar('❌ Error al subir la imagen', 'error');
@@ -227,14 +222,13 @@ const VFDs = () => {
   };
 
   const removeImage = (index) => {
-    const imageId = formData[`image_id_${index}`];
-    if (imageId && !isOnline) {
-      deleteImageOffline(imageId);
-    }
     setFormData(prev => ({
       ...prev,
-      [`image_url_${index}`]: '',
-      [`image_id_${index}`]: ''
+      [`image_url_${index}`]: ''
+    }));
+    setOfflineFiles(prev => ({
+      ...prev,
+      [`file_${index}`]: null
     }));
   };
 
@@ -255,10 +249,7 @@ const VFDs = () => {
           observations: formData.observations || '',
           image_url_1: formData.image_url_1 || '',
           image_url_2: formData.image_url_2 || '',
-          image_url_3: formData.image_url_3 || '',
-          image_id_1: !isOnline ? formData.image_id_1 : '',
-          image_id_2: !isOnline ? formData.image_id_2 : '',
-          image_id_3: !isOnline ? formData.image_id_3 : ''
+          image_url_3: formData.image_url_3 || ''
         };
 
         if (isOnline) {
@@ -311,10 +302,7 @@ const VFDs = () => {
           observations: formData.observations || '',
           image_url_1: formData.image_url_1 || '',
           image_url_2: formData.image_url_2 || '',
-          image_url_3: formData.image_url_3 || '',
-          image_id_1: !isOnline ? formData.image_id_1 : '',
-          image_id_2: !isOnline ? formData.image_id_2 : '',
-          image_id_3: !isOnline ? formData.image_id_3 : ''
+          image_url_3: formData.image_url_3 || ''
         };
 
         if (isOnline) {

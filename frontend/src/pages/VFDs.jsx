@@ -9,6 +9,7 @@ import {
 import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 import { useSync } from '../context/SyncContext';
+import { saveImageOffline, getImageOffline, deleteImageOffline } from '../utils/offlineStorage';
 
 const VFDs = () => {
   const { isOnline, offlineQueue, addToQueue, clearQueue } = useSync();
@@ -33,7 +34,13 @@ const VFDs = () => {
     site: '',
     plant: '',
     department: '',
-    observations: ''
+    observations: '',
+    image_url_1: '',
+    image_url_2: '',
+    image_url_3: '',
+    image_id_1: '',
+    image_id_2: '',
+    image_id_3: ''
   });
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -55,7 +62,6 @@ const VFDs = () => {
           .order('codigo_vsd', { ascending: true });
         if (error) throw error;
         data = supabaseData || [];
-        localStorage.setItem('vsd_cache', JSON.stringify(data));
       } else {
         const cached = localStorage.getItem('vsd_cache');
         if (cached) {
@@ -85,7 +91,29 @@ const VFDs = () => {
         for (const action of offlineQueue) {
           try {
             if (action.type === 'INSERT') {
-              await supabase.from(action.table).insert(action.data);
+              const dataToInsert = { ...action.data };
+              // Si hay imágenes Base64, limpiar y preparar para subir
+              for (let i = 1; i <= 3; i++) {
+                const imageIdKey = `image_id_${i}`;
+                const imageUrlKey = `image_url_${i}`;
+                if (dataToInsert[imageIdKey]) {
+                  const file = await getImageOffline(dataToInsert[imageIdKey]);
+                  if (file) {
+                    const fileExt = 'jpeg';
+                    const fileName = `vsd_${Date.now()}_${i}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage
+                      .from('vsd_images')
+                      .upload(fileName, file);
+                    if (!uploadError) {
+                      const { data: urlData } = supabase.storage.from('vsd_images').getPublicUrl(fileName);
+                      dataToInsert[imageUrlKey] = urlData.publicUrl;
+                    }
+                    deleteImageOffline(dataToInsert[imageIdKey]);
+                  }
+                  delete dataToInsert[imageIdKey];
+                }
+              }
+              await supabase.from(action.table).insert(dataToInsert);
             } else if (action.type === 'UPDATE') {
               await supabase.from(action.table).update(action.data).eq('id', action.id);
             } else if (action.type === 'DELETE') {
@@ -99,6 +127,7 @@ const VFDs = () => {
         
         if (!hasError) {
           clearQueue();
+          loadData();
           showSnackbar('✅ Cambios sincronizados correctamente con la nube!', 'success');
         } else {
           showSnackbar('⚠️ Algunos cambios no se pudieron sincronizar.', 'warning');
@@ -128,7 +157,13 @@ const VFDs = () => {
         site: vfd.site || '',
         plant: vfd.plant || '',
         department: vfd.department || '',
-        observations: vfd.observations || ''
+        observations: vfd.observations || '',
+        image_url_1: vfd.image_url_1 || '',
+        image_url_2: vfd.image_url_2 || '',
+        image_url_3: vfd.image_url_3 || '',
+        image_id_1: '',
+        image_id_2: '',
+        image_id_3: ''
       });
     } else {
       setEditing(null);
@@ -144,7 +179,13 @@ const VFDs = () => {
         site: '',
         plant: '',
         department: '',
-        observations: ''
+        observations: '',
+        image_url_1: '',
+        image_url_2: '',
+        image_url_3: '',
+        image_id_1: '',
+        image_id_2: '',
+        image_id_3: ''
       });
     }
     setOpenDialog(true);
@@ -159,28 +200,40 @@ const VFDs = () => {
     if (!file) return;
     setUploadingImage(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
-      const filePath = `${fileName}`;
+      if (isOnline) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
+        const filePath = `${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('vsd_images')
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from('vsd_images')
+          .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from('vsd_images')
-        .getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage
+          .from('vsd_images')
+          .getPublicUrl(filePath);
 
-      const publicUrl = urlData.publicUrl;
-      
-      setFormData(prev => ({
-        ...prev,
-        [`image_url_${index}`]: publicUrl
-      }));
+        const publicUrl = urlData.publicUrl;
+        setFormData(prev => ({
+          ...prev,
+          [`image_url_${index}`]: publicUrl,
+          [`image_id_${index}`]: ''
+        }));
+      } else {
+        // Guardar en IndexedDB (Offline)
+        const imageId = `vsd_${Date.now()}_${index}`;
+        await saveImageOffline(imageId, file);
+        const url = URL.createObjectURL(file);
+        setFormData(prev => ({
+          ...prev,
+          [`image_url_${index}`]: url,
+          [`image_id_${index}`]: imageId
+        }));
+      }
 
-      showSnackbar(`✅ Imagen ${index} subida correctamente`, 'success');
+      showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'guardada offline'}`, 'success');
     } catch (error) {
       console.error('Error uploading image:', error);
       showSnackbar('❌ Error al subir la imagen', 'error');
@@ -190,9 +243,14 @@ const VFDs = () => {
   };
 
   const removeImage = (index) => {
+    const imageId = formData[`image_id_${index}`];
+    if (imageId && !isOnline) {
+      deleteImageOffline(imageId);
+    }
     setFormData(prev => ({
       ...prev,
-      [`image_url_${index}`]: ''
+      [`image_url_${index}`]: '',
+      [`image_id_${index}`]: ''
     }));
   };
 
@@ -210,7 +268,13 @@ const VFDs = () => {
           site: formData.site || '',
           plant: formData.plant || '',
           department: formData.department || '',
-          observations: formData.observations || ''
+          observations: formData.observations || '',
+          image_url_1: formData.image_url_1 || '',
+          image_url_2: formData.image_url_2 || '',
+          image_url_3: formData.image_url_3 || '',
+          image_id_1: !isOnline ? formData.image_id_1 : '',
+          image_id_2: !isOnline ? formData.image_id_2 : '',
+          image_id_3: !isOnline ? formData.image_id_3 : ''
         };
 
         if (isOnline) {
@@ -228,18 +292,10 @@ const VFDs = () => {
           });
         }
 
-        // 🟢 Actualizar la lista de VSDs (Tarjetas)
+        // Actualizar la lista local inmediatamente
         setVfds(prev => prev.map(vfd => 
           vfd.id === editing.id ? { ...vfd, ...dataToSend } : vfd
         ));
-
-        // 🟢 ACTUALIZAR EL FORMULARIO CON LOS NUEVOS DATOS (Para que al editar de nuevo veas los cambios)
-        setFormData(prev => ({
-          ...prev,
-          ...dataToSend
-        }));
-        // Mantener el código y el ID
-        setFormData(prev => ({ ...prev, codigo_vsd: editing.codigo_vsd }));
 
         showSnackbar('✅ VSD actualizado correctamente');
       } else {
@@ -270,7 +326,13 @@ const VFDs = () => {
           site: formData.site || '',
           plant: formData.plant || '',
           department: formData.department || '',
-          observations: formData.observations || ''
+          observations: formData.observations || '',
+          image_url_1: formData.image_url_1 || '',
+          image_url_2: formData.image_url_2 || '',
+          image_url_3: formData.image_url_3 || '',
+          image_id_1: !isOnline ? formData.image_id_1 : '',
+          image_id_2: !isOnline ? formData.image_id_2 : '',
+          image_id_3: !isOnline ? formData.image_id_3 : ''
         };
 
         if (isOnline) {
@@ -286,7 +348,6 @@ const VFDs = () => {
           });
         }
 
-        // 🟢 Actualizar la lista de VSDs (Tarjetas)
         setVfds(prev => [newData, ...prev]);
 
         showSnackbar('✅ VSD creado correctamente');
@@ -327,7 +388,6 @@ const VFDs = () => {
         });
       }
 
-      // 🟢 Eliminar de la lista de VSDs
       setVfds(prev => prev.filter(vfd => vfd.id !== vfdToDelete));
 
       showSnackbar('✅ VSD eliminado permanentemente');

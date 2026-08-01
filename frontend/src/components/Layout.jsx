@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Box, CssBaseline, Toolbar, AppBar, Typography, IconButton, Chip, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, useMediaQuery, useTheme } from '@mui/material';
+import { 
+  Box, CssBaseline, Toolbar, AppBar, Typography, IconButton, Chip, 
+  BottomNavigation, BottomNavigationAction, Paper, useMediaQuery, useTheme 
+} from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -15,7 +18,6 @@ const drawerWidth = 240;
 
 const Layout = ({ children }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -33,17 +35,6 @@ const Layout = ({ children }) => {
     };
   }, []);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleNavigation = (path) => {
-    navigate(path);
-    if (isMobile) {
-      setMobileOpen(false); // Cierra el menú al navegar en celular
-    }
-  };
-
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'VFDs', icon: <VsdIcon />, path: '/vfds' },
@@ -53,7 +44,8 @@ const Layout = ({ children }) => {
     { text: 'Configuración', icon: <SettingsIcon />, path: '/settings' },
   ];
 
-  const drawer = (
+  // Renderizado del menú lateral (Solo para PC)
+  const renderSidebar = () => (
     <Box sx={{ bgcolor: '#1a237e', height: '100%', color: 'white' }}>
       <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <Box sx={{ width: 50, height: 50, bgcolor: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
@@ -62,60 +54,22 @@ const Layout = ({ children }) => {
         <Typography variant="h6" fontWeight="700" color="white">VSD Smart</Typography>
         <Typography variant="body2" color="rgba(255,255,255,0.7)">Maintenance System</Typography>
       </Box>
-      <List sx={{ px: 2, mt: 2 }}>
-        {menuItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
-              <ListItemButton
-                onClick={() => handleNavigation(item.path)}
-                sx={{
-                  borderRadius: 2,
-                  bgcolor: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
-                  color: isActive ? 'white' : 'rgba(255,255,255,0.7)',
-                }}
-              >
-                <ListItemIcon sx={{ color: isActive ? 'white' : 'rgba(255,255,255,0.7)', minWidth: 40 }}>
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      </List>
-      <Box sx={{ p: 3, textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', mt: 'auto' }}>
-        <Typography variant="caption" color="rgba(255,255,255,0.5)">v2.0.0</Typography>
-      </Box>
     </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: '100vh' }}>
       <CssBaseline />
       
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
+          width: isMobile ? '100%' : `calc(100% - ${drawerWidth}px)`,
+          ml: isMobile ? 0 : `${drawerWidth}px`,
           bgcolor: '#1a237e'
         }}
       >
         <Toolbar>
-          {/* Botón de menú SOLO visible en celulares */}
-          {isMobile && (
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             VSD Smart System
           </Typography>
@@ -128,41 +82,95 @@ const Layout = ({ children }) => {
         </Toolbar>
       </AppBar>
 
-      {/* Menú para móviles (desplegable) */}
-      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
-          sx={{ display: { xs: 'block', sm: 'none' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
+      {/* Menú LATERAL para PC (Siempre visible y fijo) */}
+      {!isMobile && (
+        <Box
+          component="nav"
+          sx={{ width: drawerWidth, flexShrink: 0 }}
         >
-          {drawer}
-        </Drawer>
+          <Box sx={{ 
+            width: drawerWidth, 
+            height: '100vh', 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            bgcolor: '#1a237e', 
+            color: 'white',
+            pt: 10 
+          }}>
+            {renderSidebar()}
+            <Box sx={{ px: 2, mt: 4 }}>
+              {menuItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Box 
+                    key={item.text} 
+                    onClick={() => navigate(item.path)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      px: 3,
+                      py: 2,
+                      mb: 1,
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      bgcolor: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+                      color: isActive ? 'white' : 'rgba(255,255,255,0.7)',
+                    }}
+                  >
+                    <Box sx={{ mr: 2, display: 'flex' }}>{item.icon}</Box>
+                    <Typography variant="body1">{item.text}</Typography>
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        </Box>
+      )}
 
-        {/* Menú para PC (fijo) */}
-        <Drawer
-          variant="permanent"
-          sx={{ display: { xs: 'none', sm: 'block' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
-
+      {/* Contenido principal */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          width: isMobile ? '100%' : `calc(100% - ${drawerWidth}px)`,
+          ml: isMobile ? 0 : `${drawerWidth}px`,
           mt: 8,
+          mb: isMobile ? 8 : 0, // Espacio extra abajo para el menú inferior en celular
           bgcolor: '#f5f5f5',
           minHeight: '100vh'
         }}
       >
         {children}
       </Box>
+
+      {/* Menú INFERIOR para CELULAR (Siempre visible y fijo) */}
+      {isMobile && (
+        <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1100 }} elevation={3}>
+          <BottomNavigation
+            value={menuItems.findIndex(item => item.path === location.pathname)}
+            onChange={(event, newValue) => {
+              navigate(menuItems[newValue].path);
+            }}
+            showLabels
+            sx={{ bgcolor: '#1a237e', color: 'white', '& .MuiBottomNavigationAction-root': { color: 'rgba(255,255,255,0.7)' } }}
+          >
+            {menuItems.map((item) => (
+              <BottomNavigationAction 
+                key={item.text} 
+                label={item.text} 
+                icon={item.icon} 
+                sx={{ 
+                  color: 'rgba(255,255,255,0.7)', 
+                  '&.Mui-selected': { color: 'white' } 
+                }}
+              />
+            ))}
+          </BottomNavigation>
+        </Paper>
+      )}
     </Box>
   );
 };

@@ -22,7 +22,6 @@ const Layout = ({ children }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Detectar cambio de conexión
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -36,6 +35,13 @@ const Layout = ({ children }) => {
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleNavigation = (path) => {
+    navigate(path);
+    if (isMobile) {
+      setMobileOpen(false); // Cierra el menú al navegar en celular
+    }
   };
 
   const menuItems = [
@@ -62,7 +68,7 @@ const Layout = ({ children }) => {
           return (
             <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
-                onClick={() => { navigate(item.path); if (isMobile) setMobileOpen(false); }}
+                onClick={() => handleNavigation(item.path)}
                 sx={{
                   borderRadius: 2,
                   bgcolor: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',

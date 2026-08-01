@@ -10,6 +10,31 @@ import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever }
 import { supabase } from '../config/supabase';
 import { useSync } from '../context/SyncContext';
 
+// 🟢 Función para comprimir imágenes en iPhone (Reduce el peso y evita errores de memoria)
+const compressImage = (file, maxWidth = 800, quality = 0.7) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const scale = Math.min(maxWidth / img.width, 1);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
+  });
+};
+
 const VFDs = () => {
   const { isOnline, offlineQueue, addToQueue, clearQueue } = useSync();
   
@@ -37,13 +62,6 @@ const VFDs = () => {
     image_url_1: '',
     image_url_2: '',
     image_url_3: ''
-  });
-
-  // 🟢 Estado para guardar los archivos de imágenes offline
-  const [offlineFiles, setOfflineFiles] = useState({
-    file_1: null,
-    file_2: null,
-    file_3: null
   });
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -143,7 +161,6 @@ const VFDs = () => {
         image_url_2: vfd.image_url_2 || '',
         image_url_3: vfd.image_url_3 || ''
       });
-      setOfflineFiles({ file_1: null, file_2: null, file_3: null });
     } else {
       setEditing(null);
       setFormData({
@@ -163,7 +180,6 @@ const VFDs = () => {
         image_url_2: '',
         image_url_3: ''
       });
-      setOfflineFiles({ file_1: null, file_2: null, file_3: null });
     }
     setOpenDialog(true);
   };
@@ -171,22 +187,24 @@ const VFDs = () => {
   const handleClose = () => {
     setOpenDialog(false);
     setEditing(null);
-    setOfflineFiles({ file_1: null, file_2: null, file_3: null });
   };
 
-  // 🟢 Subida de imágenes compatible con iPhone (Online y Offline)
+  // 🟢 Subida con compresión de imagen (Crucial para iPhone)
   const uploadImage = async (file, index) => {
     if (!file) return;
     setUploadingImage(true);
     try {
+      // Comprimir la imagen siempre (incluso online, para ahorrar datos)
+      const compressedFile = await compressImage(file);
+      
       if (isOnline) {
-        const fileExt = file.name.split('.').pop();
+        const fileExt = 'jpeg';
         const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('vsd_images')
-          .upload(filePath, file);
+          .upload(filePath, compressedFile);
 
         if (uploadError) throw uploadError;
 
@@ -200,15 +218,11 @@ const VFDs = () => {
           [`image_url_${index}`]: publicUrl
         }));
       } else {
-        // Offline: Crear URL de previsualización y guardar el archivo en memoria
-        const previewUrl = URL.createObjectURL(file);
+        // Offline: Crear URL de previsualización con el archivo comprimido
+        const previewUrl = URL.createObjectURL(compressedFile);
         setFormData(prev => ({
           ...prev,
           [`image_url_${index}`]: previewUrl
-        }));
-        setOfflineFiles(prev => ({
-          ...prev,
-          [`file_${index}`]: file
         }));
       }
 
@@ -225,10 +239,6 @@ const VFDs = () => {
     setFormData(prev => ({
       ...prev,
       [`image_url_${index}`]: ''
-    }));
-    setOfflineFiles(prev => ({
-      ...prev,
-      [`file_${index}`]: null
     }));
   };
 

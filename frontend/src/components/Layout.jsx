@@ -15,11 +15,9 @@ const drawerWidth = 240;
 
 const Layout = ({ children }) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Detectar cambio de conexión
   React.useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -30,10 +28,6 @@ const Layout = ({ children }) => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
@@ -59,7 +53,7 @@ const Layout = ({ children }) => {
           return (
             <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
-                onClick={() => { navigate(item.path); setMobileOpen(false); }}
+                onClick={() => navigate(item.path)}
                 sx={{
                   borderRadius: 2,
                   bgcolor: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',
@@ -95,15 +89,7 @@ const Layout = ({ children }) => {
         }}
       >
         <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
+          {/* El botón de menú ya no es necesario, pero lo dejamos visible para escritorio */}
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             VSD Smart System
           </Typography>
@@ -116,23 +102,17 @@ const Layout = ({ children }) => {
         </Toolbar>
       </AppBar>
 
-      {/* Menú para escritorio */}
+      {/* Menú fijo tanto en celular como en escritorio */}
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
       >
         <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
-          sx={{ display: { xs: 'block', sm: 'none' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
-        >
-          {drawer}
-        </Drawer>
-        <Drawer
           variant="permanent"
-          sx={{ display: { xs: 'none', sm: 'block' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth } }}
+          sx={{
+            display: 'block',
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }
+          }}
           open
         >
           {drawer}

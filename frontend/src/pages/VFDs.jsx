@@ -43,7 +43,6 @@ const VFDs = () => {
 
   const MASTER_PASSWORD = 'admin123';
 
-  // 1. CARGA DE DATOS
   const loadData = async () => {
     try {
       setLoading(true);
@@ -77,7 +76,6 @@ const VFDs = () => {
     loadData();
   }, [isOnline]);
 
-  // 2. SINCRONIZACIÓN AUTOMÁTICA (Sin dañar la lógica existente)
   useEffect(() => {
     const syncOfflineChanges = async () => {
       if (isOnline && offlineQueue.length > 0) {
@@ -222,7 +220,6 @@ const VFDs = () => {
             .eq('id', editing.id);
           if (error) throw error;
         } else {
-          // Guardar en cola offline y actualizar la vista inmediatamente
           addToQueue({
             type: 'UPDATE',
             table: 'vsd',
@@ -272,7 +269,6 @@ const VFDs = () => {
             .insert(newData);
           if (error) throw error;
         } else {
-          // Guardar en cola offline y actualizar la vista inmediatamente
           addToQueue({
             type: 'INSERT',
             table: 'vsd',

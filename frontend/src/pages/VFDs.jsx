@@ -10,7 +10,7 @@ import { Add, Refresh, Edit, Delete, Speed, Search, CloudUpload, DeleteForever }
 import { supabase } from '../config/supabase';
 import { useSync } from '../context/SyncContext';
 
-// 🟢 Función para convertir archivo a Base64 (para guardar offline)
+// Función para convertir archivo a Base64
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -47,7 +47,6 @@ const VFDs = () => {
     image_url_1: '',
     image_url_2: '',
     image_url_3: '',
-    // 🟢 Campos temporales para guardar imágenes offline
     image_base64_1: '',
     image_base64_2: '',
     image_base64_3: ''
@@ -93,6 +92,7 @@ const VFDs = () => {
     loadData();
   }, [isOnline]);
 
+  // 🟢 Sincronización de imágenes offline (CORREGIDA)
   useEffect(() => {
     const syncOfflineChanges = async () => {
       if (isOnline && offlineQueue.length > 0) {
@@ -102,20 +102,33 @@ const VFDs = () => {
         for (const action of offlineQueue) {
           try {
             if (action.type === 'INSERT') {
-              // 🟢 Si hay imágenes Base64, súbelas a Supabase y reemplaza la URL
               const dataToInsert = { ...action.data };
-              if (dataToInsert.image_base64_1) {
-                const fileExt = 'png';
-                const fileName = `vsd_${Date.now()}_1.${fileExt}`;
-                const { error: uploadError } = await supabase.storage
-                  .from('vsd_images')
-                  .upload(fileName, dataToInsert.image_base64_1);
-                if (!uploadError) {
-                  const { data: urlData } = supabase.storage.from('vsd_images').getPublicUrl(fileName);
-                  dataToInsert.image_url_1 = urlData.publicUrl;
+              
+              // Procesar imágenes Base64
+              for (let i = 1; i <= 3; i++) {
+                const base64Key = `image_base64_${i}`;
+                const urlKey = `image_url_${i}`;
+                if (dataToInsert[base64Key]) {
+                  const base64Data = dataToInsert[base64Key];
+                  const fileExt = 'png';
+                  const fileName = `vsd_${Date.now()}_${i}.${fileExt}`;
+                  
+                  // Convertir Base64 a Blob para subirlo
+                  const fetchResponse = await fetch(base64Data);
+                  const blob = await fetchResponse.blob();
+                  
+                  const { error: uploadError } = await supabase.storage
+                    .from('vsd_images')
+                    .upload(fileName, blob);
+                    
+                  if (!uploadError) {
+                    const { data: urlData } = supabase.storage.from('vsd_images').getPublicUrl(fileName);
+                    dataToInsert[urlKey] = urlData.publicUrl;
+                  }
+                  delete dataToInsert[base64Key];
                 }
-                delete dataToInsert.image_base64_1;
               }
+
               await supabase.from(action.table).insert(dataToInsert);
             } else if (action.type === 'UPDATE') {
               await supabase.from(action.table).update(action.data).eq('id', action.id);
@@ -198,13 +211,11 @@ const VFDs = () => {
     setEditing(null);
   };
 
-  // 🟢 Lógica de subida de imágenes (Online: Sube, Offline: Guarda Base64)
   const uploadImage = async (file, index) => {
     if (!file) return;
     setUploadingImage(true);
     try {
       if (isOnline) {
-        // Si hay internet: subir a Supabase y obtener URL pública
         const fileExt = file.name.split('.').pop();
         const fileName = `${formData.codigo_vsd || 'temp'}_${Date.now()}_${index}.${fileExt}`;
         const filePath = `${fileName}`;
@@ -226,16 +237,15 @@ const VFDs = () => {
           [`image_base64_${index}`]: ''
         }));
       } else {
-        // 🟢 Si NO hay internet: convertir a Base64 y guardar temporalmente
         const base64 = await fileToBase64(file);
         setFormData(prev => ({
           ...prev,
           [`image_base64_${index}`]: base64,
-          [`image_url_${index}`]: base64 // Mostramos la imagen en el preview
+          [`image_url_${index}`]: base64
         }));
       }
 
-      showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'guardada offline'} correctamente`, 'success');
+      showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'guardada offline'}`, 'success');
     } catch (error) {
       console.error('Error uploading image:', error);
       showSnackbar('❌ Error al subir la imagen', 'error');
@@ -270,7 +280,6 @@ const VFDs = () => {
           image_url_1: formData.image_url_1 || '',
           image_url_2: formData.image_url_2 || '',
           image_url_3: formData.image_url_3 || '',
-          // 🟢 Incluimos los Base64 solo si estamos offline
           image_base64_1: !isOnline ? formData.image_base64_1 : '',
           image_base64_2: !isOnline ? formData.image_base64_2 : '',
           image_base64_3: !isOnline ? formData.image_base64_3 : ''

@@ -82,6 +82,30 @@ const VFDs = () => {
     loadData();
   }, [isOnline]);
 
+  // 🟢 CARGA DE IMÁGENES OFFLINE (Cuando la lista ya está cargada)
+  useEffect(() => {
+    const loadOfflineImages = async () => {
+      if (!isOnline) {
+        const updatedVfds = await Promise.all(vfds.map(async (vfd) => {
+          const newVfd = { ...vfd };
+          for (let i = 1; i <= 3; i++) {
+            const imageIdKey = `image_id_${i}`;
+            const imageUrlKey = `image_url_${i}`;
+            if (vfd[imageIdKey]) {
+              const file = await getImageOffline(vfd[imageIdKey]);
+              if (file) {
+                newVfd[imageUrlKey] = URL.createObjectURL(file);
+              }
+            }
+          }
+          return newVfd;
+        }));
+        setVfds(updatedVfds);
+      }
+    };
+    loadOfflineImages();
+  }, [isOnline, vfds]);
+
   useEffect(() => {
     const syncOfflineChanges = async () => {
       if (isOnline && offlineQueue.length > 0) {

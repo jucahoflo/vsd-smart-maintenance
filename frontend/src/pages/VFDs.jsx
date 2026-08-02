@@ -235,8 +235,13 @@ const VFDs = () => {
 
       showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'guardada offline'}`, 'success');
     } catch (error) {
-      console.error('Error uploading image:', error);
-      showSnackbar('❌ Error al subir la imagen', 'error');
+      // Silenciar errores de red cuando estamos offline
+      if (!isOnline) {
+        console.warn('📁 Imagen guardada offline (ignorando error de red)');
+      } else {
+        console.error('Error uploading image:', error);
+        showSnackbar('❌ Error al subir la imagen', 'error');
+      }
     } finally {
       setUploadingImage(false);
     }

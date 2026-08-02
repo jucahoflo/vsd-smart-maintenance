@@ -186,9 +186,9 @@ const VFDs = () => {
         image_url_1: vfd.image_url_1 || '',
         image_url_2: vfd.image_url_2 || '',
         image_url_3: vfd.image_url_3 || '',
-        image_id_1: '',
-        image_id_2: '',
-        image_id_3: ''
+        image_id_1: vfd.image_id_1 || '',
+        image_id_2: vfd.image_id_2 || '',
+        image_id_3: vfd.image_id_3 || ''
       });
     } else {
       setEditing(null);

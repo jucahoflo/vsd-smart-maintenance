@@ -289,7 +289,7 @@ const VFDs = () => {
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',
           status: formData.status || 'online',
-          health_score: parseInt(formData.health_score) || 100,
+          health_score: parseInt(formData.health_score) || 100, // ✅ Asegurar número
           serial_number: formData.serial_number || '',
           voltage_rating: formData.voltage_rating || '',
           kva: formData.kva || '',
@@ -346,7 +346,7 @@ const VFDs = () => {
           manufacturer: formData.manufacturer || '',
           model: formData.model || '',
           status: formData.status || 'online',
-          health_score: parseInt(formData.health_score) || 100,
+          health_score: parseInt(formData.health_score) || 100, // ✅ Asegurar número
           serial_number: formData.serial_number || '',
           voltage_rating: formData.voltage_rating || '',
           kva: formData.kva || '',

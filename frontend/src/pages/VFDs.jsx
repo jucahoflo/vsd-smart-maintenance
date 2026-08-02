@@ -71,8 +71,10 @@ const VFDs = () => {
 
       setVfds(data);
     } catch (error) {
-      console.error('❌ Error loading VSDs:', error);
-      showSnackbar('Error al cargar VSDs', 'error');
+      if (isOnline) {
+        console.error('❌ Error loading VSDs:', error);
+        showSnackbar('Error al cargar VSDs', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -82,7 +84,7 @@ const VFDs = () => {
     loadData();
   }, [isOnline]);
 
-  // 🟢 CARGA DE IMÁGENES OFFLINE (Cuando la lista ya está cargada)
+  // 🟢 CARGA DE IMÁGENES OFFLINE (SOLO cuando no hay internet)
   useEffect(() => {
     const loadOfflineImages = async () => {
       if (!isOnline) {
@@ -116,7 +118,6 @@ const VFDs = () => {
           try {
             if (action.type === 'INSERT') {
               const dataToInsert = { ...action.data };
-              // Si hay imágenes Base64, limpiar y preparar para subir
               for (let i = 1; i <= 3; i++) {
                 const imageIdKey = `image_id_${i}`;
                 const imageUrlKey = `image_url_${i}`;
@@ -246,7 +247,6 @@ const VFDs = () => {
           [`image_id_${index}`]: ''
         }));
       } else {
-        // Guardar en IndexedDB (Offline)
         const imageId = `vsd_${Date.now()}_${index}`;
         await saveImageOffline(imageId, file);
         const url = URL.createObjectURL(file);
@@ -259,7 +259,6 @@ const VFDs = () => {
 
       showSnackbar(`✅ Imagen ${index} ${isOnline ? 'subida' : 'guardada offline'}`, 'success');
     } catch (error) {
-      // Silenciar errores de red cuando estamos offline
       if (!isOnline) {
         console.warn('📁 Imagen guardada offline (ignorando error de red)');
       } else {
@@ -321,7 +320,6 @@ const VFDs = () => {
           });
         }
 
-        // Actualizar la lista local inmediatamente
         setVfds(prev => prev.map(vfd => 
           vfd.id === editing.id ? { ...vfd, ...dataToSend } : vfd
         ));

@@ -17,18 +17,18 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <SyncProvider>
-          <Router>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/vfds" element={<VFDs />} />
-                <Route path="/maintenance" element={<Maintenance />} />
-                <Route path="/inventory" element={<Inventory />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/settings" element={<Settings />} />
-              </Routes>
-            </Layout>
-          </Router>
+        <Router>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/vfds" element={<VFDs />} />
+              <Route path="/maintenance" element={<Maintenance />} />
+              <Route path="/inventory" element={<Inventory />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Layout>
+        </Router>
       </SyncProvider>
     </ThemeProvider>
   );

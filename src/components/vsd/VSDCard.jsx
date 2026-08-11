@@ -223,16 +223,17 @@ const VSDCard = ({ vsd, onEdit, onDelete, onClick }) => {
               />
             </Box>
 
+            {/* 👇 Serial debajo del modelo */}
+            <Typography variant="caption" color="textSecondary" display="block" align="center" sx={{ mt: 0.5 }}>
+              Serial: {vsd.serie || "N/A"}
+            </Typography>
+
             <Box display="flex" alignItems="center" justifyContent="center" gap={0.5} mb={1}>
               <LocationIcon fontSize="small" sx={{ color: '#6b7280', fontSize: 16 }} />
               <Typography variant="body2" color="textSecondary" noWrap fontSize="0.8rem">
                 {vsd.ubicacion || 'Sin ubicación'}
               </Typography>
             </Box>
-
-            <Typography variant="caption" color="textSecondary" display="block" align="center">
-              Serie: {vsd.serie || 'N/A'}
-            </Typography>
 
             <Box display="flex" justifyContent="center" gap={2} mt={2}>
               <Tooltip title="Imágenes">

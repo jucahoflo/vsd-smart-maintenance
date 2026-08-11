@@ -1,73 +1,157 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Grid, Card, CardContent, Chip,
-  Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Select, MenuItem, FormControl, InputLabel,
-  IconButton, useTheme, useMediaQuery, Snackbar, Alert,
-  Tabs, Tab, LinearProgress, CircularProgress
+  Box, Typography, TextField, Button, Card, CardContent, Grid,
+  Snackbar, Alert, CircularProgress, Chip, Paper, Divider,
+  InputAdornment, FormControl, InputLabel, Select, MenuItem,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  IconButton, Avatar, Stack, Tooltip
 } from '@mui/material';
-import {
-  Add, Refresh, Edit, Delete, CheckCircle, Cancel, Schedule,
-  Build, Person
-} from '@mui/icons-material';
+import { Search, Refresh, FilePresent, CloudUpload, DeleteForever, PhotoCamera, Add, Delete, ArrowBack } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+
+const getDefaultChecklist = () => {
+  return {
+    shelter_skid: [
+      { id: 'ss1', label: 'Limpieza interior y exterior (Piso, puertas, gabinetes)', done: false, anomaly: '', observations: '' },
+      { id: 'ss2', label: 'Aspirado y soplado de polvo', done: false, anomaly: '', observations: '' },
+      { id: 'ss3', label: 'Ajuste de conexiones de Gabinetes de potencia y VSD (Filtro armónico, Sinusoidal, Cables VSD, Fusibles, reactancias, etc.)', done: false, anomaly: '', observations: '' },
+      { id: 'ss4', label: 'Revisión y ajuste de conexiones', done: false, anomaly: '', observations: '' },
+      { id: 'ss5', label: 'Verificación de iluminación interna y externa', done: false, anomaly: '', observations: '' },
+      { id: 'ss6', label: 'Verificación de subsistema de refrigeración', done: false, anomaly: '', observations: '' },
+      { id: 'ss7', label: 'Verificación y ajuste de Bandejas porta cables', done: false, anomaly: '', observations: '' },
+      { id: 'ss8', label: 'Verificación estado de ventiladores', done: false, anomaly: '', observations: '' },
+      { id: 'ss9', label: 'Revisión de protecciones (PIP, Tem Motor, Temp Intake, Over load, Under Load, etc)', done: false, anomaly: '', observations: '' },
+      { id: 'ss10', label: 'Comprobación de la correcta operación de los equipos', done: false, anomaly: '', observations: '' },
+    ],
+    cbm_vsd: [
+      { id: 'cbm1', label: 'Predictivo de Termografía en SCP, ESD, SCA, CSA, VSD, SCP, GFC y CDP.', done: false, anomaly: '', observations: '' },
+      { id: 'cbm2', label: 'Predictivo de Calidad de Energía en cada Pozo', done: false, anomaly: '', observations: '' },
+      { id: 'cbm3', label: 'Predictivo de Mediciones Eléctricas', done: false, anomaly: '', observations: '' },
+    ],
+    static_tests: {
+      converter_1: [
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada R', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada S', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada T', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada R', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada S', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada T', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+      ],
+      inverter_2: [
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada R', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada S', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada T', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada R', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada S', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada T', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+      ],
+      converter_3: [
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada R', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada S', expected: 'Cargando', actual: '' },
+        { meter_plus: 'DC BUS +', meter_minus: 'Entrada T', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC BUS +', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada R', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada S', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'DC Bus –', meter_minus: 'Entrada T', expected: '0.2 – 0.6', actual: '' },
+        { meter_plus: 'Entrada R', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada S', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+        { meter_plus: 'Entrada T', meter_minus: 'DC Bus –', expected: 'Cargando', actual: '' },
+      ]
+    },
+    photos: {
+      before: [],
+      after: []
+    },
+    materials: [
+      { item: 1, quantity: 1, sap_code: '', detail: '', reserve: '' }
+    ]
+  };
+};
 
 const Maintenance = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [tabValue, setTabValue] = useState(0);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [searching, setSearching] = useState(false);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const reportId = searchParams.get('reportId');
+
+  const [searchCode, setSearchCode] = useState('');
   const [vfdEncontrado, setVfdEncontrado] = useState(null);
-  const [stats, setStats] = useState({
-    total: 0,
-    completed: 0,
-    pending: 0,
-    completionRate: 0
-  });
-  const [formData, setFormData] = useState({
-    vfd_codigo: '',
-    vfd_id: '',
-    type: 'preventive',
-    priority: 'medium',
-    scheduled_date: '',
-    description: '',
-    technician: '',
-    cost: '',
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [isEditingReport, setIsEditingReport] = useState(false);
+  
+  const [maintenanceForm, setMaintenanceForm] = useState({
+    tipo: 'Preventivo',
+    descripcion: '',
+    tecnico: '',
+    costo: '',
     observations: '',
-    fecha_registro: new Date().toISOString().split('T')[0]
+    fecha_inicio: '',
+    fecha_fin: '',
+    sitio: '',
+    pozo: '',
+    modulo_produccion: '',
+    taller: '',
+    conclusiones: ''
   });
+
+  const [checklist, setChecklist] = useState(getDefaultChecklist());
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (reportId) {
+      loadReportForEdit(reportId);
+    }
+  }, [reportId]);
 
-  const loadData = async () => {
+  const loadReportForEdit = async (id) => {
+    setLoading(true);
+    setIsEditingReport(true);
     try {
-      const { data: recordsData, error } = await supabase
-        .from('maintenance_records')
-        .select('*, vfds(equipment_id_simple, manufacturer, model)')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('maintenance_logs')
+        .select('*, vsd:vsd_id(*)')
+        .eq('id', id)
+        .single();
 
       if (error) throw error;
-      setRecords(recordsData || []);
       
-      const total = recordsData?.length || 0;
-      const completed = recordsData?.filter(r => r.status === 'completed').length || 0;
-      const pending = recordsData?.filter(r => r.status === 'pending').length || 0;
-      setStats({
-        total,
-        completed,
-        pending,
-        completionRate: total > 0 ? Math.round((completed / total) * 100) : 0
-      });
+      if (data) {
+        setVfdEncontrado(data.vsd);
+        setMaintenanceForm({
+          tipo: data.tipo || 'Preventivo',
+          descripcion: data.descripcion || '',
+          tecnico: data.tecnico || '',
+          costo: data.costo || '',
+          observations: data.observations || '',
+          fecha_inicio: data.fecha_inicio || '',
+          fecha_fin: data.fecha_fin || '',
+          sitio: data.sitio || '',
+          pozo: data.pozo || '',
+          modulo_produccion: data.modulo_produccion || '',
+          taller: data.taller || '',
+          conclusiones: data.conclusiones || ''
+        });
+        setChecklist(data.checklist || getDefaultChecklist());
+      }
     } catch (error) {
-      console.error('Error loading data:', error);
-      showSnackbar('Error al cargar datos', 'error');
+      console.error('Error loading report:', error);
+      showSnackbar('Error al cargar el reporte para editar', 'error');
     } finally {
       setLoading(false);
     }
@@ -77,452 +161,822 @@ const Maintenance = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // ✅ FUNCIONES DE COLOR
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return theme.palette.success.main;
-      case 'pending': return theme.palette.warning.main;
-      case 'in_progress': return theme.palette.info.main;
-      case 'cancelled': return theme.palette.error.main;
-      default: return theme.palette.grey[500];
-    }
-  };
-
-  const getTypeColor = (type) => {
-    switch (type) {
-      case 'preventive': return theme.palette.info.main;
-      case 'predictive': return theme.palette.secondary.main;
-      case 'corrective': return theme.palette.warning.main;
-      case 'emergency': return theme.palette.error.main;
-      default: return theme.palette.grey[500];
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high': return theme.palette.error.main;
-      case 'medium': return theme.palette.warning.main;
-      case 'low': return theme.palette.success.main;
-      default: return theme.palette.grey[500];
-    }
-  };
-
-  const buscarVFDporCodigo = async (codigo) => {
-    if (!codigo || codigo.length < 2) {
-      setVfdEncontrado(null);
+  const buscarVFD = async () => {
+    if (!searchCode.trim()) {
+      showSnackbar('Ingresa un código de VSD válido (Ej: V001)', 'warning');
       return;
     }
 
-    setSearching(true);
+    setLoading(true);
+    setVfdEncontrado(null);
+    setMaintenanceForm({
+      tipo: 'Preventivo',
+      descripcion: '',
+      tecnico: '',
+      costo: '',
+      observations: '',
+      fecha_inicio: '',
+      fecha_fin: '',
+      sitio: '',
+      pozo: '',
+      modulo_produccion: '',
+      taller: '',
+      conclusiones: ''
+    });
+    setChecklist(getDefaultChecklist());
+    setIsEditingReport(false);
+    
     try {
+      const codigo = searchCode.trim().toUpperCase();
       const { data, error } = await supabase
-        .from('vfds')
+        .from('vsd')
         .select('*')
-        .eq('equipment_id_simple', codigo.toUpperCase())
+        .eq('codigo_vsd', codigo)
         .single();
 
-      if (error) {
-        setVfdEncontrado(null);
-        setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
-        showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
-      } else if (data) {
+      if (error) throw error;
+      
+      if (data) {
         setVfdEncontrado(data);
-        setFormData(prev => ({ 
-          ...prev, 
-          vfd_id: data.id,
-          vfd_codigo: data.equipment_id_simple 
-        }));
-        showSnackbar(`✅ VFD encontrado: ${data.equipment_id_simple} - ${data.manufacturer || 'Sin fabricante'}`, 'success');
+        showSnackbar(`✅ VSD ${data.codigo_vsd} encontrado`, 'success');
+      } else {
+        showSnackbar(`❌ No se encontró el VSD con código ${codigo}`, 'error');
       }
     } catch (error) {
-      console.error('Error buscando VFD:', error);
-      setVfdEncontrado(null);
-      setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
-      showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
+      console.error('Error buscando VSD:', error);
+      showSnackbar('Error al buscar el VSD', 'error');
     } finally {
-      setSearching(false);
+      setLoading(false);
     }
   };
 
-  const handleOpen = (record = null) => {
-    if (record) {
-      setEditing(record);
-      setFormData({
-        vfd_codigo: record.vfd_codigo || '',
-        vfd_id: record.vfd_id || '',
-        type: record.type,
-        priority: record.priority,
-        scheduled_date: record.scheduled_date || '',
-        description: record.description || '',
-        technician: record.technician || '',
-        cost: record.cost || '',
-        observations: record.observations || '',
-        fecha_registro: record.fecha_registro || new Date().toISOString().split('T')[0]
-      });
-      if (record.vfd_codigo) {
-        buscarVFDporCodigo(record.vfd_codigo);
-      }
-    } else {
-      setEditing(null);
-      setFormData({
-        vfd_codigo: '',
-        vfd_id: '',
-        type: 'preventive',
-        priority: 'medium',
-        scheduled_date: new Date().toISOString().split('T')[0],
-        description: '',
-        technician: '',
-        cost: '',
-        observations: '',
-        fecha_registro: new Date().toISOString().split('T')[0]
-      });
-      setVfdEncontrado(null);
-    }
-    setOpenDialog(true);
-  };
-
-  const handleClose = () => {
-    setOpenDialog(false);
-    setEditing(null);
+  const limpiarBusqueda = () => {
+    setSearchCode('');
     setVfdEncontrado(null);
+    setMaintenanceForm({
+      tipo: 'Preventivo',
+      descripcion: '',
+      tecnico: '',
+      costo: '',
+      observations: '',
+      fecha_inicio: '',
+      fecha_fin: '',
+      sitio: '',
+      pozo: '',
+      modulo_produccion: '',
+      taller: '',
+      conclusiones: ''
+    });
+    setChecklist(getDefaultChecklist());
+    setIsEditingReport(false);
+    navigate('/maintenance');
   };
 
-  const handleSave = async () => {
+  const toggleChecklistItem = (sectionKey, id, field) => {
+    setChecklist(prev => ({
+      ...prev,
+      [sectionKey]: prev[sectionKey].map(item => 
+        item.id === id ? { ...item, [field]: !item[field] } : item
+      )
+    }));
+  };
+
+  const updateChecklistText = (sectionKey, id, field, value) => {
+    setChecklist(prev => ({
+      ...prev,
+      [sectionKey]: prev[sectionKey].map(item => 
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  const updateStaticTestValue = (testKey, index, value) => {
+    setChecklist(prev => ({
+      ...prev,
+      static_tests: {
+        ...prev.static_tests,
+        [testKey]: prev.static_tests[testKey].map((item, i) => 
+          i === index ? { ...item, actual: value } : item
+        )
+      }
+    }));
+  };
+
+  const uploadPhoto = async (file, stage) => {
+    if (!file || !vfdEncontrado) return;
+    setUploadingImage(true);
     try {
-      if (!formData.vfd_id) {
-        showSnackbar('❌ Primero busca y selecciona un VFD válido', 'error');
-        return;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `mant_${vfdEncontrado.codigo_vsd}_${stage}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('vsd_images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('vsd_images')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+      
+      setChecklist(prev => ({
+        ...prev,
+        photos: {
+          ...prev.photos,
+          [stage]: [...prev.photos[stage], publicUrl]
+        }
+      }));
+
+      showSnackbar(`✅ Foto de ${stage === 'before' ? 'Antes' : 'Después'} subida`, 'success');
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      showSnackbar('❌ Error al subir la foto', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removePhoto = (stage, index) => {
+    setChecklist(prev => ({
+      ...prev,
+      photos: {
+        ...prev.photos,
+        [stage]: prev.photos[stage].filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const addMaterial = () => {
+    setChecklist(prev => ({
+      ...prev,
+      materials: [
+        ...prev.materials,
+        { 
+          item: prev.materials.length + 1, 
+          quantity: 1, 
+          sap_code: '', 
+          detail: '', 
+          reserve: '' 
+        }
+      ]
+    }));
+  };
+
+  const removeMaterial = (index) => {
+    if (checklist.materials.length === 1) return;
+    const updatedMaterials = checklist.materials.filter((_, i) => i !== index);
+    const reindexed = updatedMaterials.map((mat, i) => ({ ...mat, item: i + 1 }));
+    setChecklist(prev => ({
+      ...prev,
+      materials: reindexed
+    }));
+  };
+
+  const updateMaterial = (index, field, value) => {
+    setChecklist(prev => ({
+      ...prev,
+      materials: prev.materials.map((mat, i) => 
+        i === index ? { ...mat, [field]: value } : mat
+      )
+    }));
+  };
+
+  const guardarMantenimiento = async () => {
+    if (!vfdEncontrado) return;
+    if (!maintenanceForm.descripcion.trim()) {
+      showSnackbar('La descripción del mantenimiento es obligatoria', 'warning');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let nextNumber = '01';
+      
+      if (!isEditingReport) {
+        // Si es nuevo, calcular el siguiente número
+        const { data: lastMaint, error: countError } = await supabase
+          .from('maintenance_logs')
+          .select('maintenance_number')
+          .eq('codigo_vsd', vfdEncontrado.codigo_vsd)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (countError) throw countError;
+
+        if (lastMaint && lastMaint.maintenance_number) {
+          const currentNum = parseInt(lastMaint.maintenance_number);
+          nextNumber = String(currentNum + 1).padStart(2, '0');
+        }
       }
 
       const dataToSend = {
-        vfd_id: formData.vfd_id,
-        vfd_codigo: formData.vfd_codigo,
-        type: formData.type,
-        priority: formData.priority,
-        scheduled_date: formData.scheduled_date,
-        description: formData.description,
-        technician: formData.technician,
-        cost: parseFloat(formData.cost) || 0,
-        observations: formData.observations,
-        fecha_registro: formData.fecha_registro || new Date().toISOString().split('T')[0]
+        vsd_id: vfdEncontrado.id,
+        codigo_vsd: vfdEncontrado.codigo_vsd,
+        maintenance_number: isEditingReport ? undefined : nextNumber,
+        tipo: maintenanceForm.tipo || 'Preventivo',
+        descripcion: maintenanceForm.descripcion,
+        tecnico: maintenanceForm.tecnico || 'No especificado',
+        costo: parseFloat(maintenanceForm.costo) || 0,
+        observations: maintenanceForm.observations || '',
+        fecha_inicio: maintenanceForm.fecha_inicio?.trim() === '' ? null : maintenanceForm.fecha_inicio,
+        fecha_fin: maintenanceForm.fecha_fin?.trim() === '' ? null : maintenanceForm.fecha_fin,
+        sitio: maintenanceForm.sitio || '',
+        pozo: maintenanceForm.pozo || '',
+        modulo_produccion: maintenanceForm.modulo_produccion || '',
+        taller: maintenanceForm.taller || '',
+        conclusiones: maintenanceForm.conclusiones || '',
+        checklist: checklist
       };
 
-      if (editing) {
+      console.log('📤 Enviando datos a Supabase:', dataToSend);
+
+      if (isEditingReport) {
+        // ACTUALIZAR REPORTE EXISTENTE
         const { error } = await supabase
-          .from('maintenance_records')
+          .from('maintenance_logs')
           .update(dataToSend)
-          .eq('id', editing.id);
+          .eq('id', reportId);
         if (error) throw error;
-        showSnackbar('✅ Mantenimiento actualizado');
+        showSnackbar('✅ Reporte actualizado correctamente', 'success');
       } else {
+        // CREAR NUEVO REPORTE
         const { error } = await supabase
-          .from('maintenance_records')
-          .insert([dataToSend]);
+          .from('maintenance_logs')
+          .insert(dataToSend);
         if (error) throw error;
-        showSnackbar('✅ Mantenimiento programado');
+        showSnackbar(`✅ Mantenimiento #${nextNumber} registrado`, 'success');
       }
-      handleClose();
-      loadData();
-    } catch (error) {
-      showSnackbar(error.message || 'Error al guardar', 'error');
-    }
-  };
-
-  const handleComplete = async (id) => {
-    if (window.confirm('¿Completar este mantenimiento?')) {
-      try {
-        const { error } = await supabase
-          .from('maintenance_records')
-          .update({ status: 'completed', completed_date: new Date().toISOString().split('T')[0] })
-          .eq('id', id);
-        if (error) throw error;
-        showSnackbar('✅ Mantenimiento completado');
-        loadData();
-      } catch (error) {
-        showSnackbar('Error al completar', 'error');
-      }
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm('¿Eliminar este mantenimiento?')) {
-      try {
-        const { error } = await supabase
-          .from('maintenance_records')
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
-        showSnackbar('✅ Mantenimiento eliminado');
-        loadData();
-      } catch (error) {
-        showSnackbar('Error al eliminar', 'error');
-      }
-    }
-  };
-
-  const filteredRecords = tabValue === 0 
-    ? records 
-    : records.filter(r => {
-        if (tabValue === 1) return r.status === 'pending';
-        if (tabValue === 2) return r.status === 'in_progress';
-        if (tabValue === 3) return r.status === 'completed';
-        return true;
+      
+      setMaintenanceForm({
+        tipo: 'Preventivo',
+        descripcion: '',
+        tecnico: '',
+        costo: '',
+        observations: '',
+        fecha_inicio: '',
+        fecha_fin: '',
+        sitio: '',
+        pozo: '',
+        modulo_produccion: '',
+        taller: '',
+        conclusiones: ''
       });
+      setChecklist(getDefaultChecklist());
+      setIsEditingReport(false);
+      navigate('/reports');
+    } catch (error) {
+      console.error('❌ Error guardando mantenimiento:', error);
+      showSnackbar('Error al guardar el mantenimiento: ' + (error.message || error.error_description || 'Error desconocido'), 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  if (loading) {
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'online': return 'success';
+      case 'offline': return 'error';
+      case 'alarm': return 'warning';
+      case 'maintenance': return 'info';
+      default: return 'default';
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'online': return '🟢 Online';
+      case 'offline': return '🔴 Offline';
+      case 'alarm': return '🟡 Alarma';
+      case 'maintenance': return '🔧 Mantenimiento';
+      default: return status;
+    }
+  };
+
+  const renderChecklistSection = (title, sectionKey, items) => (
+    <Box mt={2}>
+      <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#f0f0f0', p: 1, borderRadius: 1 }}>
+        {title}
+      </Typography>
+      <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#fafafa' }}>
+              <TableCell sx={{ fontWeight: 600, width: '40%' }}>Actividades</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '10%', textAlign: 'center' }}>Hecho (X)</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '25%' }}>Anomalías detectadas</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '25%' }}>Observaciones</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>{item.label}</TableCell>
+                <TableCell align="center">
+                  <input 
+                    type="checkbox"
+                    checked={item.done} 
+                    onChange={() => toggleChecklistItem(sectionKey, item.id, 'done')}
+                    style={{ width: 20, height: 20, cursor: 'pointer' }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="standard"
+                    placeholder="..."
+                    value={item.anomaly}
+                    onChange={(e) => updateChecklistText(sectionKey, item.id, 'anomaly', e.target.value)}
+                    disabled={!item.done}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="standard"
+                    placeholder="..."
+                    value={item.observations}
+                    onChange={(e) => updateChecklistText(sectionKey, item.id, 'observations', e.target.value)}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+
+  const renderStaticTestTable = (title, testKey, items) => (
+    <Box mt={3}>
+      <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#1976d2', color: 'white', p: 1, borderRadius: 1 }}>
+        {title}
+      </Typography>
+      <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#e3f2fd' }}>
+              <TableCell sx={{ fontWeight: 700, width: '25%' }}>Meter +</TableCell>
+              <TableCell sx={{ fontWeight: 700, width: '25%' }}>Meter –</TableCell>
+              <TableCell sx={{ fontWeight: 700, width: '25%' }}>Lectura esperada</TableCell>
+              <TableCell sx={{ fontWeight: 700, width: '25%' }}>Lectura actual</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {items.map((row, index) => (
+              <TableRow key={index}>
+                <TableCell sx={{ fontWeight: 500 }}>{row.meter_plus}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{row.meter_minus}</TableCell>
+                <TableCell>{row.expected}</TableCell>
+                <TableCell>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    variant="standard"
+                    placeholder="Escribe el valor..."
+                    value={row.actual}
+                    onChange={(e) => updateStaticTestValue(testKey, index, e.target.value)}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+
+  const renderPhotoSection = (title, stage) => {
+    const photos = checklist.photos[stage];
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <Typography>Cargando mantenimientos...</Typography>
+      <Box mt={3}>
+        <Typography variant="subtitle1" fontWeight="700" sx={{ bgcolor: '#f5f5f5', p: 1, borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>📷 {title} ({photos.length}/5)</span>
+          {photos.length < 5 && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={uploadingImage ? <CircularProgress size={20} /> : <CloudUpload />}
+              component="label"
+              disabled={uploadingImage}
+            >
+              Subir foto
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => uploadPhoto(e.target.files[0], stage)}
+              />
+            </Button>
+          )}
+        </Typography>
+        <Grid container spacing={1} sx={{ mt: 1 }}>
+          {photos.map((url, index) => (
+            <Grid item xs={4} sm={3} md={2} key={index}>
+              <Box sx={{ position: 'relative', border: '1px solid #ddd', borderRadius: 2, p: 0.5, textAlign: 'center' }}>
+                <Avatar variant="rounded" src={url} sx={{ width: '100%', height: 80, objectFit: 'cover' }} />
+                <IconButton 
+                  size="small" 
+                  color="error" 
+                  sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'white', boxShadow: 1 }}
+                  onClick={() => removePhoto(stage, index)}
+                >
+                  <DeleteForever fontSize="small" />
+                </IconButton>
+              </Box>
+            </Grid>
+          ))}
+          {photos.length === 0 && (
+            <Grid item xs={12}>
+              <Typography variant="caption" color="textSecondary">No hay fotos subidas para esta sección.</Typography>
+            </Grid>
+          )}
+        </Grid>
       </Box>
     );
-  }
+  };
+
+  const renderMaterialsTable = () => {
+    return (
+      <Box mt={3}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+          <Typography variant="subtitle1" fontWeight="700" sx={{ color: '#00897b' }}>
+            📦 Descripción Accesorios Cambiados
+          </Typography>
+          <Button 
+            variant="outlined" 
+            size="small" 
+            startIcon={<Add />} 
+            onClick={addMaterial}
+            sx={{ borderRadius: 2 }}
+          >
+            Agregar Material
+          </Button>
+        </Box>
+        
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#fafafa' }}>
+                <TableCell sx={{ fontWeight: 600, width: '8%', textAlign: 'center' }}>Ítem</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '12%', textAlign: 'center' }}>Cantidad</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '20%' }}>CODIGO SAP</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '45%' }}>Detalle</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '15%' }}>Reserva</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '5%', textAlign: 'center' }}>Acción</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {checklist.materials.map((row, index) => (
+                <TableRow key={index}>
+                  <TableCell align="center">{row.item}</TableCell>
+                  <TableCell align="center">
+                    <TextField
+                      size="small"
+                      variant="standard"
+                      type="number"
+                      value={row.quantity}
+                      onChange={(e) => updateMaterial(index, 'quantity', e.target.value)}
+                      inputProps={{ min: 1, style: { textAlign: 'center', width: '50px' } }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="standard"
+                      placeholder="Ejm: 1000266315"
+                      value={row.sap_code}
+                      onChange={(e) => updateMaterial(index, 'sap_code', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="standard"
+                      placeholder="Descripción detallada..."
+                      value={row.detail}
+                      onChange={(e) => updateMaterial(index, 'detail', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      variant="standard"
+                      placeholder="N° Reserva"
+                      value={row.reserve}
+                      onChange={(e) => updateMaterial(index, 'reserve', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="Eliminar material">
+                      <IconButton size="small" color="error" onClick={() => removeMaterial(index)}>
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    );
+  };
 
   return (
     <Box>
-      <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} gap={2} mb={3}>
-        <Box>
-          <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" className="gradient-text">
-            🔧 Mantenimiento
+      <Box mb={4}>
+        {isEditingReport ? (
+          <Box display="flex" alignItems="center" gap={2} mb={2}>
+            <IconButton onClick={() => navigate('/reports')}><ArrowBack /></IconButton>
+            <Typography variant="h4" fontWeight="800" color="primary">
+              ✏️ Editar Reporte #{reportId?.slice(0, 4)}
+            </Typography>
+          </Box>
+        ) : (
+          <Typography variant="h4" fontWeight="800" color="primary">
+            🔧 Mantenimiento Shelter - Skid
           </Typography>
-          <Typography variant="body2" color="textSecondary">
-            Gestión de mantenimientos de VFDs
-          </Typography>
-        </Box>
-        <Box display="flex" gap={2} flexWrap="wrap">
-          <Button variant="contained" startIcon={<Add />} onClick={() => handleOpen()} sx={{ borderRadius: 3 }} size={isMobile ? "small" : "medium"}>
-            {isMobile ? 'Nuevo' : 'Nuevo Mantenimiento'}
-          </Button>
-          <IconButton onClick={loadData} sx={{ bgcolor: 'rgba(108,99,255,0.1)' }}>
-            <Refresh />
-          </IconButton>
-        </Box>
+        )}
+        <Typography variant="body2" color="textSecondary">
+          {isEditingReport ? 'Modifica los datos del reporte y guarda los cambios.' : 'Registro completo con pruebas estáticas, evidencia fotográfica y control de materiales'}
+        </Typography>
       </Box>
 
-      <Grid container spacing={isMobile ? 1 : 3} mb={3}>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 3, p: isMobile ? 1 : 2 }}>
-            <CardContent sx={{ p: isMobile ? 1 : 2 }}>
-              <Typography variant="caption" color="textSecondary">Total</Typography>
-              <Typography variant="h5" fontWeight="700">{stats.total || 0}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 3, p: isMobile ? 1 : 2, border: '2px solid #4caf50' }}>
-            <CardContent sx={{ p: isMobile ? 1 : 2 }}>
-              <Typography variant="caption" color="textSecondary">Completados</Typography>
-              <Typography variant="h5" fontWeight="700" color="success.main">{stats.completed || 0}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 3, p: isMobile ? 1 : 2, border: '2px solid #ff9800' }}>
-            <CardContent sx={{ p: isMobile ? 1 : 2 }}>
-              <Typography variant="caption" color="textSecondary">Pendientes</Typography>
-              <Typography variant="h5" fontWeight="700" color="warning.main">{stats.pending || 0}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 3, p: isMobile ? 1 : 2 }}>
-            <CardContent sx={{ p: isMobile ? 1 : 2 }}>
-              <Typography variant="caption" color="textSecondary">Completitud</Typography>
-              <Typography variant="h5" fontWeight="700">{stats.completionRate || 0}%</Typography>
-              <LinearProgress variant="determinate" value={stats.completionRate || 0} sx={{ height: 4, borderRadius: 2, mt: 0.5 }} />
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      {!isEditingReport && (
+        <Paper elevation={3} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={8}>
+              <TextField
+                fullWidth
+                label="🔍 Buscar VSD por código"
+                value={searchCode}
+                onChange={(e) => setSearchCode(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && buscarVFD()}
+                placeholder="Ej: V001, V002, V003"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search />
+                    </InputAdornment>
+                  ),
+                }}
+                disabled={loading || saving || uploadingImage}
+              />
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <Button 
+                variant="contained" 
+                fullWidth 
+                onClick={buscarVFD}
+                disabled={loading || saving || uploadingImage || !searchCode.trim()}
+                startIcon={loading ? <CircularProgress size={20} /> : null}
+                sx={{ height: 56 }}
+              >
+                {loading ? 'Buscando...' : 'Buscar'}
+              </Button>
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <Button 
+                variant="outlined" 
+                fullWidth 
+                onClick={limpiarBusqueda}
+                disabled={loading || saving || uploadingImage}
+                startIcon={<Refresh />}
+                sx={{ height: 56 }}
+              >
+                Limpiar
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
 
-      <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 3 }}>
-        <Tab label="Todos" />
-        <Tab label="Pendientes" />
-        <Tab label="En Progreso" />
-        <Tab label="Completados" />
-      </Tabs>
-
-      <Grid container spacing={3}>
-        {filteredRecords.map((record) => (
-          <Grid item xs={12} md={6} lg={4} key={record.id}>
-            <Card sx={{ borderRadius: 4, transition: 'all 0.3s ease' }}>
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="start">
-                  <Box>
-                    <Typography variant="h6" fontWeight="700">
-                      {record.vfd_codigo || 'Sin código'}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      {record.type} • {record.priority}
-                    </Typography>
-                    <Box display="flex" gap={1} flexWrap="wrap" mt={0.5}>
-                      <Chip
-                        label={record.type}
-                        size="small"
-                        sx={{
-                          bgcolor: `${getTypeColor(record.type)}20`,
-                          color: getTypeColor(record.type),
-                          fontWeight: 600,
-                          fontSize: '0.7rem'
-                        }}
-                      />
-                      <Chip
-                        label={record.priority}
-                        size="small"
-                        sx={{
-                          bgcolor: `${getPriorityColor(record.priority)}20`,
-                          color: getPriorityColor(record.priority),
-                          fontWeight: 600,
-                          fontSize: '0.7rem'
-                        }}
-                      />
-                      <Chip
-                        label={record.status}
-                        size="small"
-                        sx={{
-                          bgcolor: `${getStatusColor(record.status)}20`,
-                          color: getStatusColor(record.status),
-                          fontWeight: 600,
-                          fontSize: '0.7rem'
-                        }}
-                      />
-                    </Box>
-                  </Box>
-                </Box>
-
-                <Box mt={2}>
-                  <Typography variant="body2" color="textSecondary" sx={{ fontSize: '0.875rem' }}>
-                    {record.description || 'Sin descripción'}
+      {vfdEncontrado && (
+        <Card sx={{ borderRadius: 4, mb: 3, overflow: 'hidden' }}>
+          <Box sx={{ bgcolor: '#f5f7fa', p: 3, borderBottom: '1px solid #e0e0e0' }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={6}>
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Typography variant="h5" fontWeight="800" color="primary">
+                    {vfdEncontrado.codigo_vsd}
                   </Typography>
-                  {record.technician && (
-                    <Box display="flex" alignItems="center" gap={1} mt={1}>
-                      <Person sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant="body2">{record.technician}</Typography>
-                    </Box>
-                  )}
-                  {record.scheduled_date && (
-                    <Typography variant="caption" color="textSecondary" display="block" mt={0.5}>
-                      📅 {new Date(record.scheduled_date).toLocaleDateString()}
-                    </Typography>
-                  )}
-                  {record.fecha_registro && (
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      🗓️ Registro: {new Date(record.fecha_registro).toLocaleDateString()}
-                    </Typography>
-                  )}
+                  <Chip label={getStatusLabel(vfdEncontrado.status)} color={getStatusColor(vfdEncontrado.status)} size="small" />
                 </Box>
+                <Typography variant="body2" color="textSecondary">
+                  {vfdEncontrado.manufacturer || 'Sin fabricante'} {vfdEncontrado.model || ''}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} md={2}>
+                <Typography variant="caption" color="textSecondary">Serial</Typography>
+                <Typography variant="body2" fontWeight="600">{vfdEncontrado.serial_number || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6} md={2}>
+                <Typography variant="caption" color="textSecondary">Health Score</Typography>
+                <Typography variant="body2" fontWeight="600" color={vfdEncontrado.health_score > 80 ? 'success.main' : 'warning.main'}>
+                  {vfdEncontrado.health_score}%
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Typography variant="caption" color="textSecondary">Ubicación</Typography>
+                <Typography variant="body2" fontWeight="600">{vfdEncontrado.site || vfdEncontrado.plant || 'N/A'}</Typography>
+              </Grid>
+            </Grid>
+          </Box>
 
-                <Box mt={2} display="flex" justifyContent="flex-end" gap={1}>
-                  {record.status !== 'completed' && (
-                    <Button size="small" color="success" startIcon={<CheckCircle />} onClick={() => handleComplete(record.id)}>
-                      Completar
-                    </Button>
-                  )}
-                  <IconButton size="small" onClick={() => handleOpen(record)}>
-                    <Edit fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" color="error" onClick={() => handleDelete(record.id)}>
-                    <Delete fontSize="small" />
-                  </IconButton>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-        {filteredRecords.length === 0 && (
-          <Grid item xs={12}>
-            <Card sx={{ borderRadius: 4, p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" color="textSecondary">No hay mantenimientos registrados</Typography>
-            </Card>
-          </Grid>
-        )}
-      </Grid>
-
-      <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Typography variant="h6" fontWeight="700">
-            {editing ? '✏️ Editar Mantenimiento' : '➕ Nuevo Mantenimiento'}
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <Box display="flex" gap={1} alignItems="center">
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" fontWeight="700" gutterBottom>📋 Datos Generales del Mantenimiento</Typography>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6} md={3}>
                 <TextField
                   fullWidth
-                  label="🔑 Código del VFD (ej: V001)"
-                  value={formData.vfd_codigo}
-                  onChange={(e) => {
-                    const value = e.target.value.toUpperCase();
-                    setFormData({...formData, vfd_codigo: value});
-                    if (value.length >= 2) {
-                      buscarVFDporCodigo(value);
-                    }
-                  }}
-                  placeholder="Ingresa el código del VFD"
-                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Ej: V001, V002'}
-                  disabled={searching}
+                  size="small"
+                  label="📅 Fecha de Inicio"
+                  type="datetime-local"
+                  value={maintenanceForm.fecha_inicio}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, fecha_inicio: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
                 />
-                {searching && <CircularProgress size={24} />}
-              </Box>
-              {vfdEncontrado && (
-                <Box mt={1} p={1} bgcolor="success.light" borderRadius={1}>
-                  <Typography variant="body2">
-                    📌 {vfdEncontrado.equipment_id_simple} - {vfdEncontrado.manufacturer || 'Sin fabricante'} {vfdEncontrado.model || ''}
-                  </Typography>
-                </Box>
-              )}
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="📅 Fecha de Finalización"
+                  type="datetime-local"
+                  value={maintenanceForm.fecha_fin}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, fecha_fin: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="📍 Sitio del Mantenimiento"
+                  value={maintenanceForm.sitio}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, sitio: e.target.value })}
+                  placeholder="Ej: Planta Norte"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="🛢️ Pozo"
+                  value={maintenanceForm.pozo}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, pozo: e.target.value })}
+                  placeholder="Ej: Pozo-001"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="⚙️ Módulo de Producción"
+                  value={maintenanceForm.modulo_produccion}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, modulo_produccion: e.target.value })}
+                  placeholder="Ej: Módulo A"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="🔧 Taller / Área"
+                  value={maintenanceForm.taller}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, taller: e.target.value })}
+                  placeholder="Ej: Taller Eléctrico"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Tipo de Mantenimiento</InputLabel>
+                  <Select
+                    value={maintenanceForm.tipo}
+                    onChange={(e) => setMaintenanceForm({ ...maintenanceForm, tipo: e.target.value })}
+                    label="Tipo de Mantenimiento"
+                  >
+                    <MenuItem value="Preventivo">🛡️ Preventivo</MenuItem>
+                    <MenuItem value="Correctivo">🔧 Correctivo</MenuItem>
+                    <MenuItem value="Predictivo">📊 Predictivo</MenuItem>
+                    <MenuItem value="Emergencia">🚨 Emergencia</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Técnico Responsable"
+                  value={maintenanceForm.tecnico}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, tecnico: e.target.value })}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="💲 Costo estimado ($)"
+                  type="number"
+                  value={maintenanceForm.costo}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, costo: e.target.value })}
+                  inputProps={{ min: 0, step: 0.01 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="📍 Ubicación de la intervención"
+                  value={maintenanceForm.observations}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, observations: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={12} md={6}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="📝 Descripción de la tarea principal"
+                  value={maintenanceForm.descripcion}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, descripcion: e.target.value })}
+                  multiline
+                  rows={2}
+                  required
+                />
+              </Grid>
             </Grid>
 
-            <Grid item xs={6}>
-              <FormControl fullWidth>
-                <InputLabel>Tipo</InputLabel>
-                <Select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} label="Tipo">
-                  <MenuItem value="preventive">Preventivo</MenuItem>
-                  <MenuItem value="predictive">Predictivo</MenuItem>
-                  <MenuItem value="corrective">Correctivo</MenuItem>
-                  <MenuItem value="emergency">Emergencia</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={6}>
-              <FormControl fullWidth>
-                <InputLabel>Prioridad</InputLabel>
-                <Select value={formData.priority} onChange={(e) => setFormData({...formData, priority: e.target.value})} label="Prioridad">
-                  <MenuItem value="low">Baja</MenuItem>
-                  <MenuItem value="medium">Media</MenuItem>
-                  <MenuItem value="high">Alta</MenuItem>
-                  <MenuItem value="critical">Crítica</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            <Divider sx={{ my: 3 }} />
 
-            <Grid item xs={12}>
-              <TextField fullWidth label="Fecha Programada" type="date" value={formData.scheduled_date} onChange={(e) => setFormData({...formData, scheduled_date: e.target.value})} InputLabelProps={{ shrink: true }} />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth label="Descripción" multiline rows={2} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField fullWidth label="Técnico" value={formData.technician} onChange={(e) => setFormData({...formData, technician: e.target.value})} />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField fullWidth label="Costo ($)" type="number" value={formData.cost} onChange={(e) => setFormData({...formData, cost: parseFloat(e.target.value)})} />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth label="Observaciones" multiline rows={2} value={formData.observations} onChange={(e) => setFormData({...formData, observations: e.target.value})} />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave} disabled={!vfdEncontrado}>
-            {editing ? 'Actualizar' : 'Crear'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            {renderChecklistSection('Mantenimiento Preventivo Shelter – Skid', 'shelter_skid', checklist.shelter_skid)}
+            {renderChecklistSection('Mantenimiento CBM en VSD', 'cbm_vsd', checklist.cbm_vsd)}
 
-      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({...snackbar, open: false})} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({...snackbar, open: false})}>
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>⚡ Pruebas Estáticas del VSD</Typography>
+            {renderStaticTestTable('Prueba Estática Conversor I', 'converter_1', checklist.static_tests.converter_1)}
+            {renderStaticTestTable('Prueba Estática Inversora II', 'inverter_2', checklist.static_tests.inverter_2)}
+            {renderStaticTestTable('Prueba Estática Conversor', 'converter_3', checklist.static_tests.converter_3)}
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>📷 Registro Fotográfico</Typography>
+            {renderPhotoSection('Antes del mantenimiento', 'before')}
+            {renderPhotoSection('Después del mantenimiento', 'after')}
+
+            <Divider sx={{ my: 3 }} />
+
+            {renderMaterialsTable()}
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" fontWeight="700" gutterBottom sx={{ mt: 2 }}>📝 Conclusiones del Mantenimiento</Typography>
+            <TextField
+              fullWidth
+              size="small"
+              label="Escribe aquí las conclusiones técnicas, resultados y observaciones finales..."
+              value={maintenanceForm.conclusiones}
+              onChange={(e) => setMaintenanceForm({ ...maintenanceForm, conclusiones: e.target.value })}
+              multiline
+              rows={4}
+              sx={{ mb: 2 }}
+            />
+
+            <Box mt={2} display="flex" justifyContent="flex-end">
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<FilePresent />}
+                onClick={guardarMantenimiento}
+                disabled={saving || uploadingImage || !maintenanceForm.descripcion.trim()}
+                sx={{ px: 4, py: 1.5, borderRadius: 3 }}
+              >
+                {isEditingReport ? 'Actualizar Reporte' : 'Finalizar y Generar Reporte'}
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} sx={{ borderRadius: 2 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

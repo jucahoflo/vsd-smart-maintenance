@@ -1,410 +1,338 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Grid, Card, CardContent, Button,
-  Chip, useTheme, useMediaQuery, CircularProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Select, MenuItem, FormControl, InputLabel,
-  Divider, IconButton, Paper
+  Box, Typography, Paper, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, Button, Chip,
+  CircularProgress, IconButton, Snackbar, Alert, TextField,
+  InputAdornment, Stack, Card, CardContent, Dialog, DialogTitle,
+  DialogContent, DialogActions
 } from '@mui/material';
-import {
-  PictureAsPdf as PdfIcon,
-  Speed as SpeedIcon,
-  Build as BuildIcon,
-  Inventory as InventoryIcon,
-  Download as DownloadIcon,
-  Description as DescriptionIcon,
-  Print as PrintIcon,
-  Close as CloseIcon
-} from '@mui/icons-material';
-import { vfds, maintenance, inventory } from '../api/endpoints';
-import api from '../api/client';
+import { PictureAsPdf, Search, Refresh, Delete, Edit } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../config/supabase';
+import { generateMaintenancePDF } from '../components/GenerateMaintenancePDF';
+
+// 🟢 Función auxiliar: Convertir URL a Base64
+const urlToBase64 = async (url) => {
+  if (!url) return null;
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.warn('Error al convertir imagen a Base64:', error);
+    return null;
+  }
+};
 
 const Reports = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [loading, setLoading] = useState({});
-  const [openPreview, setOpenPreview] = useState(false);
-  const [selectedReport, setSelectedReport] = useState(null);
   const [reports, setReports] = useState([]);
-  const [vfdsList, setVfdsList] = useState([]);
-  const [stats, setStats] = useState({
-    totalVFDs: 0,
-    totalMaintenance: 0,
-    totalInventory: 0,
-    pendingMaintenance: 0
-  });
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const navigate = useNavigate();
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
+  const MASTER_PASSWORD = 'VSD2026';
 
   useEffect(() => {
-    loadData();
+    loadReports();
   }, []);
 
-  const loadData = async () => {
+  const loadReports = async () => {
     try {
-      const [vfdsRes, maintenanceRes, inventoryRes, reportsRes] = await Promise.all([
-        vfds.getAll(),
-        maintenance.getAll(),
-        inventory.getAll(),
-        api.get('/maintenance-reports')
-      ]);
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('maintenance_logs')
+        .select(`
+          *,
+          vsd:vsd_id ( codigo_vsd, manufacturer, model, site, plant, serial_number, image_url_1, image_url_2, image_url_3, voltage_rating, kva, department, health_score, observations )
+        `)
+        .order('created_at', { ascending: false });
 
-      const vfdsData = vfdsRes.data.data || [];
-      const maintenanceData = maintenanceRes.data.data || [];
-      const inventoryData = inventoryRes.data.data || [];
-
-      setVfdsList(vfdsData);
-      setReports(reportsRes.data.data || []);
-
-      setStats({
-        totalVFDs: vfdsData.length,
-        totalMaintenance: maintenanceData.length,
-        totalInventory: inventoryData.length,
-        pendingMaintenance: maintenanceData.filter(m => m.status === 'pending').length
-      });
+      if (error) throw error;
+      setReports(data || []);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading reports:', error);
+      showSnackbar('Error al cargar los reportes', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleOpenPreview = (report) => {
-    setSelectedReport(report);
-    setOpenPreview(true);
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
   };
 
-  const handleClosePreview = () => {
-    setOpenPreview(false);
-    setSelectedReport(null);
-  };
-
-  const ReportPreview = ({ report }) => {
-    if (!report) return null;
-
-    return (
-      <Paper sx={{ p: 3, maxHeight: '80vh', overflow: 'auto' }}>
-        {/* Encabezado */}
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Typography variant="h5" fontWeight="700" color="primary">
-            REPORTE DE MANTENIMIENTO
-          </Typography>
-          <Typography variant="subtitle2" color="textSecondary">
-            {report.report_number}
-          </Typography>
-        </Box>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Datos Generales */}
-        <Grid container spacing={2}>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Fecha</Typography>
-            <Typography variant="body2">{report.report_date || '--'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Hora</Typography>
-            <Typography variant="body2">{report.report_time || '--'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Compañía</Typography>
-            <Typography variant="body2">{report.company || '--'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Locación</Typography>
-            <Typography variant="body2">{report.location || '--'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Pozo</Typography>
-            <Typography variant="body2">{report.well || '--'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Tipo</Typography>
-            <Chip
-              label={report.maintenance_type || '--'}
-              size="small"
-              color={report.maintenance_type === 'Preventivo' ? 'success' : 'warning'}
-            />
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Datos del VSD */}
-        <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 1 }}>
-          ⚡ Datos del VSD
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={3}>
-            <Typography variant="caption" color="textSecondary">Marca</Typography>
-            <Typography variant="body2">{report.vsd_brand || '--'}</Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Typography variant="caption" color="textSecondary">Modelo</Typography>
-            <Typography variant="body2">{report.vsd_model || '--'}</Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Typography variant="caption" color="textSecondary">Serial</Typography>
-            <Typography variant="body2">{report.vsd_serial || '--'}</Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Typography variant="caption" color="textSecondary">KVA</Typography>
-            <Typography variant="body2">{report.vsd_kva || '--'}</Typography>
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Datos del SUT */}
-        <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 1 }}>
-          🔌 Datos del SUT (Transformador)
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={3}>
-            <Typography variant="caption" color="textSecondary">Marca</Typography>
-            <Typography variant="body2">{report.sut_brand || '--'}</Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Typography variant="caption" color="textSecondary">Modelo</Typography>
-            <Typography variant="body2">{report.sut_model || '--'}</Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Typography variant="caption" color="textSecondary">Serial</Typography>
-            <Typography variant="body2">{report.sut_serial || '--'}</Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Typography variant="caption" color="textSecondary">KVA</Typography>
-            <Typography variant="body2">{report.sut_kva || '--'}</Typography>
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Actividades */}
-        <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 1 }}>
-          📝 Actividades Realizadas
-        </Typography>
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-          {report.activities || 'No se registraron actividades'}
-        </Typography>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Conclusiones */}
-        <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 1 }}>
-          📋 Conclusiones
-        </Typography>
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-          {report.conclusions || 'No se registraron conclusiones'}
-        </Typography>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Recomendaciones */}
-        <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 1 }}>
-          💡 Recomendaciones
-        </Typography>
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-          {report.recommendations || 'No se registraron recomendaciones'}
-        </Typography>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Firmas */}
-        <Grid container spacing={2}>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Técnico</Typography>
-            <Typography variant="body2">{report.technician_name || '--'}</Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" color="textSecondary">Supervisor</Typography>
-            <Typography variant="body2">{report.supervisor_name || '--'}</Typography>
-          </Grid>
-        </Grid>
-      </Paper>
-    );
-  };
-
-  const ReportCard = ({ title, icon, color, count, subtitle, onGenerate }) => (
-    <Card sx={{
-      borderRadius: 4,
-      p: 3,
-      background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
-      border: `1px solid ${color}25`,
-      transition: 'all 0.3s ease',
-      '&:hover': {
-        transform: isMobile ? 'none' : 'translateY(-4px)',
-        boxShadow: `0 8px 16px ${color}25`
+  const handleDownloadPDF = async (report) => {
+    try {
+      if (!report.vsd) {
+        showSnackbar('No se encontró información del VSD para este reporte.', 'error');
+        return;
       }
-    }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Box sx={{ bgcolor: `${color}20`, borderRadius: '50%', p: 1 }}>
-              {icon}
-            </Box>
-            <Typography variant="h6" fontWeight="700">
-              {title}
-            </Typography>
-          </Box>
-          <Typography variant="h3" fontWeight="800" sx={{ color, mt: 1 }}>
-            {count}
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            {subtitle}
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<DownloadIcon />}
-          onClick={onGenerate}
-          disabled={loading[title]}
-          sx={{
-            borderRadius: 3,
-            bgcolor: color,
-            '&:hover': { bgcolor: color, opacity: 0.8 }
-          }}
-        >
-          {loading[title] ? <CircularProgress size={20} color="inherit" /> : 'PDF'}
-        </Button>
-      </Box>
-    </Card>
+
+      // 1. Convertir imágenes del VSD a Base64
+      const vsdImagesBase64 = await Promise.all([
+        urlToBase64(report.vsd.image_url_1),
+        urlToBase64(report.vsd.image_url_2),
+        urlToBase64(report.vsd.image_url_3)
+      ]);
+
+      // 2. Convertir imágenes del mantenimiento a Base64
+      const mtoPhotos = report.checklist?.photos || {};
+      const allMtoPhotos = [...(mtoPhotos.before || []), ...(mtoPhotos.after || [])];
+      const mtoImagesBase64 = await Promise.all(allMtoPhotos.map(url => urlToBase64(url)));
+
+      // 3. Generar el PDF pasando las imágenes ya convertidas
+      await generateMaintenancePDF(
+        report.vsd, 
+        report, 
+        vsdImagesBase64.filter(img => img !== null), 
+        mtoImagesBase64.filter(img => img !== null)
+      );
+      
+      showSnackbar('✅ PDF generado y descargado correctamente', 'success');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      showSnackbar('Error al generar el PDF', 'error');
+    }
+  };
+
+  const handleEditClick = (report) => {
+    navigate(`/maintenance?reportId=${report.id}`);
+  };
+
+  const handleDeleteClick = (report) => {
+    setReportToDelete(report);
+    setDeletePassword('');
+    setDeleteError('');
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (deletePassword !== MASTER_PASSWORD) {
+      setDeleteError('❌ Contraseña incorrecta. Intenta de nuevo.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('maintenance_logs')
+        .delete()
+        .eq('id', reportToDelete.id);
+      if (error) throw error;
+      
+      showSnackbar('✅ Reporte eliminado permanentemente', 'success');
+      setDeleteDialogOpen(false);
+      setReportToDelete(null);
+      loadReports();
+    } catch (error) {
+      showSnackbar('Error al eliminar el reporte', 'error');
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'online': return '🟢 Online';
+      case 'offline': return '🔴 Offline';
+      case 'alarm': return '🟡 Alarma';
+      case 'maintenance': return '🔧 Mantenimiento';
+      default: return status;
+    }
+  };
+
+  // Agrupar reportes por código de VSD
+  const groupedReports = reports.reduce((acc, report) => {
+    const codigo = report.codigo_vsd;
+    if (!acc[codigo]) {
+      acc[codigo] = {
+        codigo_vsd: codigo,
+        manufacturer: report.vsd?.manufacturer || 'Sin fabricante',
+        model: report.vsd?.model || '',
+        reports: []
+      };
+    }
+    acc[codigo].reports.push(report);
+    return acc;
+  }, {});
+
+  const groupedList = Object.values(groupedReports).filter(group =>
+    group.codigo_vsd.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Cargando historial de mantenimientos...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box>
-      <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" className="gradient-text" mb={1}>
-        📊 Reportes
-      </Typography>
-      <Typography variant="body2" color="textSecondary" mb={4}>
-        Genera reportes en PDF de tus datos
-      </Typography>
-
-      {/* Tarjetas de Reportes */}
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={4}>
-          <ReportCard
-            title="VFDs"
-            icon={<SpeedIcon sx={{ color: '#6C63FF' }} />}
-            color="#6C63FF"
-            count={stats.totalVFDs}
-            subtitle="Variadores de velocidad"
-            onGenerate={() => console.log('Generando reporte VFDs')}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box>
+          <Typography variant="h4" fontWeight="800" color="primary">
+            📄 Historial de Mantenimiento
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            Visualiza el historial acumulado de mantenimientos por VSD. Descarga el PDF oficial de INEMEC.
+          </Typography>
+        </Box>
+        <Box display="flex" gap={1} alignItems="center">
+          <TextField
+            size="small"
+            placeholder="Buscar por código VSD..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ width: 250 }}
           />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <ReportCard
-            title="Mantenimiento"
-            icon={<BuildIcon sx={{ color: '#FF6B6B' }} />}
-            color="#FF6B6B"
-            count={stats.totalMaintenance}
-            subtitle={`${stats.pendingMaintenance} pendientes`}
-            onGenerate={() => console.log('Generando reporte Mantenimiento')}
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <ReportCard
-            title="Inventario"
-            icon={<InventoryIcon sx={{ color: '#00B894' }} />}
-            color="#00B894"
-            count={stats.totalInventory}
-            subtitle="Items en stock"
-            onGenerate={() => console.log('Generando reporte Inventario')}
-          />
-        </Grid>
-      </Grid>
+          <IconButton onClick={loadReports} sx={{ bgcolor: 'rgba(108,99,255,0.1)' }}>
+            <Refresh />
+          </IconButton>
+        </Box>
+      </Box>
 
-      {/* Reportes de Mantenimiento Guardados */}
-      <Typography variant="h5" fontWeight="700" mb={2}>
-        📋 Reportes de Mantenimiento Guardados
-      </Typography>
-
-      <Grid container spacing={3}>
-        {reports.slice(0, 6).map((report) => (
-          <Grid item xs={12} sm={6} md={4} key={report.id}>
-            <Card sx={{ borderRadius: 4 }}>
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="start">
-                  <Box>
-                    <Typography variant="caption" color="textSecondary">
-                      {report.report_number}
-                    </Typography>
-                    <Typography variant="h6" fontWeight="700">
-                      {report.well || 'Sin pozo'}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    label={report.maintenance_type || '--'}
-                    size="small"
-                    color={report.maintenance_type === 'Preventivo' ? 'success' : 'warning'}
-                  />
-                </Box>
-
-                <Box mt={2}>
-                  <Typography variant="body2" color="textSecondary">
-                    {report.technician_name || 'Sin técnico'}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary" display="block">
-                    📅 {report.report_date || '--'}
-                  </Typography>
-                </Box>
-
-                <Box mt={2} display="flex" gap={1}>
-                  <Button
-                    size="small"
-                    startIcon={<DescriptionIcon />}
-                    onClick={() => handleOpenPreview(report)}
-                  >
-                    Ver
-                  </Button>
-                  <Button
-                    size="small"
-                    startIcon={<PrintIcon />}
-                  >
-                    PDF
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-        {reports.length === 0 && (
-          <Grid item xs={12}>
-            <Card sx={{ borderRadius: 4, p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" color="textSecondary">
-                No hay reportes de mantenimiento guardados
-              </Typography>
-              <Typography variant="body2" color="textSecondary" mt={1}>
-                Ve a "Reportes Mant." para crear un nuevo reporte
-              </Typography>
-            </Card>
-          </Grid>
-        )}
-      </Grid>
-
-      {/* Dialog de vista previa */}
-      <Dialog
-        open={openPreview}
-        onClose={handleClosePreview}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6" fontWeight="700">
-              📄 Reporte de Mantenimiento
+      {reports.length === 0 ? (
+        <Card sx={{ borderRadius: 4, p: 4, textAlign: 'center', bgcolor: '#f8f9fa' }}>
+          <CardContent>
+            <Typography variant="h6" color="textSecondary">
+              No hay reportes de mantenimiento registrados
             </Typography>
-            <IconButton onClick={handleClosePreview}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
+            <Typography variant="body2" color="textSecondary" mt={1}>
+              Registra un mantenimiento desde el módulo de Mantenimiento para verlo aquí.
+            </Typography>
+          </CardContent>
+        </Card>
+      ) : (
+        <Stack spacing={3}>
+          {groupedList.map((group) => (
+            <Paper key={group.codigo_vsd} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+              <Box sx={{ bgcolor: '#f5f7fa', p: 2, borderBottom: '1px solid #e0e0e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                  <Typography variant="h6" fontWeight="700">
+                    {group.codigo_vsd}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    {group.manufacturer} {group.model}
+                  </Typography>
+                </Box>
+                <Typography variant="caption" color="textSecondary">
+                  {group.reports.length} mantenimiento(s) registrado(s)
+                </Typography>
+              </Box>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#fafafa' }}>
+                      <TableCell sx={{ fontWeight: 600 }}># Mto.</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Tipo</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Técnico</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {group.reports.map((report) => (
+                      <TableRow key={report.id} hover>
+                        <TableCell sx={{ fontWeight: 600 }}>
+                          {report.maintenance_number || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(report.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={report.tipo || 'Preventivo'} 
+                            size="small" 
+                            color={report.tipo === 'Correctivo' ? 'error' : report.tipo === 'Predictivo' ? 'warning' : 'success'}
+                          />
+                        </TableCell>
+                        <TableCell>{report.tecnico || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<PictureAsPdf />}
+                            onClick={() => handleDownloadPDF(report)}
+                            sx={{ textTransform: 'none', mr: 1 }}
+                          >
+                            Descargar PDF
+                          </Button>
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={() => handleEditClick(report)}
+                            sx={{ mr: 1 }}
+                          >
+                            <Edit />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleDeleteClick(report)}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          ))}
+        </Stack>
+      )}
+
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle><Typography variant="h6" fontWeight="700" color="error">⚠️ Confirmar Eliminación</Typography></DialogTitle>
         <DialogContent>
-          <ReportPreview report={selectedReport} />
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Esta acción es **permanente**. Para eliminar este reporte, ingresa la contraseña de seguridad.
+          </Typography>
+          <TextField
+            fullWidth
+            label="🔐 Contraseña de seguridad"
+            type="password"
+            value={deletePassword}
+            onChange={(e) => setDeletePassword(e.target.value)}
+            error={!!deleteError}
+            helperText={deleteError}
+            autoFocus
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClosePreview}>Cerrar</Button>
-          <Button variant="contained" startIcon={<PrintIcon />}>
-            Imprimir
-          </Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={confirmDelete}>Eliminar Permanentemente</Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} sx={{ borderRadius: 2 }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

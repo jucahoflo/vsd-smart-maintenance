@@ -1,79 +1,52 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Grid, Card, CardContent, Typography, Box, Chip,
-  Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Select, MenuItem, FormControl, InputLabel,
-  IconButton, useTheme, useMediaQuery, Snackbar, Alert,
-  LinearProgress, Tabs, Tab, CircularProgress
+  Box, Typography, Grid, Card, CardContent, Button,
+  TextField, Dialog, DialogTitle, DialogContent,
+  DialogActions, IconButton, Chip, Snackbar, Alert,
+  CircularProgress, InputAdornment, CardMedia, Paper
 } from '@mui/material';
-import {
-  Add, Refresh, Edit, Delete, Search, Close,
-  Warning as WarningIcon,
-  CheckCircle as CheckIcon,
-  Inventory as InventoryIcon,
-  Speed as SpeedIcon
-} from '@mui/icons-material';
+import { Add, Refresh, Edit, Delete, Search, CloudUpload, DeleteForever } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
 
 const Inventory = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [items, setItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
+  const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [tabValue, setTabValue] = useState(0);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [searching, setSearching] = useState(false);
-  const [vfdEncontrado, setVfdEncontrado] = useState(null);
+
   const [formData, setFormData] = useState({
-    part_number: '',
+    part_code: '',
+    sap_code: '',
     name: '',
     description: '',
-    category: 'Electrónicos',
-    quantity: 0,
-    min_quantity: 5,
+    manufacturer: '',
+    model: '',
+    stock_quantity: 0,
     location: '',
-    supplier: '',
-    price: 0,
-    vfd_codigo: '',
-    vfd_id: '',
-    notes: ''
+    compatible_vsds: '',
+    image_url: ''
   });
 
   useEffect(() => {
-    loadInventory();
+    loadParts();
   }, []);
 
-  useEffect(() => {
-    if (searchTerm) {
-      setFilteredItems(items.filter(item =>
-        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.part_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.vfd_codigo?.toLowerCase().includes(searchTerm.toLowerCase())
-      ));
-    } else {
-      setFilteredItems(items);
-    }
-  }, [searchTerm, items]);
-
-  const loadInventory = async () => {
+  const loadParts = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('inventory')
+        .from('parts_inventory')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setItems(data || []);
-      setFilteredItems(data || []);
+      setParts(data || []);
     } catch (error) {
-      console.error('Error loading inventory:', error);
-      showSnackbar('Error al cargar inventario', 'error');
+      console.error('❌ Error loading parts:', error);
+      showSnackbar('Error al cargar el inventario', 'error');
     } finally {
       setLoading(false);
     }
@@ -83,80 +56,35 @@ const Inventory = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const buscarVFDporCodigo = async (codigo) => {
-    if (!codigo || codigo.length < 3) {
-      setVfdEncontrado(null);
-      return;
-    }
-
-    setSearching(true);
-    try {
-      const { data, error } = await supabase
-        .from('vfds')
-        .select('*')
-        .eq('equipment_id_simple', codigo.toUpperCase())
-        .single();
-
-      if (error) {
-        setVfdEncontrado(null);
-        setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
-        showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
-      } else if (data) {
-        setVfdEncontrado(data);
-        setFormData(prev => ({ 
-          ...prev, 
-          vfd_id: data.id,
-          vfd_codigo: data.equipment_id_simple 
-        }));
-        showSnackbar(`✅ VFD encontrado: ${data.equipment_id_simple} - ${data.manufacturer || 'Sin fabricante'}`, 'success');
-      }
-    } catch (error) {
-      console.error('Error buscando VFD:', error);
-      setVfdEncontrado(null);
-      setFormData(prev => ({ ...prev, vfd_id: '', vfd_codigo: '' }));
-      showSnackbar(`❌ No se encontró VFD con código ${codigo}`, 'warning');
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  const handleOpen = (item = null) => {
-    if (item) {
-      setEditing(item);
+  const handleOpen = (part = null) => {
+    if (part) {
+      setEditing(part);
       setFormData({
-        part_number: item.part_number || '',
-        name: item.name || '',
-        description: item.description || '',
-        category: item.category || 'Electrónicos',
-        quantity: item.quantity || 0,
-        min_quantity: item.min_quantity || 5,
-        location: item.location || '',
-        supplier: item.supplier || '',
-        price: item.price || 0,
-        vfd_codigo: item.vfd_codigo || '',
-        vfd_id: item.vfd_id || '',
-        notes: item.notes || ''
+        part_code: part.part_code,
+        sap_code: part.sap_code || '',
+        name: part.name || '',
+        description: part.description || '',
+        manufacturer: part.manufacturer || '',
+        model: part.model || '',
+        stock_quantity: part.stock_quantity || 0,
+        location: part.location || '',
+        compatible_vsds: part.compatible_vsds || '',
+        image_url: part.image_url || ''
       });
-      if (item.vfd_codigo) {
-        buscarVFDporCodigo(item.vfd_codigo);
-      }
     } else {
       setEditing(null);
       setFormData({
-        part_number: '',
+        part_code: '',
+        sap_code: '',
         name: '',
         description: '',
-        category: 'Electrónicos',
-        quantity: 0,
-        min_quantity: 5,
+        manufacturer: '',
+        model: '',
+        stock_quantity: 0,
         location: '',
-        supplier: '',
-        price: 0,
-        vfd_codigo: '',
-        vfd_id: '',
-        notes: ''
+        compatible_vsds: '',
+        image_url: ''
       });
-      setVfdEncontrado(null);
     }
     setOpenDialog(true);
   };
@@ -164,415 +92,336 @@ const Inventory = () => {
   const handleClose = () => {
     setOpenDialog(false);
     setEditing(null);
-    setVfdEncontrado(null);
+  };
+
+  const uploadImage = async (file) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `part_${Date.now()}.${fileExt}`;
+      const filePath = `parts/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('vsd_images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('vsd_images')
+        .getPublicUrl(filePath);
+
+      setFormData({ ...formData, image_url: urlData.publicUrl });
+      showSnackbar('✅ Imagen subida correctamente', 'success');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      showSnackbar('❌ Error al subir la imagen', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData({ ...formData, image_url: '' });
   };
 
   const handleSave = async () => {
     try {
+      if (!formData.part_code.trim()) {
+        showSnackbar('El código de la parte es obligatorio', 'warning');
+        return;
+      }
+      if (!formData.name.trim()) {
+        showSnackbar('El nombre de la parte es obligatorio', 'warning');
+        return;
+      }
+
       const dataToSend = {
-        part_number: formData.part_number,
+        part_code: formData.part_code.trim().toUpperCase(),
+        sap_code: formData.sap_code || '',
         name: formData.name,
         description: formData.description || '',
-        category: formData.category || 'Otros',
-        quantity: parseInt(formData.quantity) || 0,
-        min_quantity: parseInt(formData.min_quantity) || 5,
+        manufacturer: formData.manufacturer || '',
+        model: formData.model || '',
+        stock_quantity: parseInt(formData.stock_quantity) || 0,
         location: formData.location || '',
-        supplier: formData.supplier || '',
-        price: parseFloat(formData.price) || 0,
-        vfd_codigo: formData.vfd_codigo || null,
-        vfd_id: formData.vfd_id || null,
-        notes: formData.notes || ''
+        compatible_vsds: formData.compatible_vsds || '',
+        image_url: formData.image_url || ''
       };
 
       if (editing) {
         const { error } = await supabase
-          .from('inventory')
+          .from('parts_inventory')
           .update(dataToSend)
           .eq('id', editing.id);
         if (error) throw error;
-        showSnackbar('✅ Item actualizado');
+        showSnackbar('✅ Parte actualizada correctamente', 'success');
       } else {
+        const { data: existing } = await supabase
+          .from('parts_inventory')
+          .select('part_code')
+          .eq('part_code', dataToSend.part_code)
+          .maybeSingle();
+        if (existing) {
+          showSnackbar(`❌ El código ${dataToSend.part_code} ya existe`, 'error');
+          return;
+        }
         const { error } = await supabase
-          .from('inventory')
+          .from('parts_inventory')
           .insert([dataToSend]);
         if (error) throw error;
-        showSnackbar('✅ Item agregado al inventario');
+        showSnackbar('✅ Parte creada correctamente', 'success');
       }
+      
       handleClose();
-      loadInventory();
+      loadParts();
     } catch (error) {
+      console.error('❌ Error al guardar:', error);
       showSnackbar(error.message || 'Error al guardar', 'error');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('¿Eliminar este item del inventario?')) {
-      try {
-        const { error } = await supabase
-          .from('inventory')
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
-        showSnackbar('✅ Item eliminado');
-        loadInventory();
-      } catch (error) {
-        showSnackbar('Error al eliminar', 'error');
-      }
+  const handleDelete = async (id, partCode) => {
+    if (!window.confirm(`¿Estás seguro de eliminar la parte ${partCode}?`)) return;
+    try {
+      const { error } = await supabase
+        .from('parts_inventory')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      showSnackbar('✅ Parte eliminada', 'success');
+      loadParts();
+    } catch (error) {
+      showSnackbar('Error al eliminar', 'error');
     }
   };
 
-  const getStockStatus = (item) => {
-    if (item.quantity <= 0) return { label: 'Sin stock', color: theme.palette.error.main };
-    if (item.quantity <= item.min_quantity) return { label: 'Stock bajo', color: theme.palette.warning.main };
-    return { label: 'Disponible', color: theme.palette.success.main };
-  };
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      'Electrónicos': theme.palette.primary.main,
-      'Mecánicos': theme.palette.secondary.main,
-      'Cables': theme.palette.warning.main,
-      'Otros': theme.palette.grey[500]
-    };
-    return colors[category] || theme.palette.grey[500];
-  };
-
-  const tabs = [
-    { label: 'Todos', value: 0 },
-    { label: 'Disponibles', value: 1 },
-    { label: 'Stock Bajo', value: 2 },
-    { label: 'Sin Stock', value: 3 }
-  ];
-
-  const filteredByTab = () => {
-    if (tabValue === 0) return filteredItems;
-    if (tabValue === 1) return filteredItems.filter(i => i.quantity > i.min_quantity);
-    if (tabValue === 2) return filteredItems.filter(i => i.quantity > 0 && i.quantity <= i.min_quantity);
-    if (tabValue === 3) return filteredItems.filter(i => i.quantity <= 0);
-    return filteredItems;
-  };
+  const filteredParts = parts.filter((part) =>
+    part.part_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    part.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    part.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    part.compatible_vsds?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <Typography>Cargando inventario...</Typography>
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Cargando inventario...</Typography>
       </Box>
     );
   }
 
   return (
     <Box>
-      <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} gap={2} mb={3}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
-          <Typography variant={isMobile ? "h5" : "h4"} fontWeight="800" className="gradient-text">
-            📦 Inventario
+          <Typography variant="h4" fontWeight="800" color="primary">
+            📦 Inventario de Partes
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            Control de repuestos y piezas
+            Gestión de repuestos, accesorios y partes para VSDs
           </Typography>
         </Box>
-        <Box display="flex" gap={2} flexWrap="wrap">
+        <Box display="flex" gap={1} alignItems="center">
           <TextField
             size="small"
-            placeholder="Buscar..."
+            placeholder="Buscar parte..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
-              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
             }}
-            sx={{ minWidth: isMobile ? 120 : 200 }}
+            sx={{ width: 250 }}
           />
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => handleOpen()}
-            sx={{ borderRadius: 3 }}
-            size={isMobile ? "small" : "medium"}
-          >
-            {isMobile ? 'Agregar' : 'Agregar Item'}
-          </Button>
-          <IconButton onClick={loadInventory} sx={{ bgcolor: 'rgba(108,99,255,0.1)' }}>
-            <Refresh />
-          </IconButton>
+          <Button variant="contained" startIcon={<Add />} onClick={() => handleOpen()} sx={{ borderRadius: 3 }}>Nueva Parte</Button>
+          <IconButton onClick={loadParts} sx={{ bgcolor: 'rgba(108,99,255,0.1)' }}><Refresh /></IconButton>
         </Box>
       </Box>
 
-      <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 3 }}>
-        {tabs.map((tab) => (
-          <Tab key={tab.value} label={tab.label} />
-        ))}
-      </Tabs>
-
       <Grid container spacing={3}>
-        {filteredByTab().map((item) => {
-          const stock = getStockStatus(item);
-          return (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
-              <Card sx={{
-                borderRadius: 4,
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  transform: isMobile ? 'none' : 'translateY(-4px)',
-                  boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
-                }
-              }}>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="start">
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">
-                        {item.part_number}
-                      </Typography>
-                      <Typography variant="h6" fontWeight="700">
-                        {item.name}
-                      </Typography>
-                      {item.vfd_codigo && (
-                        <Typography variant="caption" color="primary">
-                          🔑 VFD: {item.vfd_codigo}
-                        </Typography>
-                      )}
-                    </Box>
-                    <Chip
-                      label={stock.label}
-                      size="small"
-                      sx={{
-                        bgcolor: `${stock.color}20`,
-                        color: stock.color,
-                        fontWeight: 600,
-                        fontSize: '0.6rem'
-                      }}
-                    />
-                  </Box>
-
-                  <Box mt={1}>
-                    <Chip
-                      label={item.category}
-                      size="small"
-                      sx={{
-                        bgcolor: `${getCategoryColor(item.category)}20`,
-                        color: getCategoryColor(item.category),
-                        fontWeight: 600,
-                        fontSize: '0.7rem'
-                      }}
-                    />
-                  </Box>
-
-                  <Box mt={2}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                      <Typography variant="caption" color="textSecondary">Cantidad</Typography>
-                      <Typography variant="h6" fontWeight="700">
-                        {item.quantity}
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={Math.min((item.quantity / (item.min_quantity * 2)) * 100, 100)}
-                      sx={{
-                        height: 4,
-                        borderRadius: 2,
-                        mt: 0.5,
-                        bgcolor: `${stock.color}25`,
-                        '& .MuiLinearProgress-bar': {
-                          bgcolor: stock.color,
-                          borderRadius: 2
-                        }
-                      }}
-                    />
-                    <Typography variant="caption" color="textSecondary">
-                      Mínimo: {item.min_quantity}
+        {filteredParts.map((part) => (
+          <Grid item xs={12} sm={6} md={4} key={part.id}>
+            <Card sx={{ borderRadius: 4, transition: 'all 0.3s ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' } }}>
+              {part.image_url && (
+                <CardMedia
+                  component="img"
+                  height="180"
+                  image={part.image_url}
+                  alt={part.part_code}
+                  sx={{ objectFit: 'cover' }}
+                />
+              )}
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="start">
+                  <Box>
+                    <Typography variant="h6" fontWeight="700">{part.part_code}</Typography>
+                    <Typography variant="body2" color="textSecondary">{part.name}</Typography>
+                    <Typography variant="body2" color="textSecondary" fontSize="0.75rem">
+                      {part.manufacturer || ''} {part.model || ''}
                     </Typography>
                   </Box>
-
-                  {item.location && (
-                    <Typography variant="caption" color="textSecondary" display="block" mt={1}>
-                      📍 {item.location}
-                    </Typography>
-                  )}
-                  {item.supplier && (
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      🏭 {item.supplier}
-                    </Typography>
-                  )}
-                  {item.price > 0 && (
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      💰 ${item.price}
-                    </Typography>
-                  )}
-
-                  <Box mt={2} display="flex" justifyContent="flex-end" gap={1}>
-                    <IconButton size="small" onClick={() => handleOpen(item)}>
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}>
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          );
-        })}
-        {filteredByTab().length === 0 && (
-          <Grid item xs={12}>
-            <Card sx={{ borderRadius: 4, p: 4, textAlign: 'center' }}>
-              <Typography variant="h6" color="textSecondary">
-                No hay items en el inventario
-              </Typography>
+                  <Chip 
+                    label={`Stock: ${part.stock_quantity}`} 
+                    color={part.stock_quantity > 0 ? 'success' : 'error'} 
+                    size="small" 
+                  />
+                </Box>
+                <Box mt={1}>
+                  <Typography variant="caption" color="textSecondary">SAP: {part.sap_code || '-'}</Typography>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    Compatible con: {part.compatible_vsds || 'N/A'}
+                  </Typography>
+                </Box>
+                <Box mt={2} display="flex" justifyContent="flex-end" gap={1}>
+                  <Button size="small" onClick={() => handleOpen(part)}><Edit fontSize="small" sx={{ mr: 0.5 }} /> Editar</Button>
+                  <Button size="small" color="error" onClick={() => handleDelete(part.id, part.part_code)}><Delete fontSize="small" sx={{ mr: 0.5 }} /> Eliminar</Button>
+                </Box>
+              </CardContent>
             </Card>
+          </Grid>
+        ))}
+        {filteredParts.length === 0 && !loading && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 4, borderRadius: 3, textAlign: 'center' }}>
+              <Typography variant="h6" color="textSecondary">No hay partes registradas en el inventario</Typography>
+              <Typography variant="body2" color="textSecondary" mt={1}>Haz clic en "Nueva Parte" para agregar el primer repuesto</Typography>
+            </Paper>
           </Grid>
         )}
       </Grid>
 
       <Dialog open={openDialog} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Typography variant="h6" fontWeight="700">
-            {editing ? '✏️ Editar Item' : '➕ Agregar Item'}
-          </Typography>
-        </DialogTitle>
+        <DialogTitle><Typography variant="h6" fontWeight="700">{editing ? '✏️ Editar Parte' : '➕ Nueva Parte'}</Typography></DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <Box display="flex" gap={1} alignItems="center">
-                <TextField
-                  fullWidth
-                  label="🔑 Código del VFD (ej: V001)"
-                  value={formData.vfd_codigo}
-                  onChange={(e) => {
-                    const value = e.target.value.toUpperCase();
-                    setFormData({...formData, vfd_codigo: value});
-                    if (value.length >= 3) {
-                      buscarVFDporCodigo(value);
-                    } else {
-                      setVfdEncontrado(null);
-                    }
-                  }}
-                  placeholder="Asignar a un VFD (opcional)"
-                  helperText={vfdEncontrado ? `✅ ${vfdEncontrado.equipment_id_simple} - ${vfdEncontrado.manufacturer || 'Sin fabricante'}` : 'Ej: V001, V002 (opcional)'}
-                  disabled={searching}
-                />
-                {searching && <CircularProgress size={24} />}
-              </Box>
-              {vfdEncontrado && (
-                <Box mt={1} p={1} bgcolor="success.light" borderRadius={1}>
-                  <Typography variant="body2">
-                    📌 {vfdEncontrado.equipment_id_simple} - {vfdEncontrado.manufacturer || 'Sin fabricante'} {vfdEncontrado.model || ''}
-                  </Typography>
-                </Box>
-              )}
-            </Grid>
-
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Part Number"
-                value={formData.part_number}
-                onChange={(e) => setFormData({...formData, part_number: e.target.value})}
+                label="🔑 Código de Parte"
+                value={formData.part_code}
+                onChange={(e) => setFormData({ ...formData, part_code: e.target.value.toUpperCase() })}
                 required
+                disabled={!!editing}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Código SAP"
+                value={formData.sap_code}
+                onChange={(e) => setFormData({ ...formData, sap_code: e.target.value })}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Nombre"
+                label="📛 Nombre de la Parte"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Descripción"
+                label="📝 Descripción"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 multiline
                 rows={2}
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
               />
             </Grid>
-            <Grid item xs={6}>
-              <FormControl fullWidth>
-                <InputLabel>Categoría</InputLabel>
-                <Select
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  label="Categoría"
-                >
-                  <MenuItem value="Electrónicos">Electrónicos</MenuItem>
-                  <MenuItem value="Mecánicos">Mecánicos</MenuItem>
-                  <MenuItem value="Cables">Cables</MenuItem>
-                  <MenuItem value="Otros">Otros</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Ubicación"
+                label="🏭 Fabricante"
+                value={formData.manufacturer}
+                onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="📟 Modelo"
+                value={formData.model}
+                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="📍 Ubicación en Bodega"
                 value={formData.location}
-                onChange={(e) => setFormData({...formData, location: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Cantidad"
+                label="📦 Stock / Cantidad"
                 type="number"
-                value={formData.quantity}
-                onChange={(e) => setFormData({...formData, quantity: parseInt(e.target.value)})}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Stock Mínimo"
-                type="number"
-                value={formData.min_quantity}
-                onChange={(e) => setFormData({...formData, min_quantity: parseInt(e.target.value)})}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Proveedor"
-                value={formData.supplier}
-                onChange={(e) => setFormData({...formData, supplier: e.target.value})}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Precio ($)"
-                type="number"
-                value={formData.price}
-                onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
+                value={formData.stock_quantity}
+                onChange={(e) => setFormData({ ...formData, stock_quantity: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Notas"
-                multiline
-                rows={2}
-                value={formData.notes}
-                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                label="🔗 Compatible con VSDs"
+                value={formData.compatible_vsds}
+                onChange={(e) => setFormData({ ...formData, compatible_vsds: e.target.value })}
+                helperText="Ej: V001, V002, V005 (Separa por comas)"
               />
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>🖼️ Imagen de la Parte</Typography>
+              <Box sx={{ border: '1px dashed #ccc', borderRadius: 2, p: 2, textAlign: 'center' }}>
+                {formData.image_url ? (
+                  <Box>
+                    <img src={formData.image_url} alt="Parte" style={{ maxWidth: '100%', maxHeight: 150, objectFit: 'contain' }} />
+                    <Button size="small" color="error" startIcon={<DeleteForever />} onClick={removeImage} sx={{ mt: 1 }}>Eliminar imagen</Button>
+                  </Box>
+                ) : (
+                  <Box>
+                    <input
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      id="part-image-upload"
+                      type="file"
+                      onChange={(e) => uploadImage(e.target.files[0])}
+                    />
+                    <label htmlFor="part-image-upload">
+                      <IconButton color="primary" component="span" disabled={uploadingImage}>
+                        <CloudUpload />
+                      </IconButton>
+                    </label>
+                    <Typography variant="caption" display="block">Subir imagen</Typography>
+                  </Box>
+                )}
+              </Box>
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave}>
-            {editing ? 'Actualizar' : 'Agregar'}
-          </Button>
+          <Button variant="contained" onClick={handleSave} disabled={uploadingImage}>{editing ? 'Actualizar' : 'Crear'}</Button>
         </DialogActions>
       </Dialog>
 
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
-        onClose={() => setSnackbar({...snackbar, open: false})}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({...snackbar, open: false})}>
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} sx={{ borderRadius: 2 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

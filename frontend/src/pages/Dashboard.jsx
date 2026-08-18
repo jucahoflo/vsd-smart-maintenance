@@ -1,175 +1,262 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, Typography, Grid, Card, CardContent, Paper, 
-  Avatar, Stack, Button, useTheme, useMediaQuery 
+import {
+  Box, Typography, Grid, Card, CardContent,
+  CircularProgress, Alert, Paper
 } from '@mui/material';
-import { 
-  Speed, Build, Inventory, Description, Settings, Dashboard as DashboardIcon 
+import {
+  Build as BuildIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Dangerous as DangerousIcon,
+  Block as BlockIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../config/supabase';
+import { getVSDStats, getVSDs } from '../services/vsdService';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+} from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
+
+// Registrar componentes de Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
-  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     total: 0,
-    online: 0,
-    offline: 0,
-    alarm: 0,
-    maintenance: 0,
-    avgHealthScore: 0,
-    recentVfds: []
+    activos: 0,
+    mantenimiento: 0,
+    criticos: 0,
+    inactivos: 0
   });
+  const [vsds, setVsds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    loadDashboardData();
+    loadData();
   }, []);
 
-  const loadDashboardData = async () => {
+  const loadData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const { data: allVfds, error } = await supabase
-        .from('vsd')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      if (!allVfds || allVfds.length === 0) {
-        setStats({
-          total: 0,
-          online: 0,
-          offline: 0,
-          alarm: 0,
-          maintenance: 0,
-          avgHealthScore: 0,
-          recentVfds: []
-        });
-        return;
-      }
-
-      const total = allVfds.length;
-      const online = allVfds.filter(v => v.status === 'online').length;
-      const offline = allVfds.filter(v => v.status === 'offline').length;
-      const alarm = allVfds.filter(v => v.status === 'alarm').length;
-      const maintenance = allVfds.filter(v => v.status === 'maintenance').length;
-      
-      const totalHealthScore = allVfds.reduce((acc, v) => acc + (v.health_score || 0), 0);
-      const avgHealthScore = Math.round(totalHealthScore / total);
-
-      setStats({
-        total,
-        online,
-        offline,
-        alarm,
-        maintenance,
-        avgHealthScore,
-        recentVfds: allVfds.slice(0, 5)
-      });
+      const [statsData, vsdsData] = await Promise.all([
+        getVSDStats(),
+        getVSDs()
+      ]);
+      setStats(statsData);
+      setVsds(vsdsData || []);
     } catch (error) {
-      console.error('❌ Error cargando dashboard:', error);
+      console.error('Error:', error);
+      setError('Error al cargar datos');
     } finally {
       setLoading(false);
     }
   };
 
-  // Definición de las tarjetas de navegación
-  const navCards = [
-    { title: 'VFDs', icon: <Speed sx={{ fontSize: 40 }} />, color: '#1976d2', path: '/vfds', desc: 'Gestión de Variadores' },
-    { title: 'Mantenimiento', icon: <Build sx={{ fontSize: 40 }} />, color: '#2e7d32', path: '/maintenance', desc: 'Registro de tareas' },
-    { title: 'Inventario', icon: <Inventory sx={{ fontSize: 40 }} />, color: '#e65100', path: '/inventory', desc: 'Partes y repuestos' },
-    { title: 'Reportes', icon: <Description sx={{ fontSize: 40 }} />, color: '#6a1b9a', path: '/reports', desc: 'Historial y PDFs' },
-    { title: 'Configuración', icon: <Settings sx={{ fontSize: 40 }} />, color: '#00695c', path: '/settings', desc: 'Ajustes del sistema' },
-  ];
+  // Datos para gráfico de barras (estados)
+  const barData = {
+    labels: ['Activos', 'Mantenimiento', 'Críticos', 'Inactivos'],
+    datasets: [
+      {
+        label: 'VSDs por Estado',
+        data: [
+          stats.activos,
+          stats.mantenimiento,
+          stats.criticos,
+          stats.inactivos
+        ],
+        backgroundColor: [
+          'rgba(34, 197, 94, 0.8)',
+          'rgba(234, 179, 8, 0.8)',
+          'rgba(239, 68, 68, 0.8)',
+          'rgba(107, 114, 128, 0.8)'
+        ],
+        borderColor: [
+          '#22c55e',
+          '#eab308',
+          '#ef4444',
+          '#6b7280'
+        ],
+        borderWidth: 2,
+        borderRadius: 6
+      }
+    ]
+  };
+
+  // Datos para gráfico de pastel (fabricantes)
+  const getManufacturerData = () => {
+    const manufacturers = {};
+    vsds.forEach(vsd => {
+      const key = vsd.manufacturer || 'Sin fabricante';
+      manufacturers[key] = (manufacturers[key] || 0) + 1;
+    });
+    const labels = Object.keys(manufacturers);
+    const values = Object.values(manufacturers);
+    const colors = [
+      'rgba(37, 99, 235, 0.8)',
+      'rgba(234, 179, 8, 0.8)',
+      'rgba(34, 197, 94, 0.8)',
+      'rgba(239, 68, 68, 0.8)',
+      'rgba(168, 85, 247, 0.8)',
+      'rgba(236, 72, 153, 0.8)'
+    ];
+    return { labels, values, colors };
+  };
+
+  const manufacturerData = getManufacturerData();
+
+  const pieData = {
+    labels: manufacturerData.labels,
+    datasets: [
+      {
+        data: manufacturerData.values,
+        backgroundColor: manufacturerData.colors,
+        borderColor: '#fff',
+        borderWidth: 2
+      }
+    ]
+  };
+
+  // Opciones de gráficos
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      },
+      title: {
+        display: true,
+        text: 'Distribución de VSDs por Estado',
+        color: '#1a1a1a',
+        font: {
+          size: 16,
+          weight: 'bold'
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1
+        }
+      }
+    }
+  };
+
+  const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          padding: 20,
+          usePointStyle: true,
+          font: {
+            size: 12
+          }
+        }
+      },
+      title: {
+        display: true,
+        text: 'VSDs por Fabricante',
+        color: '#1a1a1a',
+        font: {
+          size: 16,
+          weight: 'bold'
+        }
+      }
+    }
+  };
 
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <Typography>Cargando datos del Dashboard...</Typography>
+        <CircularProgress />
       </Box>
     );
   }
 
+  const cards = [
+    { title: 'Total VSDs', value: stats.total, icon: BuildIcon, color: '#2563eb', bg: '#eff6ff' },
+    { title: 'Activos', value: stats.activos, icon: CheckCircleIcon, color: '#22c55e', bg: '#f0fdf4' },
+    { title: 'Mantenimiento', value: stats.mantenimiento, icon: WarningIcon, color: '#eab308', bg: '#fefce8' },
+    { title: 'Críticos', value: stats.criticos, icon: DangerousIcon, color: '#ef4444', bg: '#fef2f2' },
+    { title: 'Inactivos', value: stats.inactivos, icon: BlockIcon, color: '#6b7280', bg: '#f3f4f6' }
+  ];
+
   return (
     <Box>
-      {/* Encabezado */}
-      <Box mb={4} display="flex" justifyContent="space-between" alignItems="center">
-        <Box>
-          <Typography variant="h4" fontWeight="800" color="primary">
-            📊 Panel de Control
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            Resumen del sistema y acceso a módulos
-          </Typography>
-        </Box>
-      </Box>
+      <Typography variant="h4" gutterBottom>Dashboard</Typography>
+      
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
-      {/* GRID DE TARJETAS DE NAVEGACIÓN (El nuevo menú) */}
-      <Typography variant="h5" fontWeight="700" gutterBottom sx={{ mt: 4, mb: 2 }}>
-        🚀 Acceso Rápido
-      </Typography>
-      <Grid container spacing={3} mb={4}>
-        {navCards.map((card) => (
-          <Grid item xs={12} sm={6} md={4} key={card.title}>
-            <Card 
-              sx={{ 
-                borderRadius: 4, 
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                border: '1px solid #e0e0e0',
-                '&:hover': {
-                  transform: 'translateY(-5px)',
-                  boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
-                  borderColor: card.color
-                }
-              }}
-              onClick={() => navigate(card.path)}
-            >
-              <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3 }}>
-                <Avatar sx={{ bgcolor: card.color, width: 70, height: 70, mb: 2 }}>
-                  {card.icon}
-                </Avatar>
-                <Typography variant="h6" fontWeight="700">{card.title}</Typography>
-                <Typography variant="body2" color="textSecondary">{card.desc}</Typography>
+      {/* Tarjetas de estadísticas */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {cards.map((card, index) => (
+          <Grid item xs={12} sm={6} md={2.4} key={index}>
+            <Card sx={{ bgcolor: card.bg, borderRadius: 2 }}>
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography color="textSecondary" variant="subtitle2">
+                      {card.title}
+                    </Typography>
+                    <Typography variant="h4" fontWeight="bold">
+                      {card.value}
+                    </Typography>
+                  </Box>
+                  <card.icon sx={{ fontSize: 40, color: card.color }} />
+                </Box>
               </CardContent>
             </Card>
           </Grid>
         ))}
       </Grid>
 
-      {/* ESTADÍSTICAS (Métricas del sistema) */}
-      <Typography variant="h5" fontWeight="700" gutterBottom sx={{ mt: 4, mb: 2 }}>
-        📈 Estadísticas
-      </Typography>
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={6} sm={3}>
-          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
-            <Typography variant="caption" color="textSecondary">Total VSDs</Typography>
-            <Typography variant="h3" fontWeight="700">{stats.total}</Typography>
+      {/* Gráficos */}
+      <Grid container spacing={3}>
+        {/* Gráfico de barras */}
+        <Grid item xs={12} md={7}>
+          <Paper sx={{ p: 3, borderRadius: 2 }}>
+            <Box sx={{ height: 300 }}>
+              <Bar data={barData} options={barOptions} />
+            </Box>
           </Paper>
         </Grid>
-        <Grid item xs={6} sm={3}>
-          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
-            <Typography variant="caption" color="textSecondary">Online</Typography>
-            <Typography variant="h3" fontWeight="700" color="success.main">{stats.online}</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
-            <Typography variant="caption" color="textSecondary">Offline / Alarma</Typography>
-            <Typography variant="h3" fontWeight="700" color="error.main">{stats.offline + stats.alarm}</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
-            <Typography variant="caption" color="textSecondary">Health Score</Typography>
-            <Typography variant="h3" fontWeight="700" color={stats.avgHealthScore > 80 ? 'success.main' : 'warning.main'}>
-              {stats.avgHealthScore}%
-            </Typography>
+
+        {/* Gráfico de pastel */}
+        <Grid item xs={12} md={5}>
+          <Paper sx={{ p: 3, borderRadius: 2 }}>
+            <Box sx={{ height: 300 }}>
+              {manufacturerData.labels.length > 0 ? (
+                <Doughnut data={pieData} options={pieOptions} />
+              ) : (
+                <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                  <Typography color="textSecondary">No hay datos de fabricantes</Typography>
+                </Box>
+              )}
+            </Box>
           </Paper>
         </Grid>
       </Grid>

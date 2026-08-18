@@ -1,65 +1,41 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '../config/supabase';
-import api from '../api/client';
 
 const AuthContext = createContext();
 
+export const useAuth = () => useContext(AuthContext);
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar sesión al cargar
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        localStorage.setItem('token', session.access_token);
-      }
-      setLoading(false);
-    };
-    checkSession();
+    // Verificar si hay sesión guardada
+    const session = localStorage.getItem('vsd_session');
+    if (session === 'true') {
+      setIsAuthenticated(true);
+    }
+    setLoading(false);
   }, []);
 
-  const login = async (username, password) => {
-    try {
-      // Intentar login en Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: `${username}@vsd.local`,
-        password
-      });
-      
-      if (error) {
-        // Fallback: usar el token de prueba
-        localStorage.setItem('token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1NTY1ZWRiLTZiNWMtNGQ4NC1iM2U3LTE1MTA3YWZmZDNjMCIsInVzZXJuYW1lIjoianVjYTc2MDMiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODUyOTA5MTAsImV4cCI6MTc4NTg5NTcxMH0.Tnp3zIEGvBxRNN0oDyMojePXeGDjmEgW9oiPHm20Oaw');
-        setUser({ id: 'test-user', username: 'juca7603' });
-        return { success: true, user: { username: 'juca7603' } };
-      }
-      
-      if (data?.session) {
-        localStorage.setItem('token', data.session.access_token);
-        setUser(data.user);
-        return { success: true, user: data.user };
-      }
-      
-      return { success: false, error: 'Error al iniciar sesión' };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: error.message };
+  const login = (username, password) => {
+    if (username === 'admin' && password === 'vsd123') {
+      setIsAuthenticated(true);
+      localStorage.setItem('vsd_session', 'true');
+      return true;
     }
+    return false;
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-    supabase.auth.signOut();
+    setIsAuthenticated(false);
+    localStorage.removeItem('vsd_session');
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export default AuthContext;

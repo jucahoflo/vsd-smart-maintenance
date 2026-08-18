@@ -1,50 +1,66 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import {
-  Container,
-  Paper,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  Alert,
-  CircularProgress
+  Box, Paper, Typography, TextField, Button, Alert,
+  Container, Avatar
 } from '@mui/material';
+import LockOutlined from '@mui/icons-material/LockOutlined';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
-  const { login, loading } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const { login } = useAuth();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
     
-    const result = await login(username, password);
-    if (!result.success) {
-      setError(result.error);
+    if (login(username, password)) {
+      window.location.reload();
+    } else {
+      setError('Usuario o contraseña incorrectos');
     }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8 }}>
-        <Paper elevation={3} sx={{ p: 4 }}>
-          <Typography variant="h4" align="center" gutterBottom>
-            🚀 VSD Smart Maintenance
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        bgcolor: '#f3f4f6'
+      }}
+    >
+      <Container maxWidth="xs">
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            borderRadius: 2
+          }}
+        >
+          <Avatar sx={{ m: 1, bgcolor: '#2563eb' }}>
+            <LockOutlined />
+          </Avatar>
+          <Typography component="h1" variant="h5" sx={{ mb: 2 }}>
+            VSD Smart
           </Typography>
-          <Typography variant="subtitle1" align="center" color="textSecondary" gutterBottom>
-            Sistema de Monitoreo de Variadores
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            Ingresa tus credenciales
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
               {error}
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} style={{ width: '100%' }}>
             <TextField
               fullWidth
               label="Usuario"
@@ -52,7 +68,7 @@ const Login = () => {
               onChange={(e) => setUsername(e.target.value)}
               margin="normal"
               required
-              disabled={loading}
+              autoFocus
             />
             <TextField
               fullWidth
@@ -62,27 +78,19 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               margin="normal"
               required
-              disabled={loading}
             />
             <Button
-              fullWidth
               type="submit"
+              fullWidth
               variant="contained"
-              color="primary"
-              size="large"
-              sx={{ mt: 3 }}
-              disabled={loading}
+              sx={{ mt: 3, mb: 2, bgcolor: '#2563eb' }}
             >
-              {loading ? <CircularProgress size={24} /> : 'Iniciar Sesión'}
+              Iniciar Sesión
             </Button>
           </form>
-
-          <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-            Usuario: juca7603 | Contraseña: 760324
-          </Typography>
         </Paper>
-      </Box>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

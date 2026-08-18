@@ -1,0 +1,92 @@
+================================================================================
+                    RESUMEN ACTUALIZADO - PROYECTO VSD SMART
+================================================================================
+Fecha: 2026-08-13
+Proyecto: vsd-smart-maintenance
+URL Producción: https://vsd-smart-final.pages.dev
+================================================================================
+
+1. ESTADO ACTUAL DE LA APLICACIÓN
+================================================================================
+✅ Frontend desplegado en Cloudflare Pages (vsd-smart-final)
+✅ Supabase conectado
+✅ Tabla vsd con todos los campos
+✅ Bucket vsd-images creado y público
+✅ Tabla maintenance_logs creada con todas las columnas
+
+2. ESTRUCTURA DEL PROYECTO
+================================================================================
+vsd-smart-maintenance/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── vsd/
+│   │   │   │   ├── VSDCard.jsx
+│   │   │   │   ├── VSDDetail.jsx
+│   │   │   │   ├── VSDImageUpload.jsx
+│   │   │   │   └── VSDForm.jsx
+│   │   │   └── maintenance/
+│   │   │       ├── MaintenanceForm.jsx (obsoleto)
+│   │   │       └── staticTestsData.js
+│   │   ├── pages/
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── VSDs.jsx
+│   │   │   ├── Maintenance.jsx (UNIFICADO - TODO EN UNO)
+│   │   │   ├── Reports.jsx
+│   │   │   ├── Inventory.jsx
+│   │   │   └── Settings.jsx
+│   │   ├── services/
+│   │   │   ├── imageService.js
+│   │   │   ├── vsdService.js
+│   │   │   ├── maintenanceService.js
+│   │   │   └── reportService.js
+│   │   └── config/
+│   │       └── supabase.js
+│   └── build/
+├── RESUMEN_ACTUALIZADO.txt
+└── package.json
+
+3. FUNCIONALIDADES IMPLEMENTADAS
+================================================================================
+✅ Dashboard con estadísticas reales
+✅ CRUD completo de VSDs
+✅ Subida de imágenes (máx 3) con cámara
+✅ Galería de imágenes en detalle
+✅ CRUD completo de Mantenimiento (UNIFICADO)
+✅ Formulario de mantenimiento con 4 pestañas:
+   - Datos Generales (con Select corregido para VSD)
+   - Checklist (Preventivo + CBM)
+   - Pruebas Estáticas (36 pruebas)
+   - Imágenes (Antes y Después)
+✅ Generación de Reportes PDF
+✅ Logo INEMEC en el reporte
+
+4. PRUEBAS ESTÁTICAS (36 pruebas)
+================================================================================
+🔹 Conversor I: 12 pruebas (IDs 1-12)
+🔹 Conversor II: 12 pruebas (IDs 101-112)
+🔹 Inversora II: 12 pruebas (IDs 201-212)
+
+5. ENLACES IMPORTANTES
+================================================================================
+App en producción: https://vsd-smart-final.pages.dev
+Cloudflare Dashboard: https://dash.cloudflare.com/
+Supabase Dashboard: https://app.supabase.com/
+
+6. COMANDOS ÚTILES
+================================================================================
+# Reconstruir y desplegar
+cd ~/Desktop/vsd-smart-maintenance
+cd frontend && npm run build && cd ..
+npx wrangler pages deploy ./frontend/build --project-name=vsd-smart-final --branch=main --commit-dirty=true
+
+7. BACKUPS
+================================================================================
+Ubicación: ~/Desktop/
+├── backup_vsd_smart_YYYYMMDD_HHMMSS/
+├── backup_vsd_smart_YYYYMMDD_HHMMSS.tar.gz
+└── RESUMEN_ACTUALIZADO.txt
+
+================================================================================
+¡Listo para continuar el desarrollo!
+================================================================================
